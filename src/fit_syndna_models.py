@@ -93,9 +93,11 @@ def fit_linear_regression_models_for_qiita(
     linregress_by_sample_id, msg_list = fit_linear_regression_models(
         syndna_concs_df, prep_info_df, reads_per_syndna_per_sample_df,
         min_sample_counts)
+    linregress_results_dict = _convert_linregressresults_to_dict(
+        linregress_by_sample_id)
 
     out_txt_by_out_type = {
-        LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_by_sample_id),
+        LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_results_dict),
         FIT_SYNDNA_MODELS_LOG_KEY: '\n'.join(msg_list)}
 
     return out_txt_by_out_type
@@ -119,7 +121,7 @@ def _extract_config_dict(config_fp=None):
     if config_fp is None:
         curr_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.join(curr_dir, os.pardir)
-        config_fp = os.path.join(parent_dir, "../config.yml")
+        config_fp = os.path.join(parent_dir, "config.yml")
 
     with open(config_fp, "r") as f:
         config_dict = yaml.safe_load(f)
@@ -454,3 +456,32 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
     # next sample_id
 
     return linregress_by_sample_id
+
+
+def _convert_linregressresults_to_dict(
+        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult]) -> \
+        dict[str, dict[str, float]]:
+
+    """Converts a scipy.stats.LinregressResult object to a dictionary.
+
+    Returns
+    -------
+    linregress_result_dict : dict
+        Dictionary of scipy.stats.LinregressResult attributes keyed by
+        attribute name.
+    """
+
+    linregress_result_dict = {}
+    for curr_sample_id, curr_linregress_result in \
+            linregress_by_sample_id.items():
+        if curr_linregress_result is None:
+            linregress_result_dict[curr_sample_id] = None
+        else:
+            curr_dict = curr_linregress_result._asdict()
+            for k, v in curr_dict.items():
+                if isinstance(v, np.float64):
+                    curr_dict[k] = float(v)  # convert to regular float
+            linregress_result_dict[curr_sample_id] = curr_dict
+
+
+    return linregress_result_dict
