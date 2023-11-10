@@ -69,6 +69,58 @@ class FitSyndnaModelsTest(TestCase):
 
         self.assertDictEqual(expected_out, output_dict)
 
+    def test_fit_linear_regression_models_for_qiita_w_alt_config(self):
+        prep_info_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            "sequencing_type": ["16S", "16S"],
+            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+            SYNDNA_POOL_NUM_KEY: [1, 1]
+        }
+        prep_info_df = pd.DataFrame(prep_info_dict)
+
+        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
+                      "p236", "p246", "p256", "p266"]
+        sample_ids = ["A", "B"]
+        counts = np.array([[93135, 90897],
+                           [15190, 15002],
+                           [2447, 2421],
+                            [308, 296],
+                            [77, 77],
+                            [149, 148],
+                            [1075, 1059],
+                            [3189, 3129],
+                            [25347, 24856],
+                            [237329, 230898]]
+                          )
+        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        min_counts = 50
+        alt_config_fp = os.path.join(self.data_dir, 'alt_config.yml')
+
+        expected_out = {
+            'lin_regress_by_sample_id':
+                'A:\n'
+                '  intercept: -8.198448239722513\n'
+                '  intercept_stderr: 0.543935662662392\n'
+                '  pvalue: 1.2870670033765388e-05\n'
+                '  rvalue: 0.9580566700885033\n'
+                '  slope: 1.5907745029594402\n'
+                '  stderr: 0.16823506135242222\n'
+                'B:\n'
+                '  intercept: -8.723558660515511\n'
+                '  intercept_stderr: 0.5863195211465037\n'
+                '  pvalue: 1.282095348204212e-05\n'
+                '  rvalue: 0.9580977578981464\n'
+                '  slope: 1.5935375517842671\n'
+                '  stderr: 0.16843925066627013\n',
+            'fit_syndna_models_log': ''
+        }
+
+        output_dict = fit_linear_regression_models_for_qiita(
+            prep_info_df, input_biom, min_counts, alt_config_fp)
+
+        self.assertDictEqual(expected_out, output_dict)
+
     def test_fit_linear_regression_models_for_qiita_w_log_msgs(self):
         prep_info_dict = {
             SAMPLE_ID_KEY: ["A", "B"],

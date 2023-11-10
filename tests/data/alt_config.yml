@@ -1,0 +1,13 @@
+"syndna_indiv_ng_ul":
+    # NOT REAL CONCENTRATIONS--just for testing!
+    "pool1":
+        "p126": 2
+        "p136": 0.2
+        "p146": 0.02
+        "p156": 0.0002
+        "p166": 0.00002
+        "p226": 0.00001
+        "p236": 0.0001
+        "p246": 0.01
+        "p256": 0.1
+        "p266": 1

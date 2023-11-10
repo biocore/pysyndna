@@ -477,11 +477,18 @@ def _convert_linregressresults_to_dict(
         if curr_linregress_result is None:
             linregress_result_dict[curr_sample_id] = None
         else:
+            new_dict = {}
             curr_dict = curr_linregress_result._asdict()
             for k, v in curr_dict.items():
-                if isinstance(v, np.float64):
-                    curr_dict[k] = float(v)  # convert to regular float
-            linregress_result_dict[curr_sample_id] = curr_dict
+                # if any of the values is NaN, this regression failed
+                if np.isnan(v):
+                    new_dict = None
+                    break
 
+                # convert to regular floats, bc json doesn't like np.float64
+                if isinstance(v, np.float64):
+                    new_dict[k] = float(v)
+
+            linregress_result_dict[curr_sample_id] = new_dict
 
     return linregress_result_dict
