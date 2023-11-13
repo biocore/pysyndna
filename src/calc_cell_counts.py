@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import biom
 import numpy as np
 import pandas as pd
-import scipy
 import yaml
+from typing import Optional
 
 from fit_syndna_models import SAMPLE_ID_KEY
 
@@ -41,7 +43,8 @@ def get_ogu_cell_counts_per_g_of_sample_for_qiita(
         and ELUTE_VOL_UL_KEY
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
-        dictionary of scipy.stats.LinregressResult objects keyed by sample id
+        dictionary keyed by sample id, containing for each sample a dictionary
+        representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
     ogu_lengths_fp : str
@@ -83,7 +86,7 @@ def get_ogu_cell_counts_per_g_of_sample_for_qiita(
 
 def _generate_ogu_cell_counts_biom(
         absolute_quant_params_per_sample_df: pd.DataFrame,
-        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult],
+        linregress_by_sample_id: dict[str, dict[str, float]],
         ogu_counts_per_sample_biom: biom.Table,
         ogu_lengths_df: pd.DataFrame,
         read_length: int,
@@ -98,10 +101,10 @@ def _generate_ogu_cell_counts_biom(
         Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
         SAMPLE_IN_ALIQUOT_MASS_G_KEY, and ELUTE_VOL_UL_KEY for
         each sample.
-    linregress_by_sample_id : dict[str, scipy.stats.LinregressResult]
-        Dictionary keyed by sample_id.  Dictionary values are either None
-        (if no model could be trained for that SAMPLE_ID_KEY) or a
-        scipy.stats.LinregressResult object defining the trained model.
+    linregress_by_sample_id : dict[str, dict[str: float]]
+        Dictionary keyed by sample id, containing for each sample either None
+        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
+        representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
     ogu_lengths_df : pd.DataFrame
@@ -222,7 +225,7 @@ def _series_to_df(a_series, col_name):
 
 
 def _calc_long_format_ogu_cell_counts_df(
-        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult],
+        linregress_by_sample_id: dict[str, dict[str, float]],
         ogu_counts_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
         gdna_mass_to_sample_mass_by_sample_df: pd.DataFrame,
@@ -235,10 +238,10 @@ def _calc_long_format_ogu_cell_counts_df(
 
     Parameters
     ----------
-    linregress_by_sample_id : dict[str, scipy.stats.LinregressResult]
-        Dictionary keyed by sample id.  Dictionary values are either None
-        (if no model could be trained for that sample id) or a
-        scipy.stats.LinregressResult object defining the trained model.
+    linregress_by_sample_id : dict[str, dict[str, float]]
+        Dictionary keyed by sample id, containing for each sample either None
+        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
+        representation of the sample's LinregressResult.
     ogu_counts_per_sample_df: pd.DataFrame
         Dataframe with a column for OGU_ID_KEY and then one additional column
         for each sample id, which holds the read counts aligned to that OGU in
@@ -356,7 +359,7 @@ def _prepare_cell_counts_calc_df(
 
 def _calc_ogu_cell_counts_df_for_sample(
         sample_id: str,
-        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult],
+        linregress_by_sample_id: dict[str, dict[str, float]],
         gdna_mass_to_sample_mass_by_sample_df: pd.DataFrame,
         working_df: pd.DataFrame) -> pd.DataFrame | None:
 
@@ -464,7 +467,8 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
 
 
 def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
-        sample_df: pd.DataFrame) -> pd.Series:
+        sample_df: pd.DataFrame,
+        is_test: Optional[bool] = False) -> pd.Series:
 
     """Calculates # of OGU genomes per gram of gDNA for each OGU in a sample.
 
@@ -473,6 +477,12 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     sample_df: pd.DataFrame
         Dataframe with rows for a single sample, containing *at least* columns
         for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and OGU_GDNA_MASS_NG_KEY.
+    ist_test: Optional[bool]
+        Default is False.  If True, the function will use the less-precise
+        value of Avogadro's number (6.022*(10^23)) used in cell [16] of the
+        https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
+        notebook, rather than the more precise value (6.02214076*(10^23))
+        calculation than if False.  This is used in testing ONLY.
 
     Returns
     -------
@@ -498,6 +508,15 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     molecules--in this case, genomes--in a mole of a substance.
     """
 
+    # seems weird to make this a variable since it's famously a constant, but..
+    avogadros_num = 6.02214076e23
+    # this is done ONLY so we can test against Livia's results, which use
+    # a truncated version of the constant. This should NOT be done in
+    # production.  In testing, makes a difference of e.g., about 10 cells
+    # out of 25K for the first OGU in the first sample in Livia's dataset.
+    if is_test:
+        avogadros_num = 6.022e23
+
     # TODO: do we have to worry about integer overflow here?
     #  Dan H. said, "if you use ints, the length * 650 * 10^9
     #  can overflow integers with very long genomes".  HOWEVER,
@@ -512,7 +531,10 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     #  What to do?
 
     ogu_genomes_per_g_of_gdna_series = (
-            (sample_df[OGU_GDNA_MASS_NG_KEY] * 6.02214076e23) /
+            (sample_df[OGU_GDNA_MASS_NG_KEY] * avogadros_num) /
             (sample_df[OGU_LEN_IN_BP_KEY] * 650 * 1e9))
+
+    # Set the index of the series to be the OGU_ID_KEY
+    ogu_genomes_per_g_of_gdna_series.index = sample_df[OGU_ID_KEY]
 
     return ogu_genomes_per_g_of_gdna_series
