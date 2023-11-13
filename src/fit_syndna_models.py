@@ -61,7 +61,7 @@ def fit_linear_regression_models_for_qiita(
         Dictionary of output strings (ready to be written to files) keyed
         by the type of output they contain.  Currently, the following keys
         are defined:
-        LIN_REGRESS_RESULT_KEY: json of dict[str, scipy.stats.LinregressResult]
+        LIN_REGRESS_RESULT_KEY: json of dict[str, dict[str, float]]
         FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
     """
 
@@ -466,9 +466,11 @@ def _convert_linregressresults_to_dict(
 
     Returns
     -------
-    linregress_result_dict : dict
-        Dictionary of scipy.stats.LinregressResult attributes keyed by
-        attribute name.
+    linregress_result_dict :  dict[str, dict[str, float]]
+        Dictionary keyed by sample id, containing for each sample either None
+        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
+        representation of the sample's LinregressResult, with each property
+        name as a key and that property's value as the value.
     """
 
     linregress_result_dict = {}
