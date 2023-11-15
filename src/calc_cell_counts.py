@@ -6,7 +6,7 @@ import pandas as pd
 import yaml
 from typing import Optional
 
-from fit_syndna_models import SAMPLE_ID_KEY
+from src.fit_syndna_models import SAMPLE_ID_KEY
 
 DEFAULT_READ_LENGTH = 150
 DEFAULT_MIN_COVERAGE = 1
@@ -16,6 +16,10 @@ SAMPLE_IN_ALIQUOT_MASS_G_KEY = 'calc_mass_sample_aliquot_input_g'
 ELUTE_VOL_UL_KEY = 'ELUTE_VOL_UL_KEY'
 SAMPLE_CONCENTRATION_NG_UL_KEY = 'sample_concentration_ng_ul'
 OGU_ID_KEY = 'ogu_id'
+OGU_READ_COUNT_KEY = 'ogu_read_count'
+OGU_CPM_KEY = 'ogu_CPM'
+LOG_10_OGU_CPM_KEY = 'log10_ogu_CPM'
+LOG_10_OGU_GDNA_MASS_NG_KEY = 'log10_ogu_gdna_mass_ng'
 OGU_LEN_IN_BP_KEY = 'ogu_len_in_bp'
 OGU_GDNA_MASS_NG_KEY = 'ogu_gdna_mass_ng'
 OGU_CELLS_PER_G_OF_GDNA_KEY = 'ogu_cells_per_g_of_gdna'
@@ -334,7 +338,8 @@ def _prepare_cell_counts_calc_df(
     # reformat biom info into a "long format" table with
     # columns for OGU_ID_KEY, SAMPLE_ID_KEY, ogu_read_count
     working_df = ogu_counts_per_sample_df.melt(
-        id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY, value_name='ogu_read_count')
+        id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY,
+        value_name=OGU_READ_COUNT_KEY)
 
     # add a column for OGU_LEN_IN_BP_KEY (yes, this will be repeated, but it is
     # convenient to have everything in one table)
@@ -347,7 +352,7 @@ def _prepare_cell_counts_calc_df(
     # read_count cell value by the number of bases in the read (read_length)
     # and then dividing by the ogu_length for that OGU
     working_df['coverage_of_ogu'] = (
-            (working_df['ogu_read_count'] * read_length) /
+            (working_df[OGU_READ_COUNT_KEY] * read_length) /
             working_df[OGU_LEN_IN_BP_KEY])
 
     # drop records for OGU/sample combinations with coverage < min_coverage
@@ -418,8 +423,9 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
     Parameters
     ----------
     sample_df: pd.DataFrame
-        Dataframe with rows for a single sample, containing *at least* columns
-        for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and OGU_GDNA_MASS_NG_KEY.
+        Dataframe with rows for a single sample, containing at least columns
+        for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_READ_COUNT_KEY, and
+        OGU_GDNA_MASS_NG_KEY.
     sample_linregress_slope: float
         Slope of the linear regression model for the sample.
     sample_linregress_intercept: float
@@ -434,34 +440,34 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
 
     # calculate the total number of reads for this sample (a scalar)
     # by summing read counts for all the rows in the sample table
-    # TODO: double-check axis here
-    total_reads_per_sample = sample_df['ogu_read_count'].sum()
+    total_reads_per_sample = sample_df[OGU_READ_COUNT_KEY].sum()
 
     # add a column of counts per million (CPM) for each ogu by dividing
     # each read_count by the total number of reads for this sample
     # and then multiplying by a million (1,000,000)
-    # TODO: do I need to worry about type here, dividing int/int and
-    #  wanting to get a float?
-    sample_df['ogu_CPM'] = (sample_df['ogu_read_count'] /
-                            total_reads_per_sample) * 1000000
+    # NB: dividing int/int in python gives float
+    sample_df[OGU_CPM_KEY] = (sample_df[OGU_READ_COUNT_KEY] /
+                              total_reads_per_sample) * 1000000
 
-    # add column of log10(ogu_CPM) by taking log base 10 of the ogu_CPM column
-    sample_df['log10_ogu_CPM'] = np.log10(sample_df['ogu_CPM'])
+    # add column of log10(ogu CPM) by taking log base 10 of the ogu CPM column
+    sample_df[LOG_10_OGU_CPM_KEY] = np.log10(sample_df[OGU_CPM_KEY])
 
-    # calculate log10_ogu_gdna_mass_ng of each OGU's gDNA in this sample
-    # by multiplying each OGU's log10_ogu_CPM by the slope of this sample's
+    # calculate log10(ogu gdna mass) of each OGU's gDNA in this sample
+    # by multiplying each OGU's log10(ogu CPM) by the slope of this sample's
     # regression model and adding the model's intercept.
     # NB: this requires that the linear regression models were derived
     # using synDNA masses *in ng* and not in some other unit.
-    sample_df['log10_ogu_gdna_mass_ng'] = (
-            sample_df['log10_ogu_CPM'] *
+    sample_df[LOG_10_OGU_GDNA_MASS_NG_KEY] = (
+            sample_df[LOG_10_OGU_CPM_KEY] *
             sample_linregress_slope +
             sample_linregress_intercept)
 
     # calculate the actual mass in ng of each OGU's gDNA by raising 10 to the
-    # log10_ogu_gdna_mass_ng power
+    # log10(ogu gdna mass) power; set the series index to the OGU_ID_KEY
     ogu_gdna_mass_ng_series = \
-        10 ** sample_df['log10_ogu_gdna_mass_ng']
+        10 ** sample_df[LOG_10_OGU_GDNA_MASS_NG_KEY]
+    ogu_gdna_mass_ng_series.name = OGU_GDNA_MASS_NG_KEY
+    ogu_gdna_mass_ng_series.index = sample_df[OGU_ID_KEY]
 
     return ogu_gdna_mass_ng_series
 
@@ -475,14 +481,15 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     Parameters
     ----------
     sample_df: pd.DataFrame
-        Dataframe with rows for a single sample, containing *at least* columns
-        for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and OGU_GDNA_MASS_NG_KEY.
-    ist_test: Optional[bool]
+        Dataframe with rows related to only a single sample, containing
+        at least columns for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and
+        OGU_GDNA_MASS_NG_KEY.
+    is_test: Optional[bool]
         Default is False.  If True, the function will use the less-precise
-        value of Avogadro's number (6.022*(10^23)) used in cell [16] of the
+        value of Avogadro's number (6.022*(10^23)) used in cell [5] of the
         https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
         notebook, rather than the more precise value (6.02214076*(10^23))
-        calculation than if False.  This is used in testing ONLY.
+        calculation used if False.  This is True in testing ONLY.
 
     Returns
     -------
@@ -496,7 +503,7 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
         mass of OGU's gDNA in ng * Avogadro's number in genomes/mole
     =	---------------------------------------------------------------
         length of OGU genome in basepairs *
-         650 g/mole per basepair (on average) * 10^9 ng/g
+            650 g/mole per basepair (on average) * 10^9 ng/g
 
     = a result in units of genomes of OGU/g of gdna
     ~= a result in units of cells of microbe/g of gdna
@@ -510,7 +517,7 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
 
     # seems weird to make this a variable since it's famously a constant, but..
     avogadros_num = 6.02214076e23
-    # this is done ONLY so we can test against Livia's results, which use
+    # this is done so we can test against Livia's results, which use
     # a truncated version of the constant. This should NOT be done in
     # production.  In testing, makes a difference of e.g., about 10 cells
     # out of 25K for the first OGU in the first sample in Livia's dataset.
