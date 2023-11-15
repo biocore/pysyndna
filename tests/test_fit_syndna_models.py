@@ -205,7 +205,7 @@ class FitSyndnaModelsTest(TestCase):
         expected_err_msg = \
             "Multiple syndna_pool_numbers found in prep info: \[1 2\]"
 
-        with self.assertRaisesRegexp(ValueError, expected_err_msg):
+        with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models_for_qiita(
                 prep_info_df, input_biom, min_counts)
 
@@ -348,7 +348,7 @@ class FitSyndnaModelsTest(TestCase):
             reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
-        with self.assertRaisesRegexp(ValueError, expected_err_msg):
+        with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
@@ -390,7 +390,7 @@ class FitSyndnaModelsTest(TestCase):
             reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
-        with self.assertRaisesRegexp(ValueError, expected_err_msg):
+        with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
@@ -432,7 +432,7 @@ class FitSyndnaModelsTest(TestCase):
             reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
-        with self.assertRaisesRegexp(ValueError, expected_err_msg):
+        with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
@@ -484,7 +484,7 @@ class FitSyndnaModelsTest(TestCase):
 
         err_msg = f"Found syndna ids in syndna_concs_df that were not in "\
                   f"reads_per_syndna_per_sample_df"
-        with self.assertRaisesRegexp(ValueError, err_msg):
+        with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,
                 reads_per_syndna_per_sample_df)
@@ -510,7 +510,7 @@ class FitSyndnaModelsTest(TestCase):
 
         err_msg = f"Found syndna ids in reads_per_syndna_per_sample_df that " \
                   f"were not in syndna_concs_df"
-        with self.assertRaisesRegexp(ValueError, err_msg):
+        with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,
                 reads_per_syndna_per_sample_df)
@@ -595,7 +595,7 @@ class FitSyndnaModelsTest(TestCase):
 
         err_msg = f"Found sample ids in reads_per_syndna_per_sample_df " \
                   f"that were not in sample_syndna_weights_and_total_reads_df"
-        with self.assertRaisesRegexp(ValueError, err_msg):
+        with self.assertRaisesRegex(ValueError, err_msg):
             _validate_sample_id_consistency(
                 sample_syndna_weights_and_total_reads_df,
                 reads_per_syndna_per_sample_df)
