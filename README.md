@@ -1,6 +1,6 @@
 # pySynDNA
 
-A python implementation and extension of synDNA ("a Synthetic DNA Spike-in Method for Absolute Quantification of Shotgun Metagenomic Sequencing", Zaramela et al., mSystems 2022)
+A python implementation and extension of SynDNA ("a Synthetic DNA Spike-in Method for Absolute Quantification of Shotgun Metagenomic Sequencing", Zaramela et al., mSystems 2022)
 
 ## Installation
 
