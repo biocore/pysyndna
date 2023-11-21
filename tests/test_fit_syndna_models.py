@@ -14,17 +14,16 @@ from src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models
 
 
-
 class FitSyndnaModelsTest(TestCase):
-    def assert_nested_dict_almost_equal(self, d1, d2, places=7):
-        """Assert that two nested dicts are almost equal.
+    def assert_lingressresult_dict_almost_equal(self, d1, d2, places=7):
+        """Assert that two dicts of LinregressResult are almost equal.
 
         Parameters
         ----------
         d1 : dict
-            The first dict to compare
+            The first dict of LinregressResult to compare
         d2 : dict
-            The second dict to compare
+            The second dict of LinregressResult to compare
         places : int, optional
             The number of decimal places to compare to
 
@@ -33,12 +32,34 @@ class FitSyndnaModelsTest(TestCase):
         AssertionError
             If the dicts are not almost equal
         """
-        assert d1.keys() == d2.keys()
+        self.assertIsInstance(d1, dict)
+        self.assertIsInstance(d2, dict)
+        self.assertEqual(d1.keys(), d2.keys())
         for k in d1.keys():
-            if isinstance(d1[k], dict):
-                self.assert_nested_dict_almost_equal(d1[k], d2[k], places)
-            else:
-                self.assertAlmostEqual(d1[k], d2[k], places=places)
+            self.assert_linregressresult_almost_equal(d1[k], d2[k], places)
+
+    def assert_linregressresult_almost_equal(self, l1, l2, places=7):
+        """Assert that two LinregressResult are almost equal.
+
+        Parameters
+        ----------
+        l1 : dict
+            The first LinregressResult to compare
+        l2 : dict
+            The second LinregressResult to compare
+        places : int, optional
+            The number of decimal places to compare to
+
+        Raises
+        ------
+        AssertionError
+            If the LinregressResults are not almost equal
+        """
+        self.assertIsInstance(l1, LinregressResult)
+        self.assertIsInstance(l2, LinregressResult)
+        self.assertEqual(len(l1), len(l2))
+        for i in range(0, len(l1)):
+            self.assertAlmostEqual(l1[i], l2[i], places=places)
 
     def setUp(self):
         self.maxDiff = None
@@ -282,7 +303,8 @@ class FitSyndnaModelsTest(TestCase):
             sample_syndna_weights_and_total_reads_df,
             reads_per_syndna_per_sample_df, min_count)
 
-        self.assert_nested_dict_almost_equal(expected_out, out_linregress_dict)
+        self.assert_lingressresult_dict_almost_equal(
+            expected_out, out_linregress_dict)
         self.assertEqual([], out_msgs)
 
     def test_fit_linear_regression_models_w_log_msgs(self):
@@ -338,7 +360,7 @@ class FitSyndnaModelsTest(TestCase):
             sample_syndna_weights_and_total_reads_df,
             reads_per_syndna_per_sample_df, min_count)
 
-        self.assert_nested_dict_almost_equal(
+        self.assert_lingressresult_dict_almost_equal(
             expected_out_dict, out_linregress_dict)
         self.assertEqual(expected_out_msgs, out_msgs)
 
