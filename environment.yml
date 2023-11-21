@@ -1,9 +1,10 @@
 name: pysyndna
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.9
-  - biom-format=conda-forge
+  - biom-format
   - flake8
   - nose
   - numpy
