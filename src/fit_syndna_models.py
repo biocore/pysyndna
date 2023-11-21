@@ -470,7 +470,8 @@ def _convert_linregressresults_to_dict(
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
         representation of the sample's LinregressResult, with each property
-        name as a key and that property's value as the value.
+        name as a key and that property's value as the value.  Values are
+        rounded to no more than 15 decimal places.
     """
 
     linregress_result_dict = {}
@@ -489,7 +490,11 @@ def _convert_linregressresults_to_dict(
 
                 # convert to regular floats, bc json doesn't like np.float64
                 if isinstance(v, np.float64):
-                    new_dict[k] = float(v)
+                    new_float = float(v)
+                    # round to 15 decimal places; the precision of float in
+                    # python is dependent upon the underlying C implementation,
+                    # and differs between mac and ubuntu past this point.
+                    new_dict[k] = round(new_float, 15)
 
             linregress_result_dict[curr_sample_id] = new_dict
 

@@ -95,19 +95,19 @@ class FitSyndnaModelsTest(TestCase):
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.7242381884894655\n'
-                '  intercept_stderr: 0.2361976278251443\n'
-                '  pvalue: 1.428443560659758e-07\n'
-                '  rvalue: 0.9865030975156575\n'
+                '  intercept: -6.724238188489466\n'
+                '  intercept_stderr: 0.236197627825144\n'
+                '  pvalue: 1.42844356e-07\n'
+                '  rvalue: 0.986503097515657\n'
                 '  slope: 1.244876523791319\n'
-                '  stderr: 0.07305408550335003\n'
+                '  stderr: 0.07305408550335\n'
                 'B:\n'
                 '  intercept: -7.155318973708384\n'
-                '  intercept_stderr: 0.2563956755844754\n'
-                '  pvalue: 1.505381146809759e-07\n'
-                '  rvalue: 0.9863241797356326\n'
+                '  intercept_stderr: 0.256395675584475\n'
+                '  pvalue: 1.50538115e-07\n'
+                '  rvalue: 0.986324179735633\n'
                 '  slope: 1.24675913604407\n'
-                '  stderr: 0.07365795255302438\n',
+                '  stderr: 0.073657952553024\n',
             'fit_syndna_models_log': ''
         }
 
@@ -149,17 +149,17 @@ class FitSyndnaModelsTest(TestCase):
                 'A:\n'
                 '  intercept: -8.198448239722513\n'
                 '  intercept_stderr: 0.543935662662392\n'
-                '  pvalue: 1.2870670033765388e-05\n'
-                '  rvalue: 0.9580566700885033\n'
-                '  slope: 1.5907745029594402\n'
-                '  stderr: 0.16823506135242222\n'
+                '  pvalue: 1.2870670034e-05\n'
+                '  rvalue: 0.958056670088503\n'
+                '  slope: 1.59077450295944\n'
+                '  stderr: 0.168235061352422\n'
                 'B:\n'
                 '  intercept: -8.723558660515511\n'
-                '  intercept_stderr: 0.5863195211465037\n'
-                '  pvalue: 1.282095348204212e-05\n'
-                '  rvalue: 0.9580977578981464\n'
-                '  slope: 1.5935375517842671\n'
-                '  stderr: 0.16843925066627013\n',
+                '  intercept_stderr: 0.586319521146504\n'
+                '  pvalue: 1.2820953482e-05\n'
+                '  rvalue: 0.958097757898146\n'
+                '  slope: 1.593537551784267\n'
+                '  stderr: 0.16843925066627\n',
             'fit_syndna_models_log': ''
         }
 
@@ -198,19 +198,19 @@ class FitSyndnaModelsTest(TestCase):
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.7671601206840855\n'
-                '  intercept_stderr: 0.30147987595768355\n'
-                '  pvalue: 2.1705143708536327e-06\n'
+                '  intercept: -6.767160120684085\n'
+                '  intercept_stderr: 0.301479875957684\n'
+                '  pvalue: 2.170514371e-06\n'
                 '  rvalue: 0.982777689569875\n'
-                '  slope: 1.2561949109446753\n'
-                '  stderr: 0.08927614710714807\n'
+                '  slope: 1.256194910944675\n'
+                '  stderr: 0.089276147107148\n'
                 'B:\n'
                 '  intercept: -7.196128673001381\n'
-                '  intercept_stderr: 0.32657986324660143\n'
-                '  pvalue: 2.2890733334160456e-06\n'
-                '  rvalue: 0.9825127010266727\n'
-                '  slope: 1.2568191864801976\n'
-                '  stderr: 0.09002330756867402\n',
+                '  intercept_stderr: 0.326579863246601\n'
+                '  pvalue: 2.289073333e-06\n'
+                '  rvalue: 0.982512701026673\n'
+                '  slope: 1.256819186480198\n'
+                '  stderr: 0.090023307568674\n',
             'fit_syndna_models_log':
                 "The following syndnas were dropped because they had fewer "
                 "than 200 total reads aligned:['p166']"
