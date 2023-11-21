@@ -1,0 +1,45 @@
+name: Continuous integration unit testing and lint
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        python-version: ['3.10']
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    - name: Check out repository
+    - uses: actions/checkout@v3
+
+    - name: Set up Conda
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        activate-environment: pysyndna
+        environment-file: environment.yml
+
+    - name: Install conda environment
+      run: |
+        conda env update -n pysyndna -f environment.yml     
+
+    - name: Lint with flake8
+      run: |
+        conda activate pysyndna
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        conda activate pysyndna
+        conda install pytest
+        which python
+        pip install -e . --no-deps
+        pytest

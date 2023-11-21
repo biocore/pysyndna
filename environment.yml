@@ -1,0 +1,14 @@
+name: pysyndna
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - biom-format=conda-forge
+  - flake8
+  - nose
+  - numpy
+  - pandas
+  - pep8
+  - pyyaml
+  - scikit-learn
+  - scipy
