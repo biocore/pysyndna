@@ -14,7 +14,32 @@ from src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models
 
 
+
 class FitSyndnaModelsTest(TestCase):
+    def assert_nested_dict_almost_equal(self, d1, d2, places=7):
+        """Assert that two nested dicts are almost equal.
+
+        Parameters
+        ----------
+        d1 : dict
+            The first dict to compare
+        d2 : dict
+            The second dict to compare
+        places : int, optional
+            The number of decimal places to compare to
+
+        Raises
+        ------
+        AssertionError
+            If the dicts are not almost equal
+        """
+        assert d1.keys() == d2.keys()
+        for k in d1.keys():
+            if isinstance(d1[k], dict):
+                self.assert_nested_dict_almost_equal(d1[k], d2[k], places)
+            else:
+                self.assertAlmostEqual(d1[k], d2[k], places=places)
+
     def setUp(self):
         self.maxDiff = None
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -35,13 +60,13 @@ class FitSyndnaModelsTest(TestCase):
         counts = np.array([[93135, 90897],
                            [15190, 15002],
                            [2447, 2421],
-                            [308, 296],
-                            [77, 77],
-                            [149, 148],
-                            [1075, 1059],
-                            [3189, 3129],
-                            [25347, 24856],
-                            [237329, 230898]]
+                           [308, 296],
+                           [77, 77],
+                           [149, 148],
+                           [1075, 1059],
+                           [3189, 3129],
+                           [25347, 24856],
+                           [237329, 230898]]
                           )
         input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
         min_counts = 50
@@ -86,13 +111,13 @@ class FitSyndnaModelsTest(TestCase):
         counts = np.array([[93135, 90897],
                            [15190, 15002],
                            [2447, 2421],
-                            [308, 296],
-                            [77, 77],
-                            [149, 148],
-                            [1075, 1059],
-                            [3189, 3129],
-                            [25347, 24856],
-                            [237329, 230898]]
+                           [308, 296],
+                           [77, 77],
+                           [149, 148],
+                           [1075, 1059],
+                           [3189, 3129],
+                           [25347, 24856],
+                           [237329, 230898]]
                           )
         input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
         min_counts = 50
@@ -138,13 +163,13 @@ class FitSyndnaModelsTest(TestCase):
         counts = np.array([[93135, 90897],
                            [15190, 15002],
                            [2447, 2421],
-                            [308, 296],
-                            [77, 77],
-                            [149, 148],
-                            [1075, 1059],
-                            [3189, 3129],
-                            [25347, 24856],
-                            [237329, 230898]]
+                           [308, 296],
+                           [77, 77],
+                           [149, 148],
+                           [1075, 1059],
+                           [3189, 3129],
+                           [25347, 24856],
+                           [237329, 230898]]
                           )
         input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
         min_counts = 200
@@ -191,20 +216,20 @@ class FitSyndnaModelsTest(TestCase):
         counts = np.array([[93135, 90897],
                            [15190, 15002],
                            [2447, 2421],
-                            [308, 296],
-                            [77, 77],
-                            [149, 148],
-                            [1075, 1059],
-                            [3189, 3129],
-                            [25347, 24856],
-                            [237329, 230898]]
+                           [308, 296],
+                           [77, 77],
+                           [149, 148],
+                           [1075, 1059],
+                           [3189, 3129],
+                           [25347, 24856],
+                           [237329, 230898]]
                           )
         input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
         min_counts = 50
 
         # NB: the error message is a regex, so we need to escape the brackets
         expected_err_msg = \
-            "Multiple syndna_pool_numbers found in prep info: \[1 2\]"
+            r"Multiple syndna_pool_numbers found in prep info: \[1 2\]"
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models_for_qiita(
@@ -257,7 +282,7 @@ class FitSyndnaModelsTest(TestCase):
             sample_syndna_weights_and_total_reads_df,
             reads_per_syndna_per_sample_df, min_count)
 
-        self.assertDictEqual(expected_out, out_linregress_dict)
+        self.assert_nested_dict_almost_equal(expected_out, out_linregress_dict)
         self.assertEqual([], out_msgs)
 
     def test_fit_linear_regression_models_w_log_msgs(self):
@@ -313,7 +338,8 @@ class FitSyndnaModelsTest(TestCase):
             sample_syndna_weights_and_total_reads_df,
             reads_per_syndna_per_sample_df, min_count)
 
-        self.assertDictEqual(expected_out_dict, out_linregress_dict)
+        self.assert_nested_dict_almost_equal(
+            expected_out_dict, out_linregress_dict)
         self.assertEqual(expected_out_msgs, out_msgs)
 
     def test_fit_linear_regression_models_w_sample_error(self):
@@ -339,8 +365,8 @@ class FitSyndnaModelsTest(TestCase):
         min_count = 200
 
         expected_err_msg = \
-            "Found sample ids in reads_per_syndna_per_sample_df that were " \
-            "not in sample_syndna_weights_and_total_reads_df: \{'B'\}"
+            r"Found sample ids in reads_per_syndna_per_sample_df that were " \
+            r"not in sample_syndna_weights_and_total_reads_df: \{'B'\}"
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -356,7 +382,7 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df, min_count)
 
     def test_fit_linear_regression_models_w_syndna_config_error(self):
-        #syndnas in the data that aren't in the config
+        # syndnas in the data that aren't in the config
 
         syndna_concs_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
@@ -381,8 +407,8 @@ class FitSyndnaModelsTest(TestCase):
         min_count = 200
 
         expected_err_msg = \
-            "Found syndna ids in reads_per_syndna_per_sample_df that were " \
-            "not in syndna_concs_df: \{'p266'\}"
+            r"Found syndna ids in reads_per_syndna_per_sample_df that were " \
+            r"not in syndna_concs_df: \{'p266'\}"
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -398,7 +424,7 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df, min_count)
 
     def test_fit_linear_regression_models_w_syndna_data_error(self):
-        #syndnas in the config that aren't in the data
+        # syndnas in the config that aren't in the data
 
         syndna_concs_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
@@ -423,8 +449,8 @@ class FitSyndnaModelsTest(TestCase):
         min_count = 200
 
         expected_err_msg = \
-            "Found syndna ids in syndna_concs_df that were not in " \
-            "reads_per_syndna_per_sample_df: \{'p266'\}"
+            r"Found syndna ids in syndna_concs_df that were not in " \
+            r"reads_per_syndna_per_sample_df: \{'p266'\}"
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -483,8 +509,8 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
-        err_msg = f"Found syndna ids in syndna_concs_df that were not in "\
-                  f"reads_per_syndna_per_sample_df"
+        err_msg = "Found syndna ids in syndna_concs_df that were not in "\
+                  "reads_per_syndna_per_sample_df"
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,
@@ -509,8 +535,8 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
-        err_msg = f"Found syndna ids in reads_per_syndna_per_sample_df that " \
-                  f"were not in syndna_concs_df"
+        err_msg = "Found syndna ids in reads_per_syndna_per_sample_df that " \
+                  "were not in syndna_concs_df"
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,
@@ -594,8 +620,8 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
-        err_msg = f"Found sample ids in reads_per_syndna_per_sample_df " \
-                  f"that were not in sample_syndna_weights_and_total_reads_df"
+        err_msg = "Found sample ids in reads_per_syndna_per_sample_df " \
+                  "that were not in sample_syndna_weights_and_total_reads_df"
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_sample_id_consistency(
                 sample_syndna_weights_and_total_reads_df,

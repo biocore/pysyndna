@@ -73,7 +73,7 @@ def fit_linear_regression_models_for_qiita(
             f"Multiple syndna_pool_numbers found in prep info: "
             f"{syndna_pool_number}")
     syndna_pool_name = f"pool{syndna_pool_number[0]}"
-    
+
     # look in the SYNDNA_INDIV_NG_UL_KEY section of the config file to find the
     # individual syndna concentrations associated with the relevant syndna
     # pool name and turn the resulting dictionary into a dataframe
@@ -211,7 +211,7 @@ def fit_linear_regression_models(
             ~reads_per_syndna_per_sample_df[SYNDNA_ID_KEY].isin(
                 syndnas_to_drop)]
     if len(syndnas_to_drop) > 0:
-        log_messages_list.append(f'The following syndnas were dropped ' 
+        log_messages_list.append(f'The following syndnas were dropped '
                                  f'because they had fewer than '
                                  f'{min_sample_counts} total reads aligned:'
                                  f'{syndnas_to_drop}')
@@ -448,7 +448,7 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
             curr_linregress_result = scipy.stats.linregress(
                 curr_sample_df[LOG10_COUNTS_PER_MIL_KEY],
                 curr_sample_df[LOG10_SYNDNA_INDIV_NG_KEY])
-        except Exception as ex:
+        except Exception:
             curr_linregress_result = None
 
         # record the whole lingregress result object in the output dictionary
