@@ -16,6 +16,7 @@ from src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
 
 class FitSyndnaModelsTest(TestCase):
     def setUp(self):
+        self.maxDiff = None
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
     def test_fit_linear_regression_models_for_qiita(self):
