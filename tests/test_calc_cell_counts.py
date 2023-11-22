@@ -142,4 +142,3 @@ class TestCalcCellCounts(TestCase):
             input_df, is_test=True)
 
         assert_series_equal(expected_series, output_series)
-

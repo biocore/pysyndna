@@ -491,10 +491,10 @@ def _convert_linregressresults_to_dict(
                 # convert to regular floats, bc json doesn't like np.float64
                 if isinstance(v, np.float64):
                     new_float = float(v)
-                    # round to 15 decimal places; the precision of float in
+                    # round to 14 decimal places; the precision of float in
                     # python is dependent upon the underlying C implementation,
                     # and differs between mac and ubuntu past this point.
-                    new_dict[k] = round(new_float, 15)
+                    new_dict[k] = round(new_float, 14)
 
             linregress_result_dict[curr_sample_id] = new_dict
 
