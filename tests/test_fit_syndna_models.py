@@ -103,7 +103,7 @@ class FitSyndnaModelsTest(TestCase):
                 '  stderr: 0.07305408550335\n'
                 'B:\n'
                 '  intercept: -7.15531897370838\n'
-                '  intercept_stderr: 0.25639567558448\n'
+                '  intercept_stderr: 0.25639567558447\n'
                 '  pvalue: 1.5053811e-07\n'
                 '  rvalue: 0.98632417973563\n'
                 '  slope: 1.24675913604407\n'
