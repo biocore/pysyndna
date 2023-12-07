@@ -9,6 +9,8 @@ import yaml
 
 from typing import Optional
 
+DEFAULT_MIN_SAMPLE_COUNTS = 1
+
 SAMPLE_ID_KEY = 'sample_id'
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
@@ -28,12 +30,10 @@ FIT_SYNDNA_MODELS_LOG_KEY = 'fit_syndna_models_log'
 # TODO: if they sequenced over multiple lanes, would be different prep
 #  info files--talk to lab about whether they will ever do this :(
 #  this would require merge of multiple preparations
-
-
 def fit_linear_regression_models_for_qiita(
         prep_info_df: pd.DataFrame,
         reads_per_syndna_per_sample_biom: biom.Table,
-        min_sample_counts: int,
+        min_sample_counts: int = DEFAULT_MIN_SAMPLE_COUNTS,
         syndna_pool_config_fp: Optional[str] = None) -> dict[str: str]:
 
     """Fits linear regressions predicting mass from counts using Qiita inputs.
@@ -491,10 +491,10 @@ def _convert_linregressresults_to_dict(
                 # convert to regular floats, bc json doesn't like np.float64
                 if isinstance(v, np.float64):
                     new_float = float(v)
-                    # truncate to 14 decimal places; the precision of float in
+                    # truncate to 12 decimal places; the precision of float in
                     # python is dependent upon the underlying C implementation,
-                    # and differs between mac and ubuntu past this point.
-                    new_dict[k] = truncate(new_float, 14)
+                    # and sometimes differs between mac/ubuntu past this point.
+                    new_dict[k] = truncate(new_float, 12)
 
             linregress_result_dict[curr_sample_id] = new_dict
 
