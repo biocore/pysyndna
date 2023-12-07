@@ -347,8 +347,6 @@ def _calc_long_format_ogu_cell_counts_df(
 
     return cell_counts_df, log_messages_list
 
-
-####################################################
 def _prepare_cell_counts_calc_df(
         ogu_counts_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
