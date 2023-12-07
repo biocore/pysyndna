@@ -491,11 +491,33 @@ def _convert_linregressresults_to_dict(
                 # convert to regular floats, bc json doesn't like np.float64
                 if isinstance(v, np.float64):
                     new_float = float(v)
-                    # round to 14 decimal places; the precision of float in
+                    # truncate to 14 decimal places; the precision of float in
                     # python is dependent upon the underlying C implementation,
                     # and differs between mac and ubuntu past this point.
-                    new_dict[k] = round(new_float, 14)
+                    new_dict[k] = truncate(new_float, 14)
 
             linregress_result_dict[curr_sample_id] = new_dict
 
     return linregress_result_dict
+
+
+def truncate(a_float, num_decimals):
+    """Truncates a float to the specified number of decimal places.
+
+    Parameters
+    ----------
+    a_float : float
+        Float to be truncated.
+    num_decimals : int
+        Number of decimal places to which the float should be truncated.
+
+    Returns
+    -------
+    truncated_float : float
+        Float truncated to the specified number of decimal places.
+    """
+
+    # multiply a_float by 10^num_decimals, convert to an integer, then divide
+    # by 10^num_decimals to get the truncated float
+    truncated_float = int(a_float * 10 ** num_decimals) / 10 ** num_decimals
+    return truncated_float

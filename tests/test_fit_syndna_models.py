@@ -95,11 +95,11 @@ class FitSyndnaModelsTest(TestCase):
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.72423818848947\n'
+                '  intercept: -6.72423818848946\n'
                 '  intercept_stderr: 0.23619762782514\n'
-                '  pvalue: 1.4284436e-07\n'
-                '  rvalue: 0.98650309751566\n'
-                '  slope: 1.24487652379132\n'
+                '  pvalue: 1.4284435e-07\n'
+                '  rvalue: 0.98650309751565\n'
+                '  slope: 1.24487652379131\n'
                 '  stderr: 0.07305408550335\n'
                 'B:\n'
                 '  intercept: -7.15531897370838\n'
@@ -157,8 +157,8 @@ class FitSyndnaModelsTest(TestCase):
                 '  intercept: -8.72355866051551\n'
                 '  intercept_stderr: 0.5863195211465\n'
                 '  pvalue: 1.282095348e-05\n'
-                '  rvalue: 0.95809775789815\n'
-                '  slope: 1.59353755178427\n'
+                '  rvalue: 0.95809775789814\n'
+                '  slope: 1.59353755178426\n'
                 '  stderr: 0.16843925066627\n',
             'fit_syndna_models_log': ''
         }
@@ -198,18 +198,18 @@ class FitSyndnaModelsTest(TestCase):
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.76716012068409\n'
+                '  intercept: -6.76716012068408\n'
                 '  intercept_stderr: 0.30147987595768\n'
                 '  pvalue: 2.17051437e-06\n'
                 '  rvalue: 0.98277768956987\n'
-                '  slope: 1.25619491094468\n'
-                '  stderr: 0.08927614710715\n'
+                '  slope: 1.25619491094467\n'
+                '  stderr: 0.08927614710714\n'
                 'B:\n'
                 '  intercept: -7.19612867300138\n'
                 '  intercept_stderr: 0.3265798632466\n'
                 '  pvalue: 2.28907333e-06\n'
                 '  rvalue: 0.98251270102667\n'
-                '  slope: 1.2568191864802\n'
+                '  slope: 1.25681918648019\n'
                 '  stderr: 0.09002330756867\n',
             'fit_syndna_models_log':
                 "The following syndnas were dropped because they had fewer "
