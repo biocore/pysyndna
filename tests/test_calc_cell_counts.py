@@ -136,7 +136,6 @@ class TestCalcCellCounts(TestCase):
             "The following items have coverage lower than the minimum of 1: "
             "['B;Neisseria subflava', 'B;Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
-        print(output_dict)
 
     def test_calc_ogu_cell_counts_biom(self):
         params_dict = {
