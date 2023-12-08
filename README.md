@@ -20,14 +20,14 @@ of each microbe in the input sample material (before gDNA extraction).
 
 ## Installation
 
-To install this notebook, first clone the repository from GitHub:
+To install this package, first clone the repository from GitHub:
 
 ```
 git clone https://github.com/AmandaBirmingham/pysyndna.git
 ```
 
 Change directory into the new `pysndna` folder and create a 
-Python3 Conda environment in which to run the notebook:
+Python3 Conda environment in which to run the software:
 
 ```
 conda env create -n pysyndna -f environment.yml  
