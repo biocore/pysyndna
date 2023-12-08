@@ -53,8 +53,7 @@ samples by calling the `calc_ogu_cell_counts_biom` function in the
 per gram of gDNA or the cell counts per gram of un-extracted sample material 
 (the latter is usually the more relevant metric).  For qiita-based usage, 
 call the `calc_ogu_cell_counts_per_g_of_sample_for_qiita` function (which 
-always returns the cell counts 
-per gram of gDNA or the cell counts per gram of un-extracted sample material.)
+always returns the cell counts per gram of un-extracted sample material.)
 
 The documentation for these functions offer details on the specifics of 
 their parameters, and the unit tests provide functional examples of inputs 
