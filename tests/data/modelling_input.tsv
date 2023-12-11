@@ -3,7 +3,7 @@
 # https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_linear_models.ipynb .
 # The following columns have been renamed to match the column name expectations of
 # the code under test:
-# ID -> sample_id
+# ID -> sample_name
 # Counts -> read_count
 # TotalReads -> raw_reads_r1r2
 # SynDNA -> syndna_id
@@ -13,7 +13,7 @@
 # it is stated that read weight = 10^(-predicted_value) 
 # so the syndna_ng = 10^(-1*Dilution2)
 # All other columns were deleted.
-sample_id	read_count	raw_reads_r1r2	syndna_id	syndna_ng
+sample_name	read_count	raw_reads_r1r2	syndna_id	syndna_ng
 A1_pool1_Fwd	93135	3216923	p126	0.1
 A1_pool1_Rev	90897	3216923	p126	0.1
 C1_pool1_Fwd	56878	1723417	p126	0.1

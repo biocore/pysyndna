@@ -11,7 +11,8 @@ from typing import Optional
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
-SAMPLE_ID_KEY = 'sample_id'
+# NB: sample_name instead of sample_id bc that's what qiita uses
+SAMPLE_ID_KEY = 'sample_name'
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
