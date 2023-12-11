@@ -65,6 +65,15 @@ def fit_linear_regression_models_for_qiita(
         FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
     """
 
+    # check that the prep_info_df has the expected columns
+    expected_prep_info_cols = [
+        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
+        SYNDNA_TOTAL_READS_KEY]
+    missing_cols = set(expected_prep_info_cols) - set(prep_info_df.columns)
+    if len(missing_cols) > 0:
+        raise ValueError(
+            f"prep_info_df is missing the following columns: {missing_cols}")
+
     # pull the syndna pool number from the prep info, ensure it is the same for
     # all samples, and convert to the pool name
     syndna_pool_number = prep_info_df[SYNDNA_POOL_NUM_KEY].unique()

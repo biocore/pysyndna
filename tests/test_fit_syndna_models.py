@@ -256,6 +256,42 @@ class FitSyndnaModelsTest(TestCase):
             fit_linear_regression_models_for_qiita(
                 prep_info_df, input_biom, min_counts)
 
+    def test_fit_linear_regression_models_for_qiita_w_col_error(self):
+        prep_info_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            "sequencing_type": ["16S", "16S"],
+            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+            # missing the SYNDNA_POOL_NUM_KEY column
+        }
+        prep_info_df = pd.DataFrame(prep_info_dict)
+
+        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
+                      "p236", "p246", "p256", "p266"]
+        sample_ids = ["A", "B"]
+        counts = np.array([[93135, 90897],
+                           [15190, 15002],
+                           [2447, 2421],
+                           [308, 296],
+                           [77, 77],
+                           [149, 148],
+                           [1075, 1059],
+                           [3189, 3129],
+                           [25347, 24856],
+                           [237329, 230898]]
+                          )
+        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        min_counts = 50
+
+        # NB: the error message is a regex, so we need to escape the brackets
+        expected_err_msg = \
+            r"prep_info_df is missing the following columns: \{'syndna_pool_" \
+            r"number'\}"
+
+        with self.assertRaisesRegex(ValueError, expected_err_msg):
+            fit_linear_regression_models_for_qiita(
+                prep_info_df, input_biom, min_counts)
+
     def test_fit_linear_regression_models(self):
         syndna_concs_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
