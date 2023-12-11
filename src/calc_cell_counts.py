@@ -347,6 +347,7 @@ def _calc_long_format_ogu_cell_counts_df(
 
     return cell_counts_df, log_messages_list
 
+
 def _prepare_cell_counts_calc_df(
         ogu_counts_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
@@ -564,7 +565,7 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
     # and then multiplying by a million (1,000,000)
     # NB: dividing int/int in python gives float
     working_df[OGU_CPM_KEY] = (working_df[OGU_READ_COUNT_KEY] /
-                              total_reads_per_sample) * 1000000
+                               total_reads_per_sample) * 1000000
 
     # add column of log10(ogu CPM) by taking log base 10 of the ogu CPM column
     working_df[LOG_10_OGU_CPM_KEY] = np.log10(working_df[OGU_CPM_KEY])

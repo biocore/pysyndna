@@ -8,7 +8,7 @@ from unittest import TestCase
 from src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     SYNDNA_POOL_MASS_NG_KEY, SYNDNA_INDIV_NG_UL_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
-    SYNDNA_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY,\
+    SYNDNA_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
     fit_linear_regression_models_for_qiita, fit_linear_regression_models, \
     _validate_syndna_id_consistency, _validate_sample_id_consistency, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models

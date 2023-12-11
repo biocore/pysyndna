@@ -573,11 +573,11 @@ class TestCalcCellCounts(TestCase):
                                               28956, 12157, 29218,
                                               3950, 44606, 217613, 28956,
                                               29218]),
-            OGU_COVERAGE_KEY: SparseArray([3.318807134,
-                               1.709343188, 1.517313415, 1.194203338,
-                               1.054848913, 1.083940392, 1.035332215,
-                               3.318807134, 1.517313415, 11.94203338,
-                               1.054848913, 1.035332215])
+            OGU_COVERAGE_KEY: SparseArray([
+                3.318807134, 1.709343188, 1.517313415, 1.194203338,
+                1.054848913, 1.083940392, 1.035332215,
+                3.318807134, 1.517313415, 11.94203338, 1.054848913,
+                1.035332215])
         }
 
         counts_df = pd.DataFrame(counts_dict)
@@ -615,7 +615,7 @@ class TestCalcCellCounts(TestCase):
         # Sample B inputs/results are just slightly modified versions of A
         input_dict = {
             SAMPLE_ID_KEY: ["A", "A", "A", "A", "A", "A",
-                            "A", "A", "A", "A","A", "A", "A",
+                            "A", "A", "A", "A", "A", "A", "A",
                             "B", "B", "B", "B", "B", "B",
                             "B", "B", "B", "B", "B", "B", "B"],
             OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
@@ -739,7 +739,7 @@ class TestCalcCellCounts(TestCase):
         # Sample B inputs/results are just slightly modified versions of A
         input_dict = {
             SAMPLE_ID_KEY: ["A", "A", "A", "A", "A", "A",
-                            "A", "A", "A", "A","A", "A", "A",
+                            "A", "A", "A", "A", "A", "A", "A",
                             "B", "B", "B", "B", "B", "B",
                             "B", "B", "B", "B", "B", "B", "B"],
             OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
@@ -811,7 +811,7 @@ class TestCalcCellCounts(TestCase):
         # Sample B inputs/results are just slightly modified versions of A
         input_dict = {
             SAMPLE_ID_KEY: ["A", "A", "A", "A", "A", "A",
-                            "A", "A", "A", "A","A", "A", "A",
+                            "A", "A", "A", "A", "A", "A", "A",
                             "B", "B", "B", "B", "B", "B",
                             "B", "B", "B", "B", "B", "B", "B"],
             OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
