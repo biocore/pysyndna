@@ -26,7 +26,7 @@ setup(name='pysyndna',
               'tests/data/*.*',
             ]},
       # making sure that numpy is installed before biom
-      setup_requires=['numpy'],
+      setup_requires=['numpy', 'cython'],
       install_requires=['pandas<2.0', 'scipy', 'scikit-learn', 'pyyaml',
                         'biom-format',  'nose', 'pep8', 'flake8'],
       )
