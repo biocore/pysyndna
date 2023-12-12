@@ -21,12 +21,13 @@ setup(name='pysyndna',
       packages=find_packages(),
       include_package_data=True,
       package_data={
-          'pysyndna': [
+          '': [
               '*.*',
-              'tests/data/*.*',
-            ]},
+          ],
+          'tests': ['data/*.*']
+      },
       # making sure that numpy is installed before biom
       setup_requires=['numpy', 'cython'],
-      install_requires=['pandas<2.0', 'scipy', 'scikit-learn', 'pyyaml',
+      install_requires=['pandas', 'scipy', 'scikit-learn', 'pyyaml',
                         'biom-format',  'nose', 'pep8', 'flake8'],
       )
