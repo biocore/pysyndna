@@ -62,7 +62,7 @@ def fit_linear_regression_models_for_qiita(
         Dictionary of output strings (ready to be written to files) keyed
         by the type of output they contain.  Currently, the following keys
         are defined:
-        LIN_REGRESS_RESULT_KEY: json of dict[str, dict[str, float]]
+        LIN_REGRESS_RESULT_KEY: yaml of dict[str, dict[str, float]]
         FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
     """
 
@@ -278,7 +278,7 @@ def _validate_syndna_id_consistency(
     data_only_syndnas = syndna_ids_in_data - syndna_ids_in_config
     if len(data_only_syndnas) > 0:
         raise ValueError(
-            f"Found syndna ids in reads_per_syndna_per_sample_df that were "
+            f"Expected {len(syndna_ids_in_config)} features  "
             f"not in syndna_concs_df: {data_only_syndnas}")
 
     # if there are syndna ids in the config that are not in the data,
@@ -498,7 +498,7 @@ def _convert_linregressresults_to_dict(
                     new_dict = None
                     break
 
-                # convert to regular floats, bc json doesn't like np.float64
+                # convert to regular floats, bc yaml doesn't like np.float64
                 if isinstance(v, np.float64):
                     new_float = float(v)
                     # truncate to 12 decimal places; the precision of float in
