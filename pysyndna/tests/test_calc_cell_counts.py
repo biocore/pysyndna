@@ -6,9 +6,12 @@ from pandas.arrays import SparseArray
 from pandas.testing import assert_series_equal
 import os
 from unittest import TestCase
-from src.calc_cell_counts import OGU_ID_KEY, OGU_READ_COUNT_KEY, \
+from pysyndna import calc_ogu_cell_counts_biom, \
+    calc_ogu_cell_counts_per_g_of_sample_for_qiita
+from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY
+from pysyndna.src.calc_cell_counts import OGU_ID_KEY, OGU_READ_COUNT_KEY, \
     OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY, OGU_GENOMES_PER_G_OF_GDNA_KEY, \
-    OGU_CELLS_PER_G_OF_GDNA_KEY, SAMPLE_ID_KEY, \
+    OGU_CELLS_PER_G_OF_GDNA_KEY, \
     GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, \
     ELUTE_VOL_UL_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, \
     OGU_CELLS_PER_G_OF_SAMPLE_KEY, TOTAL_OGU_READS_KEY, OGU_COVERAGE_KEY, \
@@ -18,8 +21,7 @@ from src.calc_cell_counts import OGU_ID_KEY, OGU_READ_COUNT_KEY, \
     _calc_ogu_cell_counts_df_for_sample, \
     _calc_gdna_mass_to_sample_mass_by_sample_df, \
     _calc_ogu_gdna_mass_ng_series_for_sample, \
-    _calc_ogu_genomes_per_g_of_gdna_series_for_sample, \
-    calc_ogu_cell_counts_biom, calc_ogu_cell_counts_per_g_of_sample_for_qiita
+    _calc_ogu_genomes_per_g_of_gdna_series_for_sample
 
 
 class TestCalcCellCounts(TestCase):

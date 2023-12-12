@@ -6,7 +6,7 @@ import pandas as pd
 import yaml
 from typing import Optional
 
-from src.fit_syndna_models import SAMPLE_ID_KEY
+from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY
 
 DEFAULT_READ_LENGTH = 150
 DEFAULT_MIN_COVERAGE = 1
