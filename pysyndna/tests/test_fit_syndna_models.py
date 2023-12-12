@@ -5,11 +5,12 @@ from pandas.testing import assert_frame_equal
 import os
 from scipy.stats._stats_mstats_common import LinregressResult
 from unittest import TestCase
-from src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
+from pysyndna import fit_linear_regression_models, \
+    fit_linear_regression_models_for_qiita
+from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     SYNDNA_POOL_MASS_NG_KEY, SYNDNA_INDIV_NG_UL_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
     SYNDNA_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
-    fit_linear_regression_models_for_qiita, fit_linear_regression_models, \
     _validate_syndna_id_consistency, _validate_sample_id_consistency, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models
 
@@ -465,8 +466,8 @@ class FitSyndnaModelsTest(TestCase):
         min_count = 200
 
         expected_err_msg = \
-            r"Found syndna ids in reads_per_syndna_per_sample_df that were " \
-            r"not in syndna_concs_df: \{'p266'\}"
+            r"Detected 1 syndna feature\(s\) in the read data that " \
+            r"were not in the config: {'p266'}"
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -507,8 +508,8 @@ class FitSyndnaModelsTest(TestCase):
         min_count = 200
 
         expected_err_msg = \
-            r"Found syndna ids in syndna_concs_df that were not in " \
-            r"reads_per_syndna_per_sample_df: \{'p266'\}"
+            r"Missing the following 1 required syndna feature\(s\) in the " \
+            r"read data: \{'p266'\}"
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -567,8 +568,10 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
-        err_msg = "Found syndna ids in syndna_concs_df that were not in "\
-                  "reads_per_syndna_per_sample_df"
+        # NB: the error message is a regex, so we need to escape the brackets
+        err_msg = \
+            r"Missing the following 1 required syndna feature\(s\) " \
+            r"in the read data: \{'p266'\}"
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,
@@ -593,8 +596,9 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
-        err_msg = "Found syndna ids in reads_per_syndna_per_sample_df that " \
-                  "were not in syndna_concs_df"
+        # NB: the error message is a regex, so we need to escape the brackets
+        err_msg = r"Detected 1 syndna feature\(s\) in the read data " \
+                  r"that were not in the config: \{'p266'\}"
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_syndna_id_consistency(
                 syndna_concs_df,

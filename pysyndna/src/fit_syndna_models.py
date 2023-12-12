@@ -278,8 +278,8 @@ def _validate_syndna_id_consistency(
     data_only_syndnas = syndna_ids_in_data - syndna_ids_in_config
     if len(data_only_syndnas) > 0:
         raise ValueError(
-            f"Expected {len(syndna_ids_in_config)} features  "
-            f"not in syndna_concs_df: {data_only_syndnas}")
+            f"Detected {len(data_only_syndnas)} syndna feature(s) in the "
+            f"read data that were not in the config: {data_only_syndnas}")
 
     # if there are syndna ids in the config that are not in the data,
     # raise an error.... that means at least one of the syndnas in the pool
@@ -287,8 +287,9 @@ def _validate_syndna_id_consistency(
     config_only_syndnas = syndna_ids_in_config - syndna_ids_in_data
     if len(config_only_syndnas) > 0:
         raise ValueError(
-            f"Found syndna ids in syndna_concs_df that were not in "
-            f"reads_per_syndna_per_sample_df: {config_only_syndnas}")
+            f"Missing the following {len(config_only_syndnas)} "
+            f"required syndna feature(s) in the read data: "
+            f"{config_only_syndnas}")
 
 
 def _validate_sample_id_consistency(

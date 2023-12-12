@@ -21,10 +21,9 @@ setup(name='pysyndna',
       packages=find_packages(),
       include_package_data=True,
       package_data={
-          '': [
+          'pysyndna': [
               '*.*',
-          ],
-          'tests': ['data/*.*']
+              'data/*.*']
       },
       # making sure that numpy is installed before biom
       setup_requires=['numpy', 'cython'],
