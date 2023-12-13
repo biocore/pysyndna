@@ -353,6 +353,118 @@ class TestCalcCellCounts(TestCase):
                 "['B;Neisseria subflava', 'B;Haemophilus influenzae']"],
             output_msgs)
 
+    def test_calc_ogu_cell_counts_biom_w_cast(self):
+        params_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            GDNA_CONCENTRATION_NG_UL_KEY: ["5.7", 12.6],
+            SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, "0.0402847"],
+            ELUTE_VOL_UL_KEY: ["70", "100"],
+        }
+
+        ogu_ids = ["Lactobacillus gasseri", "Ruminococcus albus",
+                   "Escherichia coli", "Tyzzerella nexilis",
+                   "Prevotella sp. oral taxon 299",
+                   "Streptococcus mitis", "Leptolyngbya valderiana",
+                   "Neisseria subflava", "Neisseria flavescens",
+                   "Fusobacterium periodonticum",
+                   "Streptococcus pneumoniae", "Haemophilus influenzae",
+                   "Veillonella dispar"]
+        sample_ids = ["A", "B"]
+        counts_vals = np.array([[79950, 79951],
+                                [93024, 93024],
+                                [86188, 86188],
+                                [45441, 45441],
+                                [31185, 31185],
+                                [24929, 24929],
+                                [1975, 1975],
+                                [26130, 0],
+                                [22303, 22303],
+                                [19783, 197830],
+                                [14478, 14478],
+                                [12145, 12],
+                                [14609, 14609]])
+
+        lengths_dict = {
+            OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
+                         "Escherichia coli", "Tyzzerella nexilis",
+                         "Prevotella sp. oral taxon 299",
+                         "Streptococcus mitis", "Leptolyngbya valderiana",
+                         "Neisseria subflava", "Neisseria flavescens",
+                         "Fusobacterium periodonticum",
+                         "Streptococcus pneumoniae", "Haemophilus influenzae",
+                         "Veillonella dispar"],
+            OGU_LEN_IN_BP_KEY: [1904788.333, 4373730, 5033120.886, 3861016,
+                                2453028, 2031251, 89264, 2292986, 2204851,
+                                2484878.333, 2058778.25, 1680673.6, 2116567],
+        }
+
+        linregresses_dict = {
+            'A': {
+                "slope": 1.24487652379132, "intercept": -6.77539505390338,
+                "rvalue": 0.9865030975156575, "pvalue": 1.428443560659758e-07,
+                "stderr": 0.07305408550335003,
+                "intercept_stderr": 0.2361976278251443},
+            'B': {
+                "slope": 1.24675913604407, "intercept": -7.155318973708384,
+                "rvalue": 0.9863241797356326, "pvalue": 1.505381146809759e-07,
+                "stderr": 0.07365795255302438,
+                "intercept_stderr": 0.2563956755844754}
+        }
+
+        ogu_ids_for_cell_counts_per_g_gdna = [
+            'Escherichia coli', 'Fusobacterium periodonticum',
+            'Haemophilus influenzae', 'Lactobacillus gasseri',
+            'Leptolyngbya valderiana', 'Neisseria flavescens',
+            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
+            'Ruminococcus albus', 'Streptococcus mitis',
+            'Streptococcus pneumoniae', 'Tyzzerella nexilis',
+            'Veillonella dispar']
+
+        ogu_cell_counts_per_g_gdna = np.array([
+            [109488.52489864547, 33801.90627125688],
+            [35500.31573053499, 192912.62904222216],
+            [28593.763044730105, np.nan],
+            [263475.96007974836, 81331.52772293548],
+            [56115.37609153126, 17201.535212236027],
+            [46449.413043493194, 14303.672842139775],
+            [54397.113741303874, np.nan],
+            [63370.79603717531, 19526.777413528005],
+            [138554.11268273846, 42781.34311745266],
+            [57912.881460477656, 17837.480859587595],
+            [29049.787455163587, 8938.342993951745],
+            [64332.44125797031, 19837.14904626379],
+            [28575.271368676236, 8792.488011227908]])
+
+        params_df = pd.DataFrame(params_dict)
+        counts_biom = biom.table.Table(counts_vals, ogu_ids, sample_ids)
+        lengths_df = pd.DataFrame(lengths_dict)
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            ogu_cell_counts_per_g_gdna, ogu_ids_for_cell_counts_per_g_gdna,
+            sample_ids)
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+        output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
+
+        # Note: 1) this is outputting the ogu_cell_counts_per_g_gdna, not the
+        # ogu_cell_counts_per_g_sample (which is what is output by the qiita
+        # version of this function) because I want to check that I really can
+        # choose to get something else, and 2) this is using the full version
+        # of Avogadro's #, not the truncated version that was used in the
+        # notebook, so the results are slightly different (but more realistic)
+        output_biom, output_msgs = calc_ogu_cell_counts_biom(
+            params_df, linregresses_dict, counts_biom, lengths_df,
+            read_len, min_coverage, min_rsquared, output_metric)
+
+        self.assert_biom_tables_equal(expected_out_biom, output_biom)
+        self.assertListEqual(
+            ["The following items have coverage lower than the minimum of 1: "
+                "['B;Neisseria subflava', 'B;Haemophilus influenzae']"],
+            output_msgs)
+
     def test__calc_long_format_ogu_cell_counts_df(self):
         counts_dict = {
             OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
