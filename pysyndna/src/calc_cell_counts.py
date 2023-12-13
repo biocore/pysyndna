@@ -6,7 +6,8 @@ import pandas as pd
 import yaml
 from typing import Optional
 
-from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY
+from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, \
+    _validate_required_columns_exist
 
 DEFAULT_READ_LENGTH = 150
 DEFAULT_MIN_COVERAGE = 1
@@ -85,6 +86,18 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         cells per gram of sample material for each OGU in each sample.
         CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
     """
+
+    # check if the inputs all have the required columns
+    required_sample_info_cols = [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]
+    _validate_required_columns_exist(
+        sample_info_df, required_sample_info_cols,
+        "sample info is missing required column(s)")
+
+    required_prep_info_cols = [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+                               ELUTE_VOL_UL_KEY]
+    _validate_required_columns_exist(
+        prep_info_df, required_prep_info_cols,
+        "prep info is missing required column(s)")
 
     # merge the sample info and prep info dataframes
     absolute_quant_params_per_sample_df = \
@@ -344,6 +357,9 @@ def _calc_long_format_ogu_cell_counts_df(
             # append the current sample's df to the existing cell_counts_df
             cell_counts_df = pd.concat([cell_counts_df, curr_sample_df])
     # next sample_id
+
+    if cell_counts_df is None:
+        raise ValueError("No cell counts calculated for any sample")
 
     return cell_counts_df, log_messages_list
 

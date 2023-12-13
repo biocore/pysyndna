@@ -70,10 +70,9 @@ def fit_linear_regression_models_for_qiita(
     expected_prep_info_cols = [
         SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
         SYNDNA_TOTAL_READS_KEY]
-    missing_cols = set(expected_prep_info_cols) - set(prep_info_df.columns)
-    if len(missing_cols) > 0:
-        raise ValueError(
-            f"prep_info_df is missing the following columns: {missing_cols}")
+    _validate_required_columns_exist(
+        prep_info_df, expected_prep_info_cols,
+        "prep info is missing required column(s)")
 
     # pull the syndna pool number from the prep info, ensure it is the same for
     # all samples, and convert to the pool name
@@ -111,6 +110,29 @@ def fit_linear_regression_models_for_qiita(
         FIT_SYNDNA_MODELS_LOG_KEY: '\n'.join(msg_list)}
 
     return out_txt_by_out_type
+
+
+def _validate_required_columns_exist(
+        input_df: pd.DataFrame,
+        required_cols_list: list[str],
+        error_msg: str):
+
+    """Checks that the input dataframe has the required columns.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe to be checked.
+    required_cols_list: list[str]
+        List of column names that must be present in the dataframe.
+    error_msg: str
+        Error message to be raised if any of the required columns are missing.
+    """
+
+    missing_cols = set(required_cols_list) - set(input_df.columns)
+    if len(missing_cols) > 0:
+        raise ValueError(
+            f"{error_msg}: {missing_cols}")
 
 
 def _extract_config_dict(config_fp=None):

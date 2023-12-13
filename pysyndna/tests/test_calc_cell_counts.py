@@ -139,6 +139,108 @@ class TestCalcCellCounts(TestCase):
             "['B;Neisseria subflava', 'B;Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
+        sample_id_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+        }
+
+        prep_info_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            GDNA_CONCENTRATION_NG_UL_KEY: [5.7, 12.6],
+            ELUTE_VOL_UL_KEY: [70, 100],
+        }
+
+        ogu_ids = ["Lactobacillus gasseri", "Ruminococcus albus",
+                   "Escherichia coli", "Tyzzerella nexilis",
+                   "Prevotella sp. oral taxon 299",
+                   "Streptococcus mitis", "Leptolyngbya valderiana",
+                   "Neisseria subflava", "Neisseria flavescens",
+                   "Fusobacterium periodonticum",
+                   "Streptococcus pneumoniae", "Haemophilus influenzae",
+                   "Veillonella dispar"]
+        sample_ids = ["A", "B"]
+        counts_vals = np.array([[79950, 79951],
+                                [93024, 93024],
+                                [86188, 86188],
+                                [45441, 45441],
+                                [31185, 31185],
+                                [24929, 24929],
+                                [1975, 1975],
+                                [26130, 0],
+                                [22303, 22303],
+                                [19783, 197830],
+                                [14478, 14478],
+                                [12145, 12],
+                                [14609, 14609]])
+
+        sample_info_df = pd.DataFrame(sample_id_dict)
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(counts_vals, ogu_ids, sample_ids)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        err_msg = r"sample info is missing required column\(s\): " \
+                  r"\{'calc_mass_sample_aliquot_input_g'\}"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+                sample_info_df, prep_info_df, models_fp, counts_biom,
+                lengths_fp, read_len, min_coverage, min_rsquared)
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
+        sample_id_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.0402847],
+        }
+
+        prep_info_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            GDNA_CONCENTRATION_NG_UL_KEY: [5.7, 12.6],
+        }
+
+        ogu_ids = ["Lactobacillus gasseri", "Ruminococcus albus",
+                   "Escherichia coli", "Tyzzerella nexilis",
+                   "Prevotella sp. oral taxon 299",
+                   "Streptococcus mitis", "Leptolyngbya valderiana",
+                   "Neisseria subflava", "Neisseria flavescens",
+                   "Fusobacterium periodonticum",
+                   "Streptococcus pneumoniae", "Haemophilus influenzae",
+                   "Veillonella dispar"]
+        sample_ids = ["A", "B"]
+        counts_vals = np.array([[79950, 79951],
+                                [93024, 93024],
+                                [86188, 86188],
+                                [45441, 45441],
+                                [31185, 31185],
+                                [24929, 24929],
+                                [1975, 1975],
+                                [26130, 0],
+                                [22303, 22303],
+                                [19783, 197830],
+                                [14478, 14478],
+                                [12145, 12],
+                                [14609, 14609]])
+
+        sample_info_df = pd.DataFrame(sample_id_dict)
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(counts_vals, ogu_ids, sample_ids)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        err_msg = r"prep info is missing required column\(s\): " \
+                  r"\{'vol_elute_ul'\}"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+                sample_info_df, prep_info_df, models_fp, counts_biom,
+                lengths_fp, read_len, min_coverage, min_rsquared)
+
     def test_calc_ogu_cell_counts_biom(self):
         params_dict = {
             SAMPLE_ID_KEY: ["A", "B"],
@@ -411,6 +513,61 @@ class TestCalcCellCounts(TestCase):
             ["The following items have coverage lower than the minimum of 1: "
                 "['B;Neisseria subflava', 'B;Haemophilus influenzae']"],
             output_msgs)
+
+    def test__calc_long_format_ogu_cell_counts_df_error(self):
+        counts_dict = {
+            OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
+                         "Escherichia coli", "Tyzzerella nexilis",
+                         "Prevotella sp. oral taxon 299",
+                         "Streptococcus mitis", "Leptolyngbya valderiana",
+                         "Neisseria subflava", "Neisseria flavescens",
+                         "Fusobacterium periodonticum",
+                         "Streptococcus pneumoniae", "Haemophilus influenzae",
+                         "Veillonella dispar"],
+            "A": SparseArray([79950, 93024, 86188, 45441, 31185, 24929,
+                              1975, 26130, 22303, 19783, 14478, 12145, 14609]),
+            "B": SparseArray([79951, 93024, 86188, 45441, 31185, 24929,
+                              1975, 0, 22303, 197830, 14478, 12, 14609]),
+        }
+
+        lengths_dict = {
+            OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
+                         "Escherichia coli", "Tyzzerella nexilis",
+                         "Prevotella sp. oral taxon 299",
+                         "Streptococcus mitis", "Leptolyngbya valderiana",
+                         "Neisseria subflava", "Neisseria flavescens",
+                         "Fusobacterium periodonticum",
+                         "Streptococcus pneumoniae", "Haemophilus influenzae",
+                         "Veillonella dispar"],
+            OGU_LEN_IN_BP_KEY: [1904788.333, 4373730, 5033120.886, 3861016,
+                                2453028, 2031251, 89264, 2292986, 2204851,
+                                2484878.333, 2058778.25, 1680673.6, 2116567],
+        }
+
+        linregresses_dict = {
+            'A': None,
+            'B': None
+        }
+
+        mass_ratio_dict = {
+            SAMPLE_ID_KEY: ["A", "B"],
+            GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY: [0.014337553, 0.031277383]
+        }
+
+        counts_df = pd.DataFrame(counts_dict)
+        counts_df.set_index(OGU_ID_KEY, inplace=True)
+        mass_ratio_df = pd.DataFrame(mass_ratio_dict)
+        lengths_df = pd.DataFrame(lengths_dict)
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        err_msg = "No cell counts calculated for any sample"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            _calc_long_format_ogu_cell_counts_df(
+                linregresses_dict, counts_df, lengths_df, mass_ratio_df,
+                read_len, min_coverage, min_rsquared)
 
     def test__prepare_cell_counts_calc_df_w_log_msgs_low_coverage(self):
         # Inputs and expected results for sample A are taken from cell directly
