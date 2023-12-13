@@ -43,13 +43,13 @@ pip install -e .
 ## General Usage
 
 First, calculate linear regression models per sample by calling the 
-`fit_linear_regression_models` function in the `src.fit_syndna_models` module 
+`fit_linear_regression_models` function in the `pysyndna` module 
 (or, for qiita-based usage, the `fit_linear_regression_models_for_qiita` 
 function).
 
 Second, apply these models to counts of microbial genomes in the 
 samples by calling the `calc_ogu_cell_counts_biom` function in the 
-`src.calc_cell_counts` module, specifying whether to return the cell counts 
+`pysyndna` module, specifying whether to return the cell counts 
 per gram of gDNA or the cell counts per gram of un-extracted sample material 
 (the latter is usually the more relevant metric).  For qiita-based usage, 
 call the `calc_ogu_cell_counts_per_g_of_sample_for_qiita` function (which 
