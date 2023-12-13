@@ -286,8 +286,8 @@ class FitSyndnaModelsTest(TestCase):
 
         # NB: the error message is a regex, so we need to escape the brackets
         expected_err_msg = \
-            r"prep_info_df is missing the following columns: \{'syndna_pool_" \
-            r"number'\}"
+            r"prep info is missing required column\(s\): " \
+            r"\{'syndna_pool_number'\}"
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models_for_qiita(
