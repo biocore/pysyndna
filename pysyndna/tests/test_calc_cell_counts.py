@@ -235,7 +235,7 @@ class TestCalcCellCounts(TestCase):
         min_rsquared = 0.8
 
         err_msg = r"prep info is missing required column\(s\): " \
-                  r"\{'vol_elute_ul'\}"
+                  r"\{'vol_extracted_elution_ul'\}"
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
                 sample_info_df, prep_info_df, models_fp, counts_biom,

@@ -16,9 +16,9 @@ DEFAULT_MIN_RSQUARED = 0.8
 CELL_COUNT_RESULT_KEY = 'cell_count_biom'
 CELL_COUNT_LOG_KEY = 'calc_cell_counts_log'
 
-GDNA_CONCENTRATION_NG_UL_KEY = 'minipico_dna_concentration_ng_ul'
+GDNA_CONCENTRATION_NG_UL_KEY = 'extracted_gdna_concentration_ng_ul'
 SAMPLE_IN_ALIQUOT_MASS_G_KEY = 'calc_mass_sample_aliquot_input_g'
-ELUTE_VOL_UL_KEY = 'vol_elute_ul'
+ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
 SAMPLE_CONCENTRATION_NG_UL_KEY = 'sample_concentration_ng_ul'
 OGU_ID_KEY = 'ogu_id'
 OGU_READ_COUNT_KEY = 'ogu_read_count'
