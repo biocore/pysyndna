@@ -1,14 +1,29 @@
-"A":
+"example1":
   "slope": 1.24487652379132
   "intercept": -6.77539505390338
   "rvalue": 0.9865030975156575
   "pvalue": 1.428443560659758e-07
   "stderr": 0.07305408550335003
   "intercept_stderr": 0.2361976278251443
-"B":
+"example2":
   "slope": 1.24675913604407
   "intercept": -7.155318973708384
   "rvalue": 0.9863241797356326
   "pvalue": 1.505381146809759e-07
   "stderr": 0.07365795255302438
   "intercept_stderr": 0.2563956755844754
+# example3 and example4 are both copies of example1
+"example3":
+  "slope": 1.24487652379132
+  "intercept": -6.77539505390338
+  "rvalue": 0.9865030975156575
+  "pvalue": 1.428443560659758e-07
+  "stderr": 0.07305408550335003
+  "intercept_stderr": 0.2361976278251443
+"example4":
+  "slope": 1.24487652379132
+  "intercept": -6.77539505390338
+  "rvalue": 0.9865030975156575
+  "pvalue": 1.428443560659758e-07
+  "stderr": 0.07305408550335003
+  "intercept_stderr": 0.2361976278251443
