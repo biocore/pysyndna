@@ -59,22 +59,20 @@ class TestCalcCellCounts(TestCase):
 
     # Values from "absolute_quant_example.xlsx"
     sample_and_prep_input_dict = {
-        SAMPLE_ID_KEY: ["example1", "example2", "example3", "example4"],
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.029491697,
-                                       0.027829017, 0.029491697],
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76, 5, 4.76],
-        GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4, 6, 1.4],
-        ELUTE_VOL_UL_KEY: [100, 100, 70, 70],
-        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238, 0.25, 0.238]
+        SAMPLE_ID_KEY: ["example1", "example2"],
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.029491697],
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76],
+        GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
+        ELUTE_VOL_UL_KEY: [100, 100],
+        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238]
     }
 
     # Values from "absolute_quant_example.xlsx"
     mass_ratio_dict = {
-        SAMPLE_ID_KEY: ["example1", "example2", "example3", "example4"],
+        SAMPLE_ID_KEY: ["example1", "example2"],
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76],
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY: [7.1867431342E-06,
-                                             4.7470988923E-06,
-                                             1.5092160582E-05,
-                                             3.3229692246E-06]
+                                             4.7470988923E-06]
     }
 
     # These values are taken from cell directly under the
@@ -97,21 +95,37 @@ class TestCalcCellCounts(TestCase):
                             2484878.333, 2058778.25, 1680673.6, 2116567]
     }
 
+    # This dict contains counts (from Zaramela, see above) for example 1
     example1_ogu_full_inputs_dict = ogu_lengths_dict.copy()
     # These values are taken from cell directly under the
     # header "Applying the linear models to sequencing data" of the
     # https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
-    # notebook by capturing the value of the dataframe when i=1, with an
-    # added column holding the "reads2weigth" [sic] values (which are
-    # OGU_GDNA_MASS_NG_KEY values). The RawCounts column is OGU_READ_COUNT_KEY.
+    # notebook by capturing the value of the dataframe when i=1.
+    # The RawCounts column is OGU_READ_COUNT_KEY.
     example1_ogu_full_inputs_dict.update({
         OGU_READ_COUNT_KEY: [79950, 93024, 86188, 45441, 31185, 24929,
                              1975, 26130, 22303, 19783, 14478, 12145,
                              14609]})
 
-    # This dict contains the test Zaramela gdna mass and the results of
-    # calculations done on it using the truncated Avogadro's number (6.022e23)
-    # used in the SynDNA notebooks (instead of the full value).
+    # This dict contains counts (NOT directly from Zaramela, see above) for
+    # example 2
+    example2_ogu_full_inputs_dict = ogu_lengths_dict.copy()
+    example2_ogu_full_inputs_dict.update({
+        # Example 2 counts are slightly manually modified from example 1,
+        # differing by 1 count at position 1 (1-based, for L. gasseri),
+        # 26130 counts at position 8 (for N. subflava, bc example 2 has
+        # zero counts here), by a factor of 10 at position 10
+        # (for F. periodonticum, bc example 2 has 10x the counts of example 1
+        # at this position), and by 12133 at position 12 (for H. influenzae,
+        # bc example 2 has 12 counts here instead of 12145).
+        # All other positions are identical.
+        OGU_READ_COUNT_KEY: [79951, 93024, 86188, 45441, 31185, 24929,
+                             1975, 0, 22303, 197830, 14478, 12, 14609]
+    })
+
+    # This dict contains the gdna mass from Zaramela and the results of
+    # calculations done using the truncated Avogadro's number
+    # (6.022e23) used in the SynDNA notebooks (instead of the full value).
     example1_ogu_full_outputs_short_avogadro_dict = (
         example1_ogu_full_inputs_dict.copy())
     example1_ogu_full_outputs_short_avogadro_dict.update({
@@ -137,7 +151,7 @@ class TestCalcCellCounts(TestCase):
         # for the arrays below, the 1st, 2nd, and 7th values (those for
         # L. gasseri, R. albus, and L. valderiana) match those worked out in
         # detail for example1 in the "absolute_quant_example.xlsx" spreadsheet
-        # (using the truncated Avogadro's number, as Zaramela did).
+        # (in the section using the truncated Avogadro's #, as Zaramela did).
         # The remainder were not worked out individually and come from the code
         # calculations.
         OGU_GENOMES_PER_G_OF_GDNA_KEY: [5.26939603e+13, 2.77101748e+13,
@@ -169,18 +183,35 @@ class TestCalcCellCounts(TestCase):
                                         41071667.042116195]
     })
 
+    # This dict contains the results of calculations done on example1
+    # using the full Avogadro's number (6.022e23) instead of the truncated one.
     example1_ogu_full_outputs_full_avogadro_dict = (
         example1_ogu_full_inputs_dict.copy())
-    # TODO: add explanation of source of these values
     example1_ogu_full_outputs_full_avogadro_dict.update({
-        TOTAL_OGU_READS_KEY: [159901, 186048, 172376, 90882,
-                              62370, 49858, 3950, 26130, 44606,
-                              217613, 28956, 12157, 29218],
-        OGU_COVERAGE_KEY: [6.295975144, 3.19032039, 2.568624973,
-                           1.7653773, 1.906928906, 1.840909863,
-                           3.318807134, 1.709343188, 1.517313415,
-                           1.194203338, 1.054848913, 1.083940392,
-                           1.035332215],
+        # Note that this is assuming that examples 1 and 2 were run
+        TOTAL_OGU_READS_KEY: [x + y for x, y in zip(
+            example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
+            example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])],
+        # These values are taken from cell directly under the
+        # header "Applying the linear models to sequencing data" of the
+        # https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
+        # notebook by capturing the value of the dataframe when i=1.
+        # The Cov column is OGU_COVERAGE_KEY. (Note that the coverage calc
+        # is upstream of the part of the calculation using Avogadro's number
+        # so it is not affected by the truncated vs. full Avogadro's number.)
+        OGU_COVERAGE_KEY: [6.29597514334489, 3.19032039014754,
+                           2.56862497316419, 1.76537729965377,
+                           1.90692890582578, 1.84090986293668,
+                           3.31880713389496, 1.70934318831428,
+                           1.51731341482939, 1.19420333792332,
+                           1.05484891342717, 1.08394039151921,
+                           1.03533221485547],
+        # for the arrays below, the 1st, 2nd, and 7th values (those for
+        # L. gasseri, R. albus, and L. valderiana) match those worked out in
+        # detail for example1 in the "absolute_quant_example.xlsx" spreadsheet
+        # (in the section using the FULL Avogadro's #, not matching Zaramela).
+        # The remainder were not worked out individually and come from the code
+        # calculations.
         OGU_GENOMES_PER_G_OF_GDNA_KEY: [
             52695192015949.67, 27710822536547.69, 21897704979729.094,
             12866488251594.062, 12674159207435.06, 11582576292095.531,
@@ -201,18 +232,9 @@ class TestCalcCellCounts(TestCase):
             41072627.06334715]
     })
 
-    example2_ogu_full_inputs_dict = ogu_lengths_dict.copy()
-    example2_ogu_full_inputs_dict.update({
-        # Example 2 counts are slightly manually modified from example 1,
-        # differing by 1 count at position 0, 26130 counts at position 7 (bc
-        # example 2 has zero counts here), by a factor of 10 at position 9
-        # (bc example 2 has 10x the counts of example 1 at this position), and
-        # by 12133 at position 11 (bc example 2 has 12 counts here instead of
-        # 12145).  All other positions are identical.
-        OGU_READ_COUNT_KEY: [79951, 93024, 86188, 45441, 31185, 24929,
-                             1975, 0, 22303, 197830, 14478, 12, 14609]
-    })
-
+    # This dict contains the results of calculations done on *filtered*
+    # example2 data using the full Avogadro's number (6.022e23) instead of
+    # the truncated one.
     # The ogu id, ogu length, and ogu read counts are exactly the same as in
     # the example 2 full data *except* that Neisseria subflava and
     # Haemophilus influenzae have been removed (for falling below the
@@ -241,13 +263,28 @@ class TestCalcCellCounts(TestCase):
                              22303, 197830, 14478,
                              #12,
                              14609],
+        # These count values are the same as those in
+        # self.example1_ogu_full_outputs_full_avogadro_dict
+        # except that the counts for Neisseria subflava and
+        # Haemophilus influenzae have been removed
         TOTAL_OGU_READS_KEY: [159901, 186048, 172376, 90882,
-                              62370, 49858, 3950, 44606,
-                              217613, 28956, 29218],
-        OGU_COVERAGE_KEY: [6.296053893, 3.19032039, 2.568624973,
-                           1.7653773, 1.906928906, 1.840909863,
-                           3.318807134, 1.517313415, 11.94203338,
-                           1.054848913, 1.035332215],
+                              62370, 49858, 3950,
+                              44606, 217613, 28956,
+                              29218],
+        # These values are the same as those in
+        # self.example1_ogu_full_outputs_full_avogadro_dict EXCEPT for the
+        # for L. gasseri (first in this list) and F. periodonticum (9th in this
+        # list) values, which are different because the example2 counts for
+        # these positions are different from the example1 counts (and still
+        # large enough to pass the min_coverage = 1 threshold).  These two
+        # values have been checked by hand.
+        OGU_COVERAGE_KEY: [6.296053893, 3.19032039014754,
+                           2.56862497316419, 1.76537729965377,
+                           1.90692890582578, 1.84090986293668,
+                           3.31880713389496,
+                           1.51731341482939, 11.94203338,
+                           1.05484891342717,
+                           1.03533221485547],
         OGU_GENOMES_PER_G_OF_GDNA_KEY: [
             17086455403978.045, 8987677125515.266, 7101240813289.261,
             4167468287030.2075, 4102264162505.8833, 3747369928484.789,
@@ -265,32 +302,87 @@ class TestCalcCellCounts(TestCase):
             8914117.253274327, 8768657.583752317]
     }
 
-    # def _get_cols_and_samples_df(self, col_names, sample_names):
+    # This dict contains the results of calculations done on example1 and
+    # filtered example2 data, in the order that they appear in biom outputs,
+    # which are alphabetized by ogu
+    reordered_results_dict = {
+        SAMPLE_ID_KEY: ["example1", "example2"],
+        # in a biom table, results are ordered alphabetically
+        OGU_ID_KEY: [
+            'Escherichia coli', 'Fusobacterium periodonticum',
+            'Haemophilus influenzae', 'Lactobacillus gasseri',
+            'Leptolyngbya valderiana', 'Neisseria flavescens',
+            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
+            'Ruminococcus albus', 'Streptococcus mitis',
+            'Streptococcus pneumoniae', 'Tyzzerella nexilis',
+            'Veillonella dispar'],
+        # The values in the first position of each sub-array below is that from
+        # that ogu in self.example1_ogu_full_outputs_full_avogadro_dict,
+        # while the value in the second position of each sub-array below is
+        # that from that ogu in
+        # self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict.  Note
+        # that with reordering, the 4th sub-array is the one for L. gasseri,
+        # the 5th is for L. valderiana, and the 9th is for R. albus.
+        OGU_CELLS_PER_G_OF_GDNA_KEY: [
+            [21897704979729.094, 7101240813289.261],
+            [7100063146106.998, 40527863244164.32],
+            [5718752608946.0205, np.nan],
+            [52695192015949.67, 17086455403978.045],
+            [11223075218306.252, 3613767901730.258],
+            [9289882608698.639, 3004973286163.8184],
+            [10879422748260.775, np.nan],
+            [12674159207435.06, 4102264162505.8833],
+            [27710822536547.69, 8987677125515.266],
+            [11582576292095.531, 3747369928484.789],
+            [5809957491032.718, 1877803149989.8623],
+            [12866488251594.062, 4167468287030.2075],
+            [5715054273735.247, 1847161346896.6194]],
+    }
 
-    def _copy_and_combine(self, col_name):
-        example1_copy = self.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy()
-        example2_copy = self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[col_name].copy()
-        example1_copy.extend(example2_copy)
-        return example1_copy
-
-    def _combine_examples_1_and_2(self):
-        sample_names = self._generate_sample_names_list(
-            ["example1", "example2"],
-            [self.example1_ogu_full_inputs_dict,
-             self.example2_ogu_full_inputs_dict])
-
+    def _combine_inputs(self):
+        sample_names = self._generate_sample_names_list(use_filtered_ex2=False)
+        col_list = [OGU_ID_KEY, OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY]
+        parallel_dicts_list = [self.example1_ogu_full_inputs_dict,
+                               self.example2_ogu_full_inputs_dict]
         input_dict = {SAMPLE_ID_KEY: sample_names}
-
-        cols_dict = self._extract_cols_from_parallel_dicts(
-            [OGU_ID_KEY, OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY],
-            [self.example1_ogu_full_inputs_dict,
-             self.example2_ogu_full_inputs_dict]
-        )
-        input_dict.update(cols_dict)
+        for col_name in col_list:
+            curr_col_list = []
+            for curr_dict in parallel_dicts_list:
+                curr_col_list.extend(curr_dict[col_name].copy())
+            input_dict[col_name] = curr_col_list
 
         return input_dict
 
-    def _generate_sample_names_list(self, sample_names, parallel_dicts_list):
+    def _combine_filtered_out(self, col_name):
+        example1_copy = (
+            self.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
+        example2_copy = (
+            self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[
+                col_name].copy())
+        example1_copy.extend(example2_copy)
+        return example1_copy
+
+    def _make_combined_counts_np_array(self):
+        # combine each item in the OGU_READ_COUNT_KEY array for
+        # self.example1_ogu_full_inputs_dict with the analogous item in
+        # self.example2_ogu_full_inputs_dict to make an array of two-item
+        # arrays, and turn this into an np.array
+        counts_array = np.array(
+            [list(x) for x in zip(
+                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
+                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
+        return counts_array
+
+    def _generate_sample_names_list(self, use_filtered_ex2=True):
+        sample_names = ["example1", "example2"]
+        parallel_dicts_list = [self.example1_ogu_full_inputs_dict]
+        if use_filtered_ex2:
+            parallel_dicts_list.append(
+                self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict)
+        else:
+            parallel_dicts_list.append(
+                self.example2_ogu_full_inputs_dict)
+
         output = []
         for curr_index in range(len(sample_names)):
             curr_sample_name = sample_names[curr_index]
@@ -299,74 +391,6 @@ class TestCalcCellCounts(TestCase):
                                range(len(curr_parallel_dict[OGU_ID_KEY]))]
             output.extend(curr_names_list)
         return output
-
-    def _extract_cols_from_parallel_dicts(
-            self, col_names, parallel_dicts_list):
-
-        input_dict = {}
-        for col_name in col_names:
-            curr_col_list = []
-            for curr_dict in parallel_dicts_list:
-                curr_col_list.extend(curr_dict[col_name].copy())
-            input_dict[col_name] = curr_col_list
-
-        return input_dict
-
-
-    def _make_np_array_of_examples_1_and_2_counts(self):
-        # combine each item in the OGU_READ_COUNT_KEY array for
-        # self.example1_ogu_full_inputs_dict with the analogous item in
-        # self.example2_ogu_full_inputs_dict to make an array of two-item arrays, and
-        # turn this into an np.array
-        counts_array = np.array(
-            [list(x) for x in zip(
-                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
-                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
-        return counts_array
-
-    # def _make_test_ogu_cell_counts_per_g_gdna_output_biom(self):
-    #     # Note that, in the output, the ogu_ids are apparently sorted
-    #     # alphabetically--different than the input order
-    #     ogu_ids_for_cell_counts_per_g_gdna = [
-    #         'Escherichia coli', 'Fusobacterium periodonticum',
-    #         'Haemophilus influenzae', 'Lactobacillus gasseri',
-    #         'Leptolyngbya valderiana', 'Neisseria flavescens',
-    #         'Neisseria subflava', 'Prevotella sp. oral taxon 299',
-    #         'Ruminococcus albus', 'Streptococcus mitis',
-    #         'Streptococcus pneumoniae', 'Tyzzerella nexilis',
-    #         'Veillonella dispar']
-    #
-    #     # with the re-ordering, the 4th sub-array is the one for L. gasseri,
-    #     # the 8th is for L. valderiana, and the 9th is for R. albus.
-    #     ogu_cell_counts_per_g_gdna = np.array([
-    #         [21897704979729.0937500000, 7101240813289.2607421875],
-    #         [7100063146106.9980468750, 40527863244164.3203125000],
-    #         [5718752608946.0205078125, np.nan],
-    #         [52695192015949.6718750000, 17086455403978.0449218750],
-    #         [11223075218306.2519531250, 3613767901730.2578125000],
-    #         [9289882608698.6386718750, 3004973286163.8183593750],
-    #         [10879422748260.7753906250, np.nan],
-    #         [12674159207435.0605468750, 4102264162505.8833007812],
-    #         [27710822536547.6914062500, 8987677125515.2656250000],
-    #         [11582576292095.5312500000, 3747369928484.7890625000],
-    #         [5809957491032.7177734375, 1877803149989.8623046875],
-    #         [12866488251594.0625000000, 4167468287030.2075195312],
-    #         [5715054273735.2470703125, 1847161346896.6193847656]])
-    #
-    #     expected_out_biom = biom.table.Table(
-    #         ogu_cell_counts_per_g_gdna, ogu_ids_for_cell_counts_per_g_gdna,
-    #         params_dict[SAMPLE_ID_KEY])
-
-
-    # def _test(self, col_name):
-    #     # get the array for the input column name from the example 1 dict
-    #     # get the array for the input column name from the example 2 dict
-    #     # get the ogu ids from example 1 and from example 2 and compare them
-    #     # if they aren't equal, stop
-    #     # if they are equal, make a new dataframe with the ogu ids and the
-    #     # two arrays as columns
-    #     # sort the dataframe by the ogu ids
-    #     # output the two sorted columns as a numpy array
 
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -400,62 +424,70 @@ class TestCalcCellCounts(TestCase):
                                 decimal=decimal_precision)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita(self):
-        sample_id_dict = {
-            SAMPLE_ID_KEY: ["example1", "example4"],
-            SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.029491697],
-        }
-
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["example1", "example4"],
-            GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
-            ELUTE_VOL_UL_KEY: [100, 70],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238]
-        }
-
-        ogu_ids = ["Lactobacillus gasseri", "Ruminococcus albus",
-                   "Escherichia coli", "Tyzzerella nexilis",
-                   "Prevotella sp. oral taxon 299",
-                   "Streptococcus mitis", "Leptolyngbya valderiana",
-                   "Neisseria subflava", "Neisseria flavescens",
-                   "Fusobacterium periodonticum",
-                   "Streptococcus pneumoniae", "Haemophilus influenzae",
-                   "Veillonella dispar"]
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
         sample_ids = ["example1", "example4"]
-        counts_vals = self._make_np_array_of_examples_1_and_2_counts()
+        sample_info_dict = {k: self.sample_and_prep_input_dict[k].copy() for k in
+                            [SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+        sample_info_dict[SAMPLE_ID_KEY] = sample_ids
 
-        ogu_ids_for_cell_counts_per_g_sample = [
-            'Escherichia coli', 'Fusobacterium periodonticum',
-            'Haemophilus influenzae', 'Lactobacillus gasseri',
-            'Leptolyngbya valderiana', 'Neisseria flavescens',
-            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
-            'Ruminococcus albus', 'Streptococcus mitis',
-            'Streptococcus pneumoniae', 'Tyzzerella nexilis',
-            'Veillonella dispar']
+        prep_info_dict = {k: self.sample_and_prep_input_dict[k].copy() for k in
+                          [GDNA_CONCENTRATION_NG_UL_KEY,
+                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
 
+        # example4 has the same counts as example2
+        counts_vals = self._make_combined_counts_np_array()
+
+        # NB: The test values for example1 here are *slightly* different than
+        # those in self.example1_ogu_full_outputs_full_avogadro_dict because
+        # the gdna-to-sample mass ratio calculated internally during this
+        # soup-to-nuts function has more digits past the decimal than does the
+        # example1 entry in the manually-populated self.mass_ratio_dict.
+        # Since we are multiplying/dividing by large numbers like e.g., 10^9
+        # (to change ng to g), this ends up making a slight difference in the
+        # end product: for example, for L.gasseri,
+        # 3787068*15* cells instead of 3787068*09* cells,
+        # 80657360 instead of 80657358 for L. valderiana,
+        # and 199150566 instead of 199150563 for R. albus.
+        # The values for example 4 are about an order of magnitude smaller
+        # than those for example 1 and thus match those from
+        # "absolute_quant_example.xlsx" more closely:
+        # both 56777765 for L. gasseri (with rounding),
+        # 12008439 instead of 12008440 for L. valderiana,
+        # and both 29865774 for R. albus.
+        # Remember, with reordering, the 4th sub-array is for L. gasseri,
+        # the 5th is for L. valderiana, and the 9th is for R. albus.
         ogu_cell_counts_per_g_sample = np.array([
-            [1569.79750433, 1057.23517618],
-            [508.98765043, 6033.80222748],
-            [409.96458678, np.nan],
-            [3777.6004834, 2543.83736086],
-            [804.55716637, 538.01900889],
-            [665.97091102, 447.38145701],
-            [779.92148924, np.nan],
-            [908.58213277, 610.74650031],
-            [1986.52690321, 1338.08846356],
-            [830.32899447, 557.90972461],
-            [416.50286083, 279.56797921],
-            [922.36977187, 620.45411280],
-            [409.69946139, 275.00601702]])
+            [157373183.3914873, 23597204.3149076],
+            [51026330.8697321, 134672840.2210325],
+            [41099206.6945521, np.nan],
+            [378706815.3787082, 56777764.5887874],
+            [80657360.0375914, 12008439.3369959],
+            [66764001.1050239, 9985433.5965833],
+            [78187617.9691203, np.nan],
+            [91085928.0975326, 13631697.3528372],
+            [199150566.7379318, 29865774.0278729],
+            [83241001.9519951, 12452394.7533948],
+            [41754672.7649972, 6239881.9809863],
+            [92468147.5568761, 13848368.6486051],
+            [41072627.7089503, 6138060.2138924]])
 
-        sample_info_df = pd.DataFrame(sample_id_dict)
+        sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
-        counts_biom = biom.table.Table(counts_vals, ogu_ids, sample_ids)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            self.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
-            ogu_cell_counts_per_g_sample, ogu_ids_for_cell_counts_per_g_sample,
+            ogu_cell_counts_per_g_sample,
+            self.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
         read_len = 150
@@ -478,19 +510,16 @@ class TestCalcCellCounts(TestCase):
             output_dict[CELL_COUNT_LOG_KEY])
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
-        sample_id_dict = {
-            SAMPLE_ID_KEY: ["example1", "example2"],
-        }
+        # missing a required column column
+        sample_info_dict = {k: self.sample_and_prep_input_dict for k in
+                            [SAMPLE_ID_KEY]}
 
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["example1", "example2"],
-            GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
-            ELUTE_VOL_UL_KEY: [100, 100],
-            SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76]
-        }
+        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                          [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
 
-        counts_vals = self._make_np_array_of_examples_1_and_2_counts()
-        sample_info_df = pd.DataFrame(sample_id_dict)
+        counts_vals = self._make_combined_counts_np_array()
+        sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
@@ -511,18 +540,16 @@ class TestCalcCellCounts(TestCase):
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
-        sample_id_dict = {
-            SAMPLE_ID_KEY: ["example1", "example2"],
-            SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.029491697],
-        }
+        sample_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                            [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["example1", "example2"],
-            GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
-        }
-        counts_vals = self._make_np_array_of_examples_1_and_2_counts()
+        # missing required columns
+        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                          [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY]}
 
-        sample_info_df = pd.DataFrame(sample_id_dict)
+        counts_vals = self._make_combined_counts_np_array()
+
+        sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
@@ -543,38 +570,12 @@ class TestCalcCellCounts(TestCase):
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_biom(self):
-        params_dict = {
-            SAMPLE_ID_KEY: ["example1", "example2"],
-            GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
-            SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, 0.029491697],
-            ELUTE_VOL_UL_KEY: [100, 70],
-            SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76]
-        }
-        counts_vals = self._make_np_array_of_examples_1_and_2_counts()
+        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                       [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+                        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
 
-        ogu_ids_for_cell_counts_per_g_gdna = [
-            'Escherichia coli', 'Fusobacterium periodonticum',
-            'Haemophilus influenzae', 'Lactobacillus gasseri',
-            'Leptolyngbya valderiana', 'Neisseria flavescens',
-            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
-            'Ruminococcus albus', 'Streptococcus mitis',
-            'Streptococcus pneumoniae', 'Tyzzerella nexilis',
-            'Veillonella dispar']
-
-        ogu_cell_counts_per_g_gdna = np.array([
-            [21897704979729.0937500000, 7101240813289.2607421875],
-            [7100063146106.9980468750, 40527863244164.3203125000],
-            [5718752608946.0205078125, np.nan],
-            [52695192015949.6718750000, 17086455403978.0449218750],
-            [11223075218306.2519531250, 3613767901730.2578125000],
-            [9289882608698.6386718750, 3004973286163.8183593750],
-            [10879422748260.7753906250, np.nan],
-            [12674159207435.0605468750, 4102264162505.8833007812],
-            [27710822536547.6914062500, 8987677125515.2656250000],
-            [11582576292095.5312500000, 3747369928484.7890625000],
-            [5809957491032.7177734375, 1877803149989.8623046875],
-            [12866488251594.0625000000, 4167468287030.2075195312],
-            [5715054273735.2470703125, 1847161346896.6193847656]])
+        counts_vals = self._make_combined_counts_np_array()
 
         params_df = pd.DataFrame(params_dict)
         counts_biom = biom.table.Table(
@@ -585,8 +586,9 @@ class TestCalcCellCounts(TestCase):
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
-            ogu_cell_counts_per_g_gdna, ogu_ids_for_cell_counts_per_g_gdna,
-            params_dict[SAMPLE_ID_KEY])
+            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            self.reordered_results_dict[OGU_ID_KEY],
+            self.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -611,6 +613,8 @@ class TestCalcCellCounts(TestCase):
             output_msgs)
 
     def test_calc_ogu_cell_counts_biom_w_cast(self):
+        # these values are the same as those in self.sample_and_prep_input_dict
+        # except that some of them are represented as strings instead of #s
         params_dict = {
             SAMPLE_ID_KEY: ["example1", "example2"],
             GDNA_CONCENTRATION_NG_UL_KEY: ["2", 1.4],
@@ -619,31 +623,7 @@ class TestCalcCellCounts(TestCase):
             SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, "4.76"]
         }
 
-        counts_vals = self._make_np_array_of_examples_1_and_2_counts()
-
-        ogu_ids_for_cell_counts_per_g_gdna = [
-            'Escherichia coli', 'Fusobacterium periodonticum',
-            'Haemophilus influenzae', 'Lactobacillus gasseri',
-            'Leptolyngbya valderiana', 'Neisseria flavescens',
-            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
-            'Ruminococcus albus', 'Streptococcus mitis',
-            'Streptococcus pneumoniae', 'Tyzzerella nexilis',
-            'Veillonella dispar']
-
-        ogu_cell_counts_per_g_gdna = np.array([
-            [21897704979729.0937500000, 7101240813289.2607421875],
-            [7100063146106.9980468750, 40527863244164.3203125000],
-            [5718752608946.0205078125, np.nan],
-            [52695192015949.6718750000, 17086455403978.0449218750],
-            [11223075218306.2519531250, 3613767901730.2578125000],
-            [9289882608698.6386718750, 3004973286163.8183593750],
-            [10879422748260.7753906250, np.nan],
-            [12674159207435.0605468750, 4102264162505.8833007812],
-            [27710822536547.6914062500, 8987677125515.2656250000],
-            [11582576292095.5312500000, 3747369928484.7890625000],
-            [5809957491032.7177734375, 1877803149989.8623046875],
-            [12866488251594.0625000000, 4167468287030.2075195312],
-            [5715054273735.2470703125, 1847161346896.6193847656]])
+        counts_vals = self._make_combined_counts_np_array()
 
         params_df = pd.DataFrame(params_dict)
         counts_biom = biom.table.Table(
@@ -654,8 +634,9 @@ class TestCalcCellCounts(TestCase):
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
-            ogu_cell_counts_per_g_gdna, ogu_ids_for_cell_counts_per_g_gdna,
-            params_dict[SAMPLE_ID_KEY])
+            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            self.reordered_results_dict[OGU_ID_KEY],
+            self.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -688,46 +669,43 @@ class TestCalcCellCounts(TestCase):
                 self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
         }
 
+        ogu_masses = \
+            self.example1_ogu_full_outputs_short_avogadro_dict[
+                OGU_GDNA_MASS_NG_KEY].copy()
+        # NB: The example2 test values were NOT verified manually.  They
+        # are what the code that produces correct results for all the
+        # values downstream of these values produces for these values.
+        ogu_masses.extend([
+            0.16721225613234225, 0.20196161687112832, 0.1836288899469535,
+            0.08266911949481899, 0.051700594315481685, 0.03910745610301345,
+            0.0016573186101851826, 0.03403997782058165, 0.517402166874799,
+            0.01986227733996378, 0.02008659206780049])
+
         # NB: this test is NOT using the truncated version of Avogadro's # that
         # was used in the notebook, so the results are slightly different
         # (but more realistic)
         expected_dict = {
-            OGU_ID_KEY: self._copy_and_combine(OGU_ID_KEY),
-            SAMPLE_ID_KEY: self._generate_sample_names_list(
-                ["example1", "example2"],
-                [self.example1_ogu_full_inputs_dict,
-                 self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict]
-            ),
+            OGU_ID_KEY: self._combine_filtered_out(OGU_ID_KEY),
+            SAMPLE_ID_KEY: self._generate_sample_names_list(),
             OGU_READ_COUNT_KEY: SparseArray(
-                self._copy_and_combine(OGU_READ_COUNT_KEY)),
-            OGU_LEN_IN_BP_KEY: self._copy_and_combine(OGU_LEN_IN_BP_KEY),
+                self._combine_filtered_out(OGU_READ_COUNT_KEY)),
+            OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
-                self._copy_and_combine(TOTAL_OGU_READS_KEY)),
+                self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
             OGU_COVERAGE_KEY: SparseArray(
-                self._copy_and_combine(OGU_COVERAGE_KEY)),
-            # TODO: explain where these values come from
-            OGU_GDNA_MASS_NG_KEY: SparseArray([
-                0.5416891942771875, 0.6540844812825629, 0.5947965220578094,
-                0.2680983170185054, 0.1677853825023546, 0.12697002941967078,
-                0.005406555633934385, 0.1346293392882954, 0.11054062877622502,
-                0.09521377825242425, 0.06455278517415271, 0.05187010729728739,
-                0.06528070535624647,
-                0.16721225613234225, 0.20196161687112832, 0.1836288899469535,
-                0.08266911949481899, 0.051700594315481685, 0.03910745610301345,
-                0.0016573186101851826, 0.03403997782058165, 0.517402166874799,
-                0.01986227733996378, 0.02008659206780049]),
+                self._combine_filtered_out(OGU_COVERAGE_KEY)),
+            OGU_GDNA_MASS_NG_KEY: SparseArray(ogu_masses),
             OGU_GENOMES_PER_G_OF_GDNA_KEY: SparseArray(
-                self._copy_and_combine(OGU_GENOMES_PER_G_OF_GDNA_KEY)),
+                self._combine_filtered_out(OGU_GENOMES_PER_G_OF_GDNA_KEY)),
             OGU_CELLS_PER_G_OF_GDNA_KEY: SparseArray(
-                self._copy_and_combine(OGU_CELLS_PER_G_OF_GDNA_KEY)),
+                self._combine_filtered_out(OGU_CELLS_PER_G_OF_GDNA_KEY)),
             OGU_CELLS_PER_G_OF_SAMPLE_KEY: SparseArray(
-                self._copy_and_combine(OGU_CELLS_PER_G_OF_SAMPLE_KEY)
-            )
+                self._combine_filtered_out(OGU_CELLS_PER_G_OF_SAMPLE_KEY))
         }
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
+        mass_ratio_df = pd.DataFrame(self.mass_ratio_dict)
         lengths_df = pd.DataFrame(self.ogu_lengths_dict)
         expected_df = pd.DataFrame(expected_dict)
 
@@ -788,19 +766,15 @@ class TestCalcCellCounts(TestCase):
         }
 
         expected_out_dict = {
-            OGU_ID_KEY: self._copy_and_combine(OGU_ID_KEY),
-            SAMPLE_ID_KEY: self._generate_sample_names_list(
-                ["example1", "example2"],
-                [self.example1_ogu_full_inputs_dict,
-                 self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict]
-            ),
+            OGU_ID_KEY: self._combine_filtered_out(OGU_ID_KEY),
+            SAMPLE_ID_KEY: self._generate_sample_names_list(),
             OGU_READ_COUNT_KEY: SparseArray(
-                self._copy_and_combine(OGU_READ_COUNT_KEY)),
-            OGU_LEN_IN_BP_KEY: self._copy_and_combine(OGU_LEN_IN_BP_KEY),
+                self._combine_filtered_out(OGU_READ_COUNT_KEY)),
+            OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
-                self._copy_and_combine(TOTAL_OGU_READS_KEY)),
+                self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
             OGU_COVERAGE_KEY: SparseArray(
-                self._copy_and_combine(OGU_COVERAGE_KEY))
+                self._combine_filtered_out(OGU_COVERAGE_KEY))
         }
 
         counts_df = pd.DataFrame(counts_dict)
@@ -896,9 +870,9 @@ class TestCalcCellCounts(TestCase):
             output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample(self):
-        input_dict = self._combine_examples_1_and_2()
+        input_dict = self._combine_inputs()
         input_df = pd.DataFrame(input_dict)
-        mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
+        mass_ratio_df = pd.DataFrame(self.mass_ratio_dict)
 
         expected_additions_dict = {
             k: self.example1_ogu_full_outputs_short_avogadro_dict[k] for k in
@@ -922,7 +896,7 @@ class TestCalcCellCounts(TestCase):
         self.assertListEqual([], output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample_w_log_msgs_no_model(self):
-        input_dict = self._combine_examples_1_and_2()
+        input_dict = self._combine_inputs()
         input_df = pd.DataFrame(input_dict)
         mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
 
@@ -942,7 +916,7 @@ class TestCalcCellCounts(TestCase):
             ["No linear regression fitted for sample example1"], output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample_w_log_msgs_low_rsquared(self):
-        input_dict = self._combine_examples_1_and_2()
+        input_dict = self._combine_inputs()
         input_df = pd.DataFrame(input_dict)
         mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
 
