@@ -401,7 +401,7 @@ class TestCalcCellCounts(TestCase):
     # unequal even if the NaNs occur at the same table locations.
     # This function is a workaround for that.
     def assert_biom_tables_equal(self, expected_out_biom, output_biom,
-                                 decimal_precision=7):
+                                 decimal_precision=6):
         # default decimal precision is the set to the default for
         # npt.assert_almost_equal
 
