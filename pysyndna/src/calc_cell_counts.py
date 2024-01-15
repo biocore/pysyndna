@@ -7,8 +7,9 @@ import yaml
 from typing import Optional
 
 from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, \
-    _validate_required_columns_exist
+    SYNDNA_POOL_MASS_NG_KEY, _validate_required_columns_exist
 
+DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE = 0.05
 DEFAULT_READ_LENGTH = 150
 DEFAULT_MIN_COVERAGE = 1
 DEFAULT_MIN_RSQUARED = 0.8
@@ -19,7 +20,11 @@ CELL_COUNT_LOG_KEY = 'calc_cell_counts_log'
 GDNA_CONCENTRATION_NG_UL_KEY = 'extracted_gdna_concentration_ng_ul'
 SAMPLE_IN_ALIQUOT_MASS_G_KEY = 'calc_mass_sample_aliquot_input_g'
 ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
-SAMPLE_CONCENTRATION_NG_UL_KEY = 'sample_concentration_ng_ul'
+GDNA_FROM_ALIQUOT_MASS_G_KEY = 'extracted_gdna_concentration_g'
+# NB: below is NOT the full mass of gDNA extracted from the sample, but
+# ONLY the mass of gDNA that was put into sequencing. This mass should
+# NOT include the additional mass of the syndna pool added to sequencing.
+SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY = 'sequenced_sample_gdna_mass_ng'
 OGU_ID_KEY = 'ogu_id'
 OGU_READ_COUNT_KEY = 'ogu_read_count'
 OGU_CPM_KEY = 'ogu_CPM'
@@ -32,6 +37,9 @@ OGU_GDNA_MASS_NG_KEY = 'ogu_gdna_mass_ng'
 OGU_GENOMES_PER_G_OF_GDNA_KEY = 'ogu_genomes_per_g_of_gdna'
 OGU_CELLS_PER_G_OF_GDNA_KEY = 'ogu_cells_per_g_of_gdna'
 OGU_CELLS_PER_G_OF_SAMPLE_KEY = 'ogu_cells_per_g_of_sample'
+# NB: below is based on the full mass of gDNA extracted from the sample
+# (NOT limited to the amount of gDNA that was put into sequencing, unlike
+# SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY)
 GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY = 'gdna_mass_to_sample_mass_ratio'
 
 
@@ -43,7 +51,9 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         ogu_lengths_fp: str,
         read_length: int = DEFAULT_READ_LENGTH,
         min_coverage: float = DEFAULT_MIN_COVERAGE,
-        min_rsquared: float = DEFAULT_MIN_RSQUARED) \
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
         -> dict[str, str | biom.Table]:
 
     """Gets # of cells of each OGU/g of sample for samples from Qiita.
@@ -56,7 +66,7 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     prep_info_df: pd.DataFrame
         Dataframe containing prep info for all samples in the prep,
         including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        and ELUTE_VOL_UL_KEY
+        ELUTE_VOL_UL_KEY, and SYNDNA_POOL_MASS_NG_KEY.
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
         dictionary keyed by sample id, containing for each sample a dictionary
@@ -76,6 +86,9 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
         from the output.
+    syndna_mass_fraction_of_sample: float
+        Fraction of the mass of the sample that is added as syndna (usually
+        0.05, which is to say 5%).
 
     Returns
     -------
@@ -94,10 +107,20 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         "sample info is missing required column(s)")
 
     required_prep_info_cols = [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-                               ELUTE_VOL_UL_KEY]
+                               ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]
     _validate_required_columns_exist(
         prep_info_df, required_prep_info_cols,
         "prep info is missing required column(s)")
+
+    # calculate the mass of gDNA sequenced for each sample.  We have the
+    # mass of syndna pool that was added to each sample, and we know that the
+    # syndna pool mass is calculated to be a certain percentage of the mass of
+    # the sample (added into the library prep in addition to the sample mass).
+    # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
+    # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
+    prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
+        prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
+        (1 / syndna_mass_fraction_of_sample)
 
     # merge the sample info and prep info dataframes
     absolute_quant_params_per_sample_df = \
@@ -140,8 +163,8 @@ def calc_ogu_cell_counts_biom(
     ----------
     absolute_quant_params_per_sample_df:  pd.DataFrame
         Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY, and ELUTE_VOL_UL_KEY for
-        each sample.
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, and
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     linregress_by_sample_id : dict[str, dict[str: float]]
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
@@ -176,19 +199,27 @@ def calc_ogu_cell_counts_biom(
     working_params_df = absolute_quant_params_per_sample_df.copy()
 
     # cast the GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
-    # and ELUTE_VOL_UL_KEY columns of params df to float if they aren't already
+    # ELUTE_VOL_UL_KEY, and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY columns of
+    # params df to float if they aren't already
     for col in [GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
-                ELUTE_VOL_UL_KEY]:
+                ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]:
         if working_params_df[col].dtype != float:
             working_params_df[col] = \
                 working_params_df[col].astype(float)
 
-    # calculate the ratio of gDNA mass to sample mass for each sample
+    # calculate the ratio of extracted gDNA mass to sample mass put into
+    # extraction for each sample
     gdna_mass_to_sample_mass_by_sample_series = \
         _calc_gdna_mass_to_sample_mass_by_sample_df(working_params_df)
-    gdna_mass_to_sample_mass_df = _series_to_df(
+    per_sample_mass_info_df = _series_to_df(
         gdna_mass_to_sample_mass_by_sample_series, SAMPLE_ID_KEY,
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)
+
+    # merge only the SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY column of
+    # working_params_df into gdna_mass_to_sample_mass_df by SAMPLE_ID_KEY
+    per_sample_mass_info_df = per_sample_mass_info_df.merge(
+        working_params_df[[SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]],
+        on=SAMPLE_ID_KEY, how='left')
 
     # convert input biom table to a dataframe with sparse columns, which
     # should act basically the same as a dense dataframe but use less memory
@@ -198,7 +229,7 @@ def calc_ogu_cell_counts_biom(
     ogu_cell_counts_long_format_df, log_msgs_list = (
         _calc_long_format_ogu_cell_counts_df(
             linregress_by_sample_id, ogu_counts_per_sample_df,
-            ogu_lengths_df, gdna_mass_to_sample_mass_df, read_length,
+            ogu_lengths_df, per_sample_mass_info_df, read_length,
             min_coverage, min_rsquared))
 
     ogu_cell_counts_wide_format_df = ogu_cell_counts_long_format_df.pivot(
@@ -218,7 +249,11 @@ def calc_ogu_cell_counts_biom(
 def _calc_gdna_mass_to_sample_mass_by_sample_df(
         absolute_quant_params_per_sample_df: pd.DataFrame) -> pd.Series:
 
-    """Calculates the ratio of gDNA mass to sample mass for each sample.
+    """Calculates ratio of extracted gDNA mass to sample mass for each sample.
+
+    Note that the sample mass is the mass of the sample material (only, not
+    buffer, tube, etc) that went into the extraction, which may be different
+    from the total mass of sample that was collected.
 
     Parameters
     ----------
@@ -235,26 +270,21 @@ def _calc_gdna_mass_to_sample_mass_by_sample_df(
     """
 
     working_df = absolute_quant_params_per_sample_df.copy()
-    # get the ngs of *sample* material that are represented by each uL of
-    # elute after extraction; this is sample-specific:
-    # (mass of sample material (only, not buffer, tube, label, etc) in g
-    # that went into the extraction, times 10^6 ng/g) divided by
-    # (volume of elute from the extraction in uL)
-    working_df[SAMPLE_CONCENTRATION_NG_UL_KEY] = \
-        (working_df[SAMPLE_IN_ALIQUOT_MASS_G_KEY] * 10 ** 6) / \
-        working_df[ELUTE_VOL_UL_KEY]
+
+    # get the total grams of gDNA that are in the elute after extraction;
+    # this is sample-specific:
+    # concentration of gDNA after extraction in ng/uL times volume of elute
+    # from the extraction in uL, times 1/10^9 g/ng
+    working_df[GDNA_FROM_ALIQUOT_MASS_G_KEY] = \
+        working_df[GDNA_CONCENTRATION_NG_UL_KEY] * \
+        working_df[ELUTE_VOL_UL_KEY] / 10 ** 9
 
     # determine how many mass units of gDNA are produced from the extraction of
     # each mass unit of sample material; this is sample-specific:
-    # ngs/uL of gDNA after extraction divided by ngs/uL of sample material
-    # Note that the units cancel out, leaving a unitless ratio, so it is true
-    # for any mass unit of interest (e.g., if the ratio is X, there are
-    # X grams of gDNA produced from the extraction of 1 gram of sample material
-    # and, likewise, X ng of gDNA produced from the extraction of 1 ng of
-    # sample material, etc.)
+    # grams of gDNA after extraction divided grams of sample material.
     gdna_mass_to_sample_mass_ratio = \
-        working_df[GDNA_CONCENTRATION_NG_UL_KEY] / \
-        working_df[SAMPLE_CONCENTRATION_NG_UL_KEY]
+        working_df[GDNA_FROM_ALIQUOT_MASS_G_KEY] / \
+        working_df[SAMPLE_IN_ALIQUOT_MASS_G_KEY]
 
     gdna_mass_to_sample_mass_ratio.name = GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY
     gdna_mass_to_sample_mass_ratio.index = working_df[SAMPLE_ID_KEY]
@@ -292,7 +322,7 @@ def _calc_long_format_ogu_cell_counts_df(
         linregress_by_sample_id: dict[str, dict[str, float]],
         ogu_counts_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
-        gdna_mass_to_sample_mass_by_sample_df: pd.DataFrame,
+        per_sample_mass_info_df: pd.DataFrame,
         read_length: int,
         min_coverage: float,
         min_rsquared: float) -> (pd.DataFrame | None, list[str]):
@@ -311,9 +341,9 @@ def _calc_long_format_ogu_cell_counts_df(
         that sample.
     ogu_lengths_df : pd.DataFrame
         Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
-    gdna_mass_to_sample_mass_by_sample_df : pd.DataFrame
-        Dataframe of SAMPLE_ID_KEY and gdna_mass_to_sample_mass_ratio for each
-        sample.
+    per_sample_mass_info_df : pd.DataFrame
+        Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     read_length : int
         Length of reads in bp (usually but not always 150).
     min_coverage : float
@@ -351,7 +381,7 @@ def _calc_long_format_ogu_cell_counts_df(
         # gDNA in this sample and also per gram of stool in this sample
         curr_sample_df, curr_log_msgs = _calc_ogu_cell_counts_df_for_sample(
             curr_sample_id, linregress_by_sample_id,
-            gdna_mass_to_sample_mass_by_sample_df, working_df, min_rsquared)
+            per_sample_mass_info_df, working_df, min_rsquared)
         log_messages_list.extend(curr_log_msgs)
         if curr_sample_df is None:
             log_messages_list.append(f"No cell counts calculated for "
@@ -457,7 +487,7 @@ def _prepare_cell_counts_calc_df(
 def _calc_ogu_cell_counts_df_for_sample(
         sample_id: str,
         linregress_by_sample_id: dict[str, dict[str, float]],
-        gdna_mass_to_sample_mass_by_sample_df: pd.DataFrame,
+        per_sample_mass_info_df: pd.DataFrame,
         working_df: pd.DataFrame,
         min_rsquared: float,
         is_test: Optional[bool] = False) -> (pd.DataFrame | None, list[str]):
@@ -472,9 +502,9 @@ def _calc_ogu_cell_counts_df_for_sample(
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
         representation of the sample's LinregressResult.
-    gdna_mass_to_sample_mass_by_sample_df : pd.DataFrame
-        Dataframe of SAMPLE_ID_KEY and GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY
-        for each sample.
+    per_sample_mass_info_df : pd.DataFrame
+        Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     working_df : pd.DataFrame
         Long-format dataframe with columns for OGU_ID_KEY, SAMPLE_ID_KEY,
         OGU_READ_COUNT_KEY, and OGU_LEN_IN_BP_KEY
@@ -529,9 +559,14 @@ def _calc_ogu_cell_counts_df_for_sample(
     sample_df[OGU_GDNA_MASS_NG_KEY] = \
         sample_df[OGU_ID_KEY].map(ogu_gdna_masses)
 
+    # get the mass of gDNA put into sequencing for this sample
+    sequenced_sample_gdna_mass_ng = per_sample_mass_info_df.loc[
+        per_sample_mass_info_df[SAMPLE_ID_KEY] == sample_id,
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY].values[0]
+
     # calc the # of genomes of each OGU per gram of gDNA in this sample
     ogu_genomes_per_gdnas = _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
-        sample_df, is_test=is_test)
+        sample_df, sequenced_sample_gdna_mass_ng, is_test=is_test)
     sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY] = \
         sample_df[OGU_ID_KEY].map(ogu_genomes_per_gdnas)
 
@@ -546,8 +581,8 @@ def _calc_ogu_cell_counts_df_for_sample(
 
     # calc the # of cells of each OGU per gram of actual sample material
     # (e.g., per gram of stool if these are fecal samples) for this sample
-    mass_ratio_for_sample = gdna_mass_to_sample_mass_by_sample_df.loc[
-        gdna_mass_to_sample_mass_by_sample_df[SAMPLE_ID_KEY] == sample_id,
+    mass_ratio_for_sample = per_sample_mass_info_df.loc[
+        per_sample_mass_info_df[SAMPLE_ID_KEY] == sample_id,
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY].values[0]
     sample_df[OGU_CELLS_PER_G_OF_SAMPLE_KEY] = \
         sample_df[OGU_CELLS_PER_G_OF_GDNA_KEY] * \
@@ -617,6 +652,7 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
 
 def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
         sample_df: pd.DataFrame,
+        total_sample_gdna_mass_ng: float,
         is_test: Optional[bool] = False) -> pd.Series:
 
     """Calculates # of OGU genomes per gram of gDNA for each OGU in a sample.
@@ -627,10 +663,12 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
         Dataframe with rows related to only a single sample, containing
         at least columns for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and
         OGU_GDNA_MASS_NG_KEY.
+    total_sample_gdna_mass_ng: float
+        Total mass of gDNA in the sample (across all OGUs) in ng. Note this
+        should NOT include the mass of the syndna added to the sample
     is_test: Optional[bool]
         Default is False.  If True, the function will use the less-precise
-        value of Avogadro's number (6.022*(10^23)) used in cell [5] of the
-        https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
+        value of Avogadro's number (6.022*(10^23)) used in cell [16] of the
         notebook, rather than the more precise value (6.02214076*(10^23))
         calculation used if False.  This is True in testing ONLY.
 
@@ -638,18 +676,60 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     -------
     ogu_genomes_per_g_of_gdna_series : pd.Series
         Series with index of OGU_ID_KEY and values of the number of genomes
-        of each OGU per gram of gDNA in the sample.
+        of each OGU per gram of gDNA of the sample.
+    """
 
-    This calculates the total number of genomes for each OGU in the sample
-    by the equation:
+    # calculate the number of genomes of each OGU in the sequenced sample
+    ogu_genomes_series_for_sample = \
+        _calc_ogu_genomes_series_for_sample(sample_df, is_test=is_test)
+
+    # the above is the number of genomes of each OGU that were found in all
+    # the sequnced sample gDNA; we want the number of genomes of each OGU
+    # per gram of gDNA in the sample, so we divide by the total gDNA mass
+    # in the sample (across all OGUs).  Note that both measurements are in ng.
+    ogu_genomes_per_ng_of_gdna_series = \
+        ogu_genomes_series_for_sample / total_sample_gdna_mass_ng
+
+    # to get the number of genomes per gram of gDNA, we multiply by 1e9
+    # (since there are 1e9 ng/gram)
+    ogu_genomes_per_g_of_gdna_series = \
+        ogu_genomes_per_ng_of_gdna_series * 1e9
+
+    return ogu_genomes_per_g_of_gdna_series
+
+
+def _calc_ogu_genomes_series_for_sample(
+        sample_df: pd.DataFrame,
+        is_test: Optional[bool] = False) -> pd.Series:
+
+    """Calculates # of OGU genomes for each OGU in a sequenced sample.
+
+    Parameters
+    ----------
+    sample_df: pd.DataFrame
+        Dataframe with rows related to only a single sample, containing
+        at least columns for OGU_ID_KEY, OGU_LEN_IN_BP_KEY, and
+        OGU_GDNA_MASS_NG_KEY.
+    is_test: Optional[bool]
+        Default is False.  If True, the function will use the less-precise
+        value of Avogadro's number (6.022*(10^23)) used in cell [16] of the
+        https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
+        notebook, rather than the more precise value (6.02214076*(10^23))
+        calculation used if False.  This is True in testing ONLY.
+
+    Returns
+    -------
+    ogu_genomes_series : pd.Series
+        Series with index of OGU_ID_KEY and values of the number of genomes
+        of each OGU in the sequenced sample.
+
+    This calculates the total number of genomes for each OGU in the sequenced
+    sample by the equation:
 
         mass of OGU's gDNA in ng * Avogadro's number in genomes/mole
     =	---------------------------------------------------------------
         length of OGU genome in basepairs *
             650 g/mole per basepair (on average) * 10^9 ng/g
-
-    = a result in units of genomes of OGU/g of gdna
-    ~= a result in units of cells of microbe/g of gdna
 
     NB: the constant factor on the bottom right MUST CHANGE if the
     units of the OGU gDNA mass are NOT nanograms!
@@ -680,11 +760,12 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
     #  (https://stackoverflow.com/a/58640340)
     #  What to do?
 
-    ogu_genomes_per_g_of_gdna_series = (
-            (sample_df[OGU_GDNA_MASS_NG_KEY] * avogadros_num) /
-            (sample_df[OGU_LEN_IN_BP_KEY] * 650 * 1e9))
+    numerator_series = sample_df[OGU_GDNA_MASS_NG_KEY] * avogadros_num
+    denominator_series = sample_df[OGU_LEN_IN_BP_KEY] * 650 * 1e9
+
+    ogu_genomes_series = numerator_series/denominator_series
 
     # Set the index of the series to be the OGU_ID_KEY
-    ogu_genomes_per_g_of_gdna_series.index = sample_df[OGU_ID_KEY]
+    ogu_genomes_series.index = sample_df[OGU_ID_KEY]
 
-    return ogu_genomes_per_g_of_gdna_series
+    return ogu_genomes_series

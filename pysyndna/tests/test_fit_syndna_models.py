@@ -1,4 +1,5 @@
 import biom.table
+import copy
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
@@ -16,6 +17,99 @@ from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
 
 
 class FitSyndnaModelsTest(TestCase):
+    # concentrations taken from table in Fig. 1A of
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9765022/
+    syndna_concs_dict = {
+        SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
+                        "p236", "p246", "p256", "p266"],
+        SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
+                                 0.001, 0.01, 0.1, 1],
+    }
+
+    # made-up placeholders :)
+    sample_ids = ["A", "B"]
+
+    # Total reads come from the "TotalReads" column of
+    # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
+    # for the record with "ID" = "A1_pool1_Fwd".
+    # Syndna pool mass is the default value expected in our experimental
+    # system.
+    a_sample_syndna_weights_and_total_reads_dict = {
+        SAMPLE_ID_KEY: [sample_ids[0]],
+        SYNDNA_TOTAL_READS_KEY: [3216923],
+        SYNDNA_POOL_MASS_NG_KEY: [0.25],
+    }
+
+    # Total reads come from the "TotalReads" column of
+    # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
+    # for the record with "ID" of "A1_pool1_Fwd" and "C1_pool1_Fwd".
+    # Syndna pool masses are plausible values for our experimental system.
+    a_b_sample_syndna_weights_and_total_reads_dict = {
+        SAMPLE_ID_KEY: sample_ids,
+        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+    }
+
+    # Total reads come from the "TotalReads" column of
+    # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
+    # for the record with "ID" of "A1_pool1_Fwd", "C1_pool1_Fwd", and
+    # "D1_pool1_Fwd".
+    # Syndna pool masses are plausible values for our experimental system.
+    a_b_c_sample_syndna_weights_and_total_reads_dict = {
+        SAMPLE_ID_KEY: [sample_ids[0], sample_ids[1], "C"],
+        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
+        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
+    }
+
+    # The below sample values come from the "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
+    # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
+    # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
+    # while the syndna ids are inferred from the contents of the "OTUID"
+    # column and a knowledge of the Zaramela naming scheme.
+    reads_per_syndna_per_sample_dict = {
+        SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
+                        "p236", "p246", "p256", "p266"],
+        sample_ids[0]: [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
+        sample_ids[1]: [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
+    }
+
+    # The slope, intercept, rvalue, stderr (of slope),
+    # intercept_stderr, and p-value (of slope) values for these results
+    # match those calculated in Excel (see results for full data
+    # on "linear regressions" sheet of "absolute_quant_example.xlsx").
+    # Note that these do not and *should* NOT be expected to match any results
+    # in Zaramela's linear models (see modelling_output.tsv) because
+    # (i) sample B is a chimera of realistic data from multiple Zaramela
+    # samples but isn't directly comparable to a single one of them, and
+    # (ii) sample A is directly comparable to Zaramela's sample
+    # "A1_pool1_Fwd" *but* we use a different pool mass than Zaramela,
+    # so the same syndna counts are based on different masses.
+    lingress_results = {
+        'A': LinregressResult(
+            slope=1.244876523791319, intercept=-6.7242381884894655,
+            rvalue=0.9865030975156575, pvalue=1.428443560659758e-07,
+            stderr=0.07305408550335003,
+            intercept_stderr=0.2361976278251443),
+        'B': LinregressResult(
+            slope=1.24675913604407, intercept=-7.155318973708384,
+            rvalue=0.9863241797356326, pvalue=1.505381146809759e-07,
+            stderr=0.07365795255302438,
+            intercept_stderr=0.2563956755844754)
+    }
+
+    prep_info_dict = copy.deepcopy(
+        a_b_sample_syndna_weights_and_total_reads_dict)
+    prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
+    prep_info_dict["syndna_pool_number"] = [1, 1]
+
+    # combine each item in self.reads_per_syndna_per_sample_dict["A"] with
+    # the analogous item in self.reads_per_syndna_per_sample_dict["B"]
+    # to make an array of two-item arrays, and turn this into an np.array
+    reads_per_syndna_per_sample_array = np.array(
+        [list(x) for x in zip(
+            reads_per_syndna_per_sample_dict["A"],
+            reads_per_syndna_per_sample_dict["B"])])
+
     def assert_lingressresult_dict_almost_equal(self, d1, d2, places=7):
         """Assert that two dicts of LinregressResult are almost equal.
 
@@ -67,32 +161,16 @@ class FitSyndnaModelsTest(TestCase):
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
     def test_fit_linear_regression_models_for_qiita(self):
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            "sequencing_type": ["16S", "16S"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-            SYNDNA_POOL_NUM_KEY: [1, 1]
-        }
-        prep_info_df = pd.DataFrame(prep_info_dict)
-
-        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
-                      "p236", "p246", "p256", "p266"]
-        sample_ids = ["A", "B"]
-        counts = np.array([[93135, 90897],
-                           [15190, 15002],
-                           [2447, 2421],
-                           [308, 296],
-                           [77, 77],
-                           [149, 148],
-                           [1075, 1059],
-                           [3189, 3129],
-                           [25347, 24856],
-                           [237329, 230898]]
-                          )
-        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        prep_info_df = pd.DataFrame(self.prep_info_dict)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
         min_counts = 50
 
+        # These are text versions of the linear regression results
+        # for the full data (see self.lingress_results and the
+        # "linear regressions" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
@@ -118,33 +196,18 @@ class FitSyndnaModelsTest(TestCase):
         self.assertDictEqual(expected_out, output_dict)
 
     def test_fit_linear_regression_models_for_qiita_w_alt_config(self):
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            "sequencing_type": ["16S", "16S"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-            SYNDNA_POOL_NUM_KEY: [1, 1]
-        }
-        prep_info_df = pd.DataFrame(prep_info_dict)
-
-        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
-                      "p236", "p246", "p256", "p266"]
-        sample_ids = ["A", "B"]
-        counts = np.array([[93135, 90897],
-                           [15190, 15002],
-                           [2447, 2421],
-                           [308, 296],
-                           [77, 77],
-                           [149, 148],
-                           [1075, 1059],
-                           [3189, 3129],
-                           [25347, 24856],
-                           [237329, 230898]]
-                          )
-        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        prep_info_df = pd.DataFrame(self.prep_info_dict)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
         min_counts = 50
         alt_config_fp = os.path.join(self.data_dir, 'alt_config.yml')
 
+        # these are the linear regression results for running the code
+        # using completely different (and spurious) syndna concentrations
+        # represented in an alternate config file. Don't use these results
+        # for anything else!
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
@@ -170,32 +233,16 @@ class FitSyndnaModelsTest(TestCase):
         self.assertDictEqual(expected_out, output_dict)
 
     def test_fit_linear_regression_models_for_qiita_w_log_msgs(self):
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            "sequencing_type": ["16S", "16S"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-            SYNDNA_POOL_NUM_KEY: [1, 1]
-        }
-        prep_info_df = pd.DataFrame(prep_info_dict)
-
-        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
-                      "p236", "p246", "p256", "p266"]
-        sample_ids = ["A", "B"]
-        counts = np.array([[93135, 90897],
-                           [15190, 15002],
-                           [2447, 2421],
-                           [308, 296],
-                           [77, 77],
-                           [149, 148],
-                           [1075, 1059],
-                           [3189, 3129],
-                           [25347, 24856],
-                           [237329, 230898]]
-                          )
-        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        prep_info_df = pd.DataFrame(self.prep_info_dict)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
         min_counts = 200
 
+        # These are text versions of the linear regression results
+        # for the data with syndnas with <200 total counts removed (see
+        # "linear regressions" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
@@ -223,30 +270,14 @@ class FitSyndnaModelsTest(TestCase):
         self.assertDictEqual(expected_out, output_dict)
 
     def test_fit_linear_regression_models_for_qiita_w_pool_error(self):
-        prep_info_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            "sequencing_type": ["16S", "16S"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-            SYNDNA_POOL_NUM_KEY: [1, 2]
-        }
+        prep_info_dict = copy.deepcopy(self.prep_info_dict)
+        prep_info_dict[SYNDNA_POOL_NUM_KEY] = [1, 2]
         prep_info_df = pd.DataFrame(prep_info_dict)
 
-        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
-                      "p236", "p246", "p256", "p266"]
-        sample_ids = ["A", "B"]
-        counts = np.array([[93135, 90897],
-                           [15190, 15002],
-                           [2447, 2421],
-                           [308, 296],
-                           [77, 77],
-                           [149, 148],
-                           [1075, 1059],
-                           [3189, 3129],
-                           [25347, 24856],
-                           [237329, 230898]]
-                          )
-        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
         min_counts = 50
 
         # NB: the error message is a regex, so we need to escape the brackets
@@ -260,79 +291,35 @@ class FitSyndnaModelsTest(TestCase):
     def test_fit_linear_regression_models_for_qiita_w_col_error(self):
         prep_info_dict = {
             SAMPLE_ID_KEY: ["A", "B"],
-            "sequencing_type": ["16S", "16S"],
+            "sequencing_type": ["shotgun", "shotgun"],
             SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
             SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
             # missing the SYNDNA_POOL_NUM_KEY column
         }
         prep_info_df = pd.DataFrame(prep_info_dict)
-
-        syndna_ids = ["p126", "p136", "p146", "p156", "p166", "p226",
-                      "p236", "p246", "p256", "p266"]
-        sample_ids = ["A", "B"]
-        counts = np.array([[93135, 90897],
-                           [15190, 15002],
-                           [2447, 2421],
-                           [308, 296],
-                           [77, 77],
-                           [149, 148],
-                           [1075, 1059],
-                           [3189, 3129],
-                           [25347, 24856],
-                           [237329, 230898]]
-                          )
-        input_biom = biom.table.Table(counts, syndna_ids, sample_ids)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
         min_counts = 50
 
         # NB: the error message is a regex, so we need to escape the brackets
         expected_err_msg = \
             r"prep info is missing required column\(s\): " \
-            r"\{'syndna_pool_number'\}"
+            r"\['syndna_pool_number'\]"
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models_for_qiita(
                 prep_info_df, input_biom, min_counts)
 
     def test_fit_linear_regression_models(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
         min_count = 50
 
-        expected_out = {
-            'A': LinregressResult(
-                slope=1.244876523791319, intercept=-6.7242381884894655,
-                rvalue=0.9865030975156575, pvalue=1.428443560659758e-07,
-                stderr=0.07305408550335003,
-                intercept_stderr=0.2361976278251443),
-            'B': LinregressResult(
-                slope=1.24675913604407, intercept=-7.155318973708384,
-                rvalue=0.9863241797356326, pvalue=1.505381146809759e-07,
-                stderr=0.07365795255302438,
-                intercept_stderr=0.2563956755844754)
-        }
-
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
         out_linregress_dict, out_msgs = fit_linear_regression_models(
@@ -341,31 +328,17 @@ class FitSyndnaModelsTest(TestCase):
             reads_per_syndna_per_sample_df, min_count)
 
         self.assert_lingressresult_dict_almost_equal(
-            expected_out, out_linregress_dict)
+            self.lingress_results, out_linregress_dict)
         self.assertEqual([], out_msgs)
 
     def test_fit_linear_regression_models_w_log_msgs(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B", "C"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
         min_count = 200
 
+        # The slope, intercept, rvalue, stderr (of slope),
+        # intercept_stderr, and p-value (of slope) values for these results
+        # match those calculated in Excel (see results for data with
+        # syndnas with <200 total counts removed on "linear regressions" sheet
+        # of "absolute_quant_example.xlsx").
         expected_out_dict = {
             'A': LinregressResult(
                 slope=1.2561949109446753, intercept=-6.7671601206840855,
@@ -385,11 +358,11 @@ class FitSyndnaModelsTest(TestCase):
             "200 total reads aligned:['p166']"
         ]
 
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_c_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
         out_linregress_dict, out_msgs = fit_linear_regression_models(
@@ -402,36 +375,21 @@ class FitSyndnaModelsTest(TestCase):
         self.assertEqual(expected_out_msgs, out_msgs)
 
     def test_fit_linear_regression_models_w_sample_error(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A"],
-            SYNDNA_TOTAL_READS_KEY: [3216923],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
         min_count = 200
+
+        # use self.a_sample_syndna_weights_and_total_reads_dict,
+        # which includes only info for sample A, not for sample B,
+        # which is in the data
 
         expected_err_msg = \
             r"Found sample ids in reads_per_syndna_per_sample_df that were " \
             r"not in sample_syndna_weights_and_total_reads_df: \{'B'\}"
 
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
@@ -443,24 +401,14 @@ class FitSyndnaModelsTest(TestCase):
     def test_fit_linear_regression_models_w_syndna_config_error(self):
         # syndnas in the data that aren't in the config
 
+        # These data are the same as those in
+        # self.reads_per_syndna_per_sample_dict EXCEPT for the deletion of
+        # elements for syndna id "p266".
         syndna_concs_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
                             "p236", "p246", "p256",],
             SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
                                      0.001, 0.01, 0.1],
-        }
-
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B", "C"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
         }
 
         min_count = 200
@@ -471,9 +419,9 @@ class FitSyndnaModelsTest(TestCase):
 
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_c_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
@@ -485,19 +433,9 @@ class FitSyndnaModelsTest(TestCase):
     def test_fit_linear_regression_models_w_syndna_data_error(self):
         # syndnas in the config that aren't in the data
 
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-        }
-
+        # These data are the same as those in
+        # self.reads_per_syndna_per_sample_dict EXCEPT for the deletion of
+        # elements for syndna id "p266".
         reads_per_syndna_per_sample_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
                             "p236", "p246", "p256"],
@@ -511,9 +449,9 @@ class FitSyndnaModelsTest(TestCase):
             r"Missing the following 1 required syndna feature\(s\) in the " \
             r"read data: \{'p266'\}"
 
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
@@ -525,23 +463,9 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df, min_count)
 
     def test__validate_syndna_id_consistency(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
-
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
 
         try:
             _validate_syndna_id_consistency(
@@ -550,13 +474,9 @@ class FitSyndnaModelsTest(TestCase):
             self.fail("Raised ValueError incorrectly")
 
     def test__validate_syndna_id_consistency_w_error_missing_data(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
+        # These data are the same as those in
+        # self.reads_per_syndna_per_sample_dict EXCEPT for the deletion of
+        # elements for syndna id "p266".
         reads_per_syndna_per_sample_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
                             "p236", "p246", "p256"],
@@ -564,7 +484,7 @@ class FitSyndnaModelsTest(TestCase):
             "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856],
         }
 
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
             reads_per_syndna_per_sample_dict)
 
@@ -578,6 +498,9 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df)
 
     def test__validate_syndna_id_consistency_w_error_missing_info(self):
+        # These data are the same as those in
+        # self.syndna_concs_dict EXCEPT for the deletion of
+        # elements for syndna id "p266".
         syndna_concs_dict = {
             SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
                             "p236", "p246", "p256"],
@@ -585,16 +508,9 @@ class FitSyndnaModelsTest(TestCase):
                                      0.001, 0.01, 0.1],
         }
 
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
-
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
 
         # NB: the error message is a regex, so we need to escape the brackets
         err_msg = r"Detected 1 syndna feature\(s\) in the read data " \
@@ -605,23 +521,10 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df)
 
     def test__validate_sample_id_consistency(self):
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
-
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
 
         try:
             output = _validate_sample_id_consistency(
@@ -634,23 +537,10 @@ class FitSyndnaModelsTest(TestCase):
         self.assertIsNone(output)
 
     def test__validate_sample_id_consistency_w_output(self):
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A", "B", "C"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
-
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_b_c_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
 
         try:
             output = _validate_sample_id_consistency(
@@ -664,23 +554,10 @@ class FitSyndnaModelsTest(TestCase):
         self.assertEqual(["C"], output)
 
     def test__validate_sample_id_consistency_w_error(self):
-        sample_syndna_weights_and_total_reads_dict = {
-            SAMPLE_ID_KEY: ["A"],
-            SYNDNA_TOTAL_READS_KEY: [3216923],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25],
-        }
-
-        reads_per_syndna_per_sample_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            "A": [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-            "B": [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-        }
-
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
-            sample_syndna_weights_and_total_reads_dict)
+            self.a_sample_syndna_weights_and_total_reads_dict)
         reads_per_syndna_per_sample_df = pd.DataFrame(
-            reads_per_syndna_per_sample_dict)
+            self.reads_per_syndna_per_sample_dict)
 
         err_msg = "Found sample ids in reads_per_syndna_per_sample_df " \
                   "that were not in sample_syndna_weights_and_total_reads_df"
@@ -690,13 +567,10 @@ class FitSyndnaModelsTest(TestCase):
                 reads_per_syndna_per_sample_df)
 
     def test__calc_indiv_syndna_weights(self):
-        syndna_concs_dict = {
-            SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-                            "p236", "p246", "p256", "p266"],
-            SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-                                     0.001, 0.01, 0.1, 1],
-        }
-
+        # The below values were made up using sample and syndna ids from the
+        # Zaramela data and masses (only two, one for each sample--they are
+        # just repeated for each syndna) that are realistic for our
+        # experimental system.
         working_dict = {
             SAMPLE_ID_KEY: ["A1_pool1_Fwd", "A1_pool1_Rev", "A1_pool1_Fwd",
                             "A1_pool1_Rev", "A1_pool1_Fwd", "A1_pool1_Rev",
@@ -714,10 +588,14 @@ class FitSyndnaModelsTest(TestCase):
                                       0.25, 0.2, 0.25, 0.2, 0.25, 0.2]
         }
 
+        # These test values come from the "linear regressions" tab of the
+        # absolute_quant_example.xlsx file.
         expected_addl_dict = {
             SYNDNA_INDIV_NG_UL_KEY: [1, 1, 0.1, 0.1, 0.01, 0.01, 0.001, 0.001,
                                      0.0001, 0.0001, 0.0001, 0.0001, 0.001,
                                      0.001, 0.01, 0.01, 0.1, 0.1, 1, 1],
+            # NB: the below values are perforce rounded since the division
+            # produces a repeating decimal, e.g. 0.45000450004500045 ...)
             SYNDNA_FRACTION_OF_POOL_KEY: [0.4500045, 0.4500045, 0.04500045,
                                           0.04500045, 0.004500045, 0.004500045,
                                           0.000450005, 0.000450005,
@@ -736,7 +614,7 @@ class FitSyndnaModelsTest(TestCase):
                                   0.112501125, 0.0900009]
         }
 
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         working_df = pd.DataFrame(working_dict)
 
         output_df = _calc_indiv_syndna_weights(syndna_concs_df, working_df)
@@ -746,6 +624,9 @@ class FitSyndnaModelsTest(TestCase):
         assert_frame_equal(expected_df, output_df)
 
     def test__fit_linear_regression_models(self):
+        # See input and output files for descriptions of the test data
+        # provenance; broadly, they are taken from the example notebook
+        # and results file at https://github.com/lzaramela/SynDNA/ .
         input_fp = os.path.join(self.data_dir, 'modelling_input.tsv')
         working_df = pd.read_csv(input_fp, sep="\t", comment="#")
 

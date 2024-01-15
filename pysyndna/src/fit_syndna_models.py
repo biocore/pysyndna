@@ -131,6 +131,7 @@ def _validate_required_columns_exist(
 
     missing_cols = set(required_cols_list) - set(input_df.columns)
     if len(missing_cols) > 0:
+        missing_cols = sorted(missing_cols)
         raise ValueError(
             f"{error_msg}: {missing_cols}")
 
@@ -208,8 +209,8 @@ def fit_linear_regression_models(
 
     log_messages_list = []
 
-    # id any samples that have an inadequate total number of reads aligned
-    # to syndna (i.e. less than min_sample_counts). Don't drop yet.
+    # id any syndnas that have an inadequate total number of reads aligned
+    # to them across all samples (less than min_sample_counts). Don't drop yet.
     # Gathering this now bc it is easier while syndna id is still in the index,
     # but we want the full column set while doing the validation checks.
     # Note: synDNA author also made passing mention of dropping samples with
@@ -403,7 +404,7 @@ def _calc_indiv_syndna_weights(
     # by summing up the concentrations of each individual syndna
     total_syndna_ng_per_ul = syndna_concs_df[SYNDNA_INDIV_NG_UL_KEY].sum()
 
-    # add a column for the unitless fraction of the syndna pool made up of
+    # add a column for the fraction of the syndna pool made up of
     # each individual syndna by dividing the syndna_ng_per_uL of each
     # syndna by the total_syndna_ng_per_ul for the pool
     syndna_concs_df[SYNDNA_FRACTION_OF_POOL_KEY] = (

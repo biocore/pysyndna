@@ -1,9 +1,9 @@
 # This file is based on 
 # https://github.com/lzaramela/SynDNA/blob/main/data/saliva_linear_models.tsv
 # with the values of the a_intercept and b_intercept columns negated 
-# (because the lzaramela code generates regression models that predict the
+# (because the Zaramela code generates regression models that predict the
 # *negative* log10 of the read weight while the code under test predicts just
-# log10 of the read weight.
+# log10 of the read weight.)
 # All other columns were deleted.
 ID	a_intercept	b_slope
 A1_pool1_Fwd	-6.775395054	1.244876524
