@@ -401,7 +401,7 @@ class TestCalcCellCounts(TestCase):
     # unequal even if the NaNs occur at the same table locations.
     # This function is a workaround for that.
     def assert_biom_tables_equal(self, expected_out_biom, output_biom,
-                                 decimal_precision=2):
+                                 decimal_precision=7):
         # default decimal precision is the set to the default for
         # npt.assert_almost_equal
 
@@ -605,7 +605,11 @@ class TestCalcCellCounts(TestCase):
             params_df, self.linregresses_dict, counts_biom, lengths_df,
             read_len, min_coverage, min_rsquared, output_metric)
 
-        self.assert_biom_tables_equal(expected_out_biom, output_biom)
+        # NB: only checking results to 2 decimals because Ubuntu and Mac
+        # differ past that point. Not that it matters much since the decimal
+        # portion of values this huge is not very important.
+        self.assert_biom_tables_equal(expected_out_biom, output_biom,
+                                      decimal_precision=2)
         self.assertListEqual(
             ["The following items have coverage lower than the minimum of 1: "
              "['example2;Neisseria subflava', "
