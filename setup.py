@@ -5,10 +5,12 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # ----------------------------------------------------------------------------
+import versioneer
 from setuptools import setup, find_packages
 
 setup(name='pysyndna',
-      version="0.1.0",
+      version=versioneer.get_version(),
+      cmdclass=versioneer.get_cmdclass(),
       long_description="A python implementation and extension of SynDNA "
                        "('a Synthetic DNA Spike-in Method for Absolute "
                        "Quantification of Shotgun Metagenomic Sequencing', "
