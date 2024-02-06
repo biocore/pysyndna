@@ -9,13 +9,13 @@ import os
 from unittest import TestCase
 from pysyndna import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita
-from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY
-from pysyndna.src.calc_cell_counts import OGU_ID_KEY, OGU_READ_COUNT_KEY, \
+from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
+    OGU_ID_KEY, OGU_READ_COUNT_KEY, \
     OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY, \
     SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, OGU_GENOMES_PER_G_OF_GDNA_KEY, \
     OGU_CELLS_PER_G_OF_GDNA_KEY, SYNDNA_POOL_MASS_NG_KEY, \
     GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, \
-    ELUTE_VOL_UL_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, \
+    GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, \
     OGU_CELLS_PER_G_OF_SAMPLE_KEY, TOTAL_OGU_READS_KEY, OGU_COVERAGE_KEY, \
     CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY, \
     _calc_long_format_ogu_cell_counts_df, \
@@ -392,9 +392,6 @@ class TestCalcCellCounts(TestCase):
             output.extend(curr_names_list)
         return output
 
-    def setUp(self):
-        self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
-
     # The built-in self.assertEqual works fine to compare biom tables that
     # don't have NaNs, but it doesn't work for tables that do have NaNs
     # because NaN != NaN so two tables that contain NaNs are by definition
@@ -422,6 +419,10 @@ class TestCalcCellCounts(TestCase):
         npt.assert_almost_equal(expected_out_biom.matrix_data.data[exp_an],
                                 output_biom.matrix_data.data[obs_an],
                                 decimal=decimal_precision)
+
+
+    def setUp(self):
+        self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita(self):
         # example4 is the same as example2 except that the elute volume is 70;
@@ -569,6 +570,41 @@ class TestCalcCellCounts(TestCase):
                 sample_info_df, prep_info_df, models_fp, counts_biom,
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_ids_err(self):
+        sample_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                            [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+
+        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                          [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+
+        counts_vals = self._make_combined_counts_np_array()
+
+        # remove one of the sample ids from the sample info; this will cause
+        # an error (whereas the reverse--sample id in sample info but not in
+        # prep info--will NOT)
+        sample_info_df = pd.DataFrame(sample_info_dict)
+        sample_info_df.drop(index=0, axis=0, inplace=True)
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            self.ogu_lengths_dict[OGU_ID_KEY],
+            prep_info_dict[SAMPLE_ID_KEY])
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        err_msg = (r"Found sample ids in prep info that were not in " 
+                   r"sample info: \{'example1'\}")
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+                sample_info_df, prep_info_df, models_fp, counts_biom,
+                lengths_fp, read_len, min_coverage, min_rsquared)
+
     def test_calc_ogu_cell_counts_biom(self):
         params_dict = {k: self.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
@@ -615,6 +651,77 @@ class TestCalcCellCounts(TestCase):
              "['example2;Neisseria subflava', "
              "'example2;Haemophilus influenzae']"],
             output_msgs)
+
+    def test_calc_ogu_cell_counts_biom_w_col_err(self):
+        # missing SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY col
+        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                       [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY]}
+
+        counts_vals = self._make_combined_counts_np_array()
+
+        params_df = pd.DataFrame(params_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            self.ogu_lengths_dict[OGU_ID_KEY],
+            params_dict[SAMPLE_ID_KEY])
+        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            self.reordered_results_dict[OGU_ID_KEY],
+            self.reordered_results_dict[SAMPLE_ID_KEY])
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+        output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
+
+        err_msg = r"sample info is missing required column\(s\): " \
+                  r"\['sequenced_sample_gdna_mass_ng'\]"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_biom(
+                params_df, self.linregresses_dict, counts_biom, lengths_df,
+                read_len, min_coverage, min_rsquared, output_metric)
+
+    def test_calc_ogu_cell_counts_biom_w_id_err(self):
+        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+                       [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+                        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
+
+        counts_vals = self._make_combined_counts_np_array()
+
+        # remove one of the sample ids from the params info; this will cause
+        # an error (whereas the reverse--sample id in params info but not in
+        # reads data--will NOT)
+        params_df = pd.DataFrame(params_dict)
+        params_df.drop(index=0, axis=0, inplace=True)
+
+        counts_biom = biom.table.Table(
+            counts_vals,
+            self.ogu_lengths_dict[OGU_ID_KEY],
+            params_dict[SAMPLE_ID_KEY])
+        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            self.reordered_results_dict[OGU_ID_KEY],
+            self.reordered_results_dict[SAMPLE_ID_KEY])
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+        output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
+
+        err_msg = (r"Found sample ids in reads data that were not in "
+                   r"sample info: \{'example1'\}")
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_biom(
+                params_df, self.linregresses_dict, counts_biom, lengths_df,
+                read_len, min_coverage, min_rsquared, output_metric)
 
     def test_calc_ogu_cell_counts_biom_w_cast(self):
         # these values are the same as those in self.sample_and_prep_input_dict

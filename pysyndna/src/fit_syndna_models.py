@@ -8,11 +8,11 @@ import scipy
 import yaml
 
 from typing import Optional
+from pysyndna.src.util import validate_required_columns_exist, \
+    validate_metadata_vs_reads_sample_id_consistency, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
-# NB: sample_name instead of sample_id bc that's what qiita uses
-SAMPLE_ID_KEY = 'sample_name'
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
@@ -26,6 +26,14 @@ SYNDNA_INDIV_NG_KEY = 'syndna_ng'
 LOG10_SYNDNA_INDIV_NG_KEY = 'log10_syndna_ng'
 LIN_REGRESS_RESULT_KEY = 'lin_regress_by_sample_id'
 FIT_SYNDNA_MODELS_LOG_KEY = 'fit_syndna_models_log'
+SLOPE_KEY = 'slope'
+INTERCEPT_KEY = 'intercept'
+RVALUE_KEY = 'rvalue'
+PVALUE_KEY = 'pvalue'
+STDERR_KEY = 'stderr'
+INTERCEPT_STDERR_KEY = 'intercept_stderr'
+REGRESSION_KEYS = [SLOPE_KEY, INTERCEPT_KEY, RVALUE_KEY, PVALUE_KEY,
+                   STDERR_KEY, INTERCEPT_STDERR_KEY]
 
 
 # TODO: if they sequenced over multiple lanes, would be different prep
@@ -62,7 +70,7 @@ def fit_linear_regression_models_for_qiita(
         Dictionary of output strings (ready to be written to files) keyed
         by the type of output they contain.  Currently, the following keys
         are defined:
-        LIN_REGRESS_RESULT_KEY: yaml of dict[str, dict[str, float]]
+        LIN_REGRESS_RESULT_KEY: yaml of dict[str, dict[str, float] | None]
         FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
     """
 
@@ -70,7 +78,7 @@ def fit_linear_regression_models_for_qiita(
     expected_prep_info_cols = [
         SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
         SYNDNA_TOTAL_READS_KEY]
-    _validate_required_columns_exist(
+    validate_required_columns_exist(
         prep_info_df, expected_prep_info_cols,
         "prep info is missing required column(s)")
 
@@ -99,41 +107,15 @@ def fit_linear_regression_models_for_qiita(
         reads_per_syndna_per_sample_biom.to_dataframe(dense=False)
 
     # fit linear regression models for each sample
-    linregress_by_sample_id, msg_list = fit_linear_regression_models(
+    linregress_results_dict, msg_list = fit_linear_regression_models(
         syndna_concs_df, prep_info_df, reads_per_syndna_per_sample_df,
         min_sample_counts)
-    linregress_results_dict = _convert_linregressresults_to_dict(
-        linregress_by_sample_id)
 
     out_txt_by_out_type = {
         LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_results_dict),
         FIT_SYNDNA_MODELS_LOG_KEY: '\n'.join(msg_list)}
 
     return out_txt_by_out_type
-
-
-def _validate_required_columns_exist(
-        input_df: pd.DataFrame,
-        required_cols_list: list[str],
-        error_msg: str):
-
-    """Checks that the input dataframe has the required columns.
-
-    Parameters
-    ----------
-    input_df: pd.DataFrame
-        Dataframe to be checked.
-    required_cols_list: list[str]
-        List of column names that must be present in the dataframe.
-    error_msg: str
-        Error message to be raised if any of the required columns are missing.
-    """
-
-    missing_cols = set(required_cols_list) - set(input_df.columns)
-    if len(missing_cols) > 0:
-        missing_cols = sorted(missing_cols)
-        raise ValueError(
-            f"{error_msg}: {missing_cols}")
 
 
 def _extract_config_dict(config_fp=None):
@@ -166,7 +148,7 @@ def fit_linear_regression_models(
         sample_syndna_weights_and_total_reads_df: pd.DataFrame,
         reads_per_syndna_per_sample_df: pd.DataFrame,
         min_sample_counts: int) -> \
-        (dict[str, scipy.stats.LinregressResult], list[str]):
+        (dict[str, dict[str, float] | None], list[str]):
 
     """Fits per-sample linear regression models predicting mass from counts.
 
@@ -197,17 +179,24 @@ def fit_linear_regression_models(
 
     Returns
     -------
-    linregress_by_sample_id : dict[str, scipy.stats.LinregressResult]
-        returns a dictionary keyed by sample_id, for each sample_id in
-        reads_per_syndna_per_sample_df.  Dictionary values are either None
-        (if no model could be trained for that sample_id) or a
-        scipy.stats.LinregressResult object defining the trained model.
-        Suitable for pickling to a file.
+    linregress_result_dict :  dict[str, dict[str, float] | None]
+        Dictionary keyed by sample id, containing for each sample either None
+        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
+        representation of the sample's LinregressResult, with each property
+        name as a key and that property's value as the value, as a float.
+        Values are rounded to no more than 15 decimal places.
     log_messages_list : list[str]
         List of log messages generated during the fitting process.
     """
 
     log_messages_list = []
+
+    # check sample_syndna_weights_and_total_reads_df has the expected columns
+    expected_info_cols = [
+        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SYNDNA_TOTAL_READS_KEY]
+    validate_required_columns_exist(
+        sample_syndna_weights_and_total_reads_df, expected_info_cols,
+        "sample metadata is missing required column(s)")
 
     # id any syndnas that have an inadequate total number of reads aligned
     # to them across all samples (less than min_sample_counts). Don't drop yet.
@@ -264,8 +253,10 @@ def fit_linear_regression_models(
 
     # fit linear regression models for each sample
     linregress_by_sample_id = _fit_linear_regression_models(working_df)
+    linregress_results_dict = _convert_linregressresults_to_dict(
+        linregress_by_sample_id)
 
-    return linregress_by_sample_id, log_messages_list
+    return linregress_results_dict, log_messages_list
 
 
 def _validate_syndna_id_consistency(
@@ -346,30 +337,11 @@ def _validate_sample_id_consistency(
         data.  None if all sample ids in the experiment info were in the data.
     """
 
-    sample_ids_in_info = \
-        set(sample_syndna_weights_and_total_reads_df[SAMPLE_ID_KEY])
-    sample_ids_in_data = set(reads_per_syndna_per_sample_df.columns)
-    sample_ids_in_data.remove(SYNDNA_ID_KEY)
+    simplified_reads_df = reads_per_syndna_per_sample_df.copy()
+    simplified_reads_df.drop(columns=[SYNDNA_ID_KEY], inplace=True)
 
-    # if there are sample ids in the data that are not in the info, raise
-    # an error, since we don't know how to process that
-    data_only_samples = sample_ids_in_data - sample_ids_in_info
-    if len(data_only_samples) > 0:
-        raise ValueError(
-            f"Found sample ids in reads_per_syndna_per_sample_df that were "
-            f"not in sample_syndna_weights_and_total_reads_df: "
-            f"{data_only_samples}")
-
-    # check if there are sample ids in the info that are not in the data and
-    # if so, capture a list of them. Sometimes a sample just fails sequencing
-    # and that shouldn't preclude processing the others that did work, but we
-    # want to know about it.
-    missing_sample_ids_set = sample_ids_in_info - sample_ids_in_data
-
-    if len(missing_sample_ids_set) > 0:
-        missing_sample_ids = list(missing_sample_ids_set)
-    else:
-        missing_sample_ids = None
+    missing_sample_ids = validate_metadata_vs_reads_sample_id_consistency(
+        sample_syndna_weights_and_total_reads_df, simplified_reads_df)
 
     return missing_sample_ids
 
@@ -423,7 +395,7 @@ def _calc_indiv_syndna_weights(
 
 
 def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
-        dict[str, scipy.stats.LinregressResult]:
+        dict[str, scipy.stats.LinregressResult | None]:
 
     """Fits per-sample linear regression models predicting mass from counts.
 
@@ -441,10 +413,11 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
 
     Returns
     -------
-    linregress_by_sample_id : dict[str, scipy.stats.LinregressResult]
+    linregress_by_sample_id : dict[str, scipy.stats.LinregressResult | None]
         returns a dictionary keyed by sample_id, for each sample_id in
         reads_per_syndna_per_sample_df.  Dictionary values are
-        scipy.stats.LinregressResult objects defining the trained models.
+        scipy.stats.LinregressResult objects defining the trained models, or
+        None if no model could be fit.
     """
 
     # drop any rows where the count value is 0--can't take log of 0
@@ -493,19 +466,19 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
 
 
 def _convert_linregressresults_to_dict(
-        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult]) -> \
-        dict[str, dict[str, float]]:
+        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult | None]
+        ) -> dict[str, dict[str, float] | None]:
 
-    """Converts a scipy.stats.LinregressResult object to a dictionary.
+    """Converts scipy.stats.LinregressResult dict to dict of primitives.
 
     Returns
     -------
-    linregress_result_dict :  dict[str, dict[str, float]]
+    linregress_result_dict :  dict[str, dict[str, float] | None]
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
         representation of the sample's LinregressResult, with each property
-        name as a key and that property's value as the value.  Values are
-        rounded to no more than 15 decimal places.
+        name as a key and that property's value as the value, as a float.
+        Values are rounded to no more than 15 decimal places.
     """
 
     linregress_result_dict = {}
@@ -530,6 +503,13 @@ def _convert_linregressresults_to_dict(
                     # and sometimes differs between mac/ubuntu past this point.
                     new_dict[k] = truncate(new_float, 12)
 
+            # if there are any values in REGRESSION_KEYS that are not in the
+            # keys of new_dict, then raise an error
+            missing_keys = set(REGRESSION_KEYS) - set(new_dict.keys())
+            if len(missing_keys) > 0:
+                raise ValueError(
+                    f"Regression for sample {curr_sample_id} does not "
+                    f"include the following required keys: {missing_keys}")
             linregress_result_dict[curr_sample_id] = new_dict
 
     return linregress_result_dict
