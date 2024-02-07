@@ -608,7 +608,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 1
         min_rsquared = 0.8
 
-        err_msg = (r"Found sample ids in prep info that were not in" 
+        err_msg = (r"Found sample ids in prep info that were not in"
                    r" sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
