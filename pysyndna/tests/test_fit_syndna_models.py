@@ -11,7 +11,7 @@ from pysyndna import fit_linear_regression_models, \
 from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     SYNDNA_POOL_MASS_NG_KEY, SYNDNA_INDIV_NG_UL_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
-    SYNDNA_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
+    SAMPLE_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
     _validate_syndna_id_consistency, _validate_sample_id_consistency, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models
 
@@ -36,7 +36,7 @@ class FitSyndnaModelsTest(TestCase):
     # system.
     a_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0]],
-        SYNDNA_TOTAL_READS_KEY: [3216923],
+        SAMPLE_TOTAL_READS_KEY: [3216923],
         SYNDNA_POOL_MASS_NG_KEY: [0.25],
     }
 
@@ -46,7 +46,7 @@ class FitSyndnaModelsTest(TestCase):
     # Syndna pool masses are plausible values for our experimental system.
     a_b_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: sample_ids,
-        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+        SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
     }
 
@@ -57,11 +57,12 @@ class FitSyndnaModelsTest(TestCase):
     # Syndna pool masses are plausible values for our experimental system.
     a_b_c_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0], sample_ids[1], "C"],
-        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
+        SAMPLE_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
     }
 
-    # The below sample values come from the "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
+    # The below sample values come from the
+    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
     # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
     # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
     # while the syndna ids are inferred from the contents of the "OTUID"
@@ -276,7 +277,7 @@ class FitSyndnaModelsTest(TestCase):
         prep_info_dict = {
             SAMPLE_ID_KEY: ["A", "B"],
             "sequencing_type": ["shotgun", "shotgun"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+            SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
             SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
             # missing the SYNDNA_POOL_NUM_KEY column
         }
@@ -618,7 +619,7 @@ class FitSyndnaModelsTest(TestCase):
         input_fp = os.path.join(self.data_dir, 'modelling_input.tsv')
         working_df = pd.read_csv(input_fp, sep="\t", comment="#")
 
-        output = _fit_linear_regression_models(working_df)
+        output, out_msgs_list = _fit_linear_regression_models(working_df)
 
         expected_fp = os.path.join(self.data_dir, 'modelling_output.tsv')
         expected_df = pd.read_csv(expected_fp, sep="\t", comment="#")
@@ -633,3 +634,5 @@ class FitSyndnaModelsTest(TestCase):
             self.assertAlmostEqual(expected_slope, v.slope)
             self.assertAlmostEqual(expected_intercept, v.intercept)
         # next model
+
+        self.assertEqual([], out_msgs_list)

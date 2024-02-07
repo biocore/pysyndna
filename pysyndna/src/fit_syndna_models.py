@@ -5,9 +5,10 @@ import numpy as np
 import os
 import pandas as pd
 import scipy
+import traceback
 import yaml
 
-from typing import Optional
+from typing import Optional, List, Dict, Union
 from pysyndna.src.util import validate_required_columns_exist, \
     validate_metadata_vs_reads_id_consistency, SAMPLE_ID_KEY
 
@@ -18,7 +19,7 @@ SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
 SYNDNA_FRACTION_OF_POOL_KEY = 'syndna_fraction_of_pool'
 SYNDNA_POOL_MASS_NG_KEY = 'mass_syndna_input_ng'
-SYNDNA_TOTAL_READS_KEY = 'raw_reads_r1r2'
+SAMPLE_TOTAL_READS_KEY = 'raw_reads_r1r2'
 SYNDNA_COUNTS_KEY = 'read_count'
 COUNTS_PER_MIL_KEY = 'CPM'
 LOG10_COUNTS_PER_MIL_KEY = 'log10_CPM'
@@ -110,7 +111,8 @@ def _validate_syndna_id_consistency(
 
 def _validate_sample_id_consistency(
         sample_syndna_weights_and_total_reads_df: pd.DataFrame,
-        reads_per_syndna_per_sample_df: pd.DataFrame) -> list[str] | None:
+        reads_per_syndna_per_sample_df: pd.DataFrame) -> \
+        Union[List[str], None]:
     """
     Checks that the sample ids in the experiment info and data are consistent.
 
@@ -119,8 +121,8 @@ def _validate_sample_id_consistency(
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
         A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
         (the total weight of all syndnas in the sample combined, in ng), and
-        SYNDNA_TOTAL_READS_KEY (the number of total reads--not just aligned
-        reads--for all syndnas in the sample, including both r1 and r2)
+        SAMPLE_TOTAL_READS_KEY (the number of total reads--not just aligned
+        reads--for the sample, including both r1 and r2)
     reads_per_syndna_per_sample_df: pd.DataFrame
         A Dataframe with a column for syndna_id and then one additional column
         for each sample_id, which holds the read counts aligned to that syndna
@@ -197,7 +199,7 @@ def _calc_indiv_syndna_weights(
 
 
 def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
-        dict[str, scipy.stats.LinregressResult | None]:
+        (Dict[str, Union[scipy.stats.LinregressResult, None]], List[str]):
 
     """Fits per-sample linear regression models predicting mass from counts.
 
@@ -210,7 +212,7 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
     ----------
     working_df: pd.DataFrame
         Long-form dataframe containing at least SAMPLE_ID_KEY,
-        SYNDNA_COUNTS_KEY, SYNDNA_TOTAL_READS_KEY, and
+        SYNDNA_COUNTS_KEY, SAMPLE_TOTAL_READS_KEY, and
         SYNDNA_INDIV_NG_KEY columns.
 
     Returns
@@ -220,6 +222,8 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
         reads_per_syndna_per_sample_df.  Dictionary values are
         scipy.stats.LinregressResult objects defining the trained models, or
         None if no model could be fit.
+    log_msgs_list : list[str]
+        List of messages generated during the fitting process.
     """
 
     # drop any rows where the count value is 0--can't take log of 0
@@ -230,7 +234,7 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
     # then multiplying by a million (1,000,000)
     working_df.loc[:, COUNTS_PER_MIL_KEY] = \
         (working_df[SYNDNA_COUNTS_KEY] /
-         working_df[SYNDNA_TOTAL_READS_KEY]) * 1000000
+         working_df[SAMPLE_TOTAL_READS_KEY]) * 1000000
 
     # add a column of log10(CMP) by taking the log base 10 of the CPM column
     working_df.loc[:, LOG10_COUNTS_PER_MIL_KEY] = \
@@ -243,33 +247,37 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
     # loop over each sample id and fit a linear regression model predicting
     # log10(dna ng) from log10(counts per million)
     linregress_by_sample_id = {}
+    log_msgs_list = []
     for curr_sample_id in working_df[SAMPLE_ID_KEY].unique():
         curr_sample_df = \
             working_df[working_df[SAMPLE_ID_KEY] == curr_sample_id]
-
-        # TODO: I need to know what kind of errors this can throw; some of them
-        #  may just mean a linear regression can't be fit for this sample, but
-        #  others may mean something is wrong with the data or the code.
-        #  Once I know which is which, I can decide whether to try/catch
-        #  anything silently.
 
         try:
             curr_linregress_result = scipy.stats.linregress(
                 curr_sample_df[LOG10_COUNTS_PER_MIL_KEY],
                 curr_sample_df[LOG10_SYNDNA_INDIV_NG_KEY])
         except Exception:
+            # TODO: I need to know what kind of errors this can throw;
+            #  some of them may just mean a linear regression can't be fit for
+            #  this sample, but others may mean something is wrong with the
+            #  data (or the code). Once I know which is which, I can decide
+            #  whether to try/catch things silently.
+            # if the regression fails, log the error and set the result to None
+            log_msgs_list.append(
+                f"Error fitting regression model for '{curr_sample_id}': ")
+            log_msgs_list.append(traceback.format_exc())
             curr_linregress_result = None
 
         # record the whole lingregress result object in the output dictionary
         linregress_by_sample_id[curr_sample_id] = curr_linregress_result
     # next sample_id
 
-    return linregress_by_sample_id
+    return linregress_by_sample_id, log_msgs_list
 
 
 def _convert_linregressresults_to_dict(
-        linregress_by_sample_id: dict[str, scipy.stats.LinregressResult | None]
-        ) -> dict[str, dict[str, float] | None]:
+        linregress_by_sample_id: Dict[str, Union[scipy.stats.LinregressResult, None]]
+        ) -> Dict[str, Union[Dict[str, float], None]]:
 
     """Converts scipy.stats.LinregressResult dict to dict of primitives.
 
@@ -344,7 +352,7 @@ def fit_linear_regression_models(
         sample_syndna_weights_and_total_reads_df: pd.DataFrame,
         reads_per_syndna_per_sample_df: pd.DataFrame,
         min_sample_counts: int) -> \
-        (dict[str, dict[str, float] | None], list[str]):
+        (Dict[str, Union[Dict[str, float], None]], List[str]):
 
     """Fits per-sample linear regression models predicting mass from counts.
 
@@ -362,8 +370,8 @@ def fit_linear_regression_models(
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
         A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
         (the total weight of all syndnas in the sample combined, in ng), and
-        SYNDNA_TOTAL_READS_KEY (the number of total reads--not just aligned
-        reads--for all syndnas in the sample, including both r1 and r2)
+        SAMPLE_TOTAL_READS_KEY (the number of total reads--not just aligned
+        reads--for the sample, including both r1 and r2)
     reads_per_syndna_per_sample_df: pd.DataFrame
         Wide-format dataframe with syndna ids as index and one
         column for each sample id, which holds the read counts
@@ -389,7 +397,7 @@ def fit_linear_regression_models(
 
     # check sample_syndna_weights_and_total_reads_df has the expected columns
     expected_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SYNDNA_TOTAL_READS_KEY]
+        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SAMPLE_TOTAL_READS_KEY]
     validate_required_columns_exist(
         sample_syndna_weights_and_total_reads_df, expected_info_cols,
         "sample metadata is missing required column(s)")
@@ -448,7 +456,9 @@ def fit_linear_regression_models(
     working_df = _calc_indiv_syndna_weights(syndna_concs_df, working_df)
 
     # fit linear regression models for each sample
-    linregress_by_sample_id = _fit_linear_regression_models(working_df)
+    linregress_by_sample_id, fit_msgs_list = \
+        _fit_linear_regression_models(working_df)
+    log_messages_list.extend(fit_msgs_list)
     linregress_results_dict = _convert_linregressresults_to_dict(
         linregress_by_sample_id)
 
@@ -471,7 +481,7 @@ def fit_linear_regression_models_for_qiita(
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
         including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        and SYNDNA_TOTAL_READS_KEY
+        and SAMPLE_TOTAL_READS_KEY
     reads_per_syndna_per_sample_biom: biom.Table
         Biom table holding read counts aligned to each synDNA in each sample.
         Note: should already have combined forward and reverse counts.
@@ -496,7 +506,7 @@ def fit_linear_regression_models_for_qiita(
     # check that the prep_info_df has the expected columns
     expected_prep_info_cols = [
         SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        SYNDNA_TOTAL_READS_KEY]
+        SAMPLE_TOTAL_READS_KEY]
     validate_required_columns_exist(
         prep_info_df, expected_prep_info_cols,
         "prep info is missing required column(s)")
