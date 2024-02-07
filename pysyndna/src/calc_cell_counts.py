@@ -643,8 +643,9 @@ def calc_ogu_cell_counts_biom(
         gdna_mass_to_sample_mass_by_sample_series, SAMPLE_ID_KEY,
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)
 
-    # merge the SAMPLE_TOTAL_READS_KEY and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY columns
-    # of working_params_df into gdna_mass_to_sample_mass_df by SAMPLE_ID_KEY
+    # merge the SAMPLE_TOTAL_READS_KEY and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY
+    # columns of working_params_df into gdna_mass_to_sample_mass_df
+    # by SAMPLE_ID_KEY
     per_sample_calc_info_df = per_sample_calc_info_df.merge(
         working_params_df[[SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
                            SAMPLE_TOTAL_READS_KEY]],

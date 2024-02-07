@@ -67,8 +67,9 @@ class TestCalcCellCounts(TestCase):
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238],
     }
 
-    # TODO: update source of reads
-    # Values from "absolute_quant_example.xlsx"
+    # Values from "absolute_quant_example.xlsx" EXCEPT for the
+    # SAMPLE_TOTAL_READS_KEY values, which come from summing
+    # the OGU_READ_COUNT_KEY values for each sample
     mass_and_totals_dict = {
         SAMPLE_ID_KEY: ["example1", "example2"],
         SAMPLE_TOTAL_READS_KEY: [472140, 611913],
@@ -247,7 +248,7 @@ class TestCalcCellCounts(TestCase):
                      "Escherichia coli", "Tyzzerella nexilis",
                      "Prevotella sp. oral taxon 299",
                      "Streptococcus mitis", "Leptolyngbya valderiana",
-                      #"Neisseria subflava",
+                     # "Neisseria subflava",
                      "Neisseria flavescens",
                      "Fusobacterium periodonticum",
                      "Streptococcus pneumoniae",
@@ -263,7 +264,7 @@ class TestCalcCellCounts(TestCase):
                              1975,
                              # 0,
                              22303, 197830, 14478,
-                             #12,
+                             # 12,
                              14609],
         # These count values are the same as those in
         # self.example1_ogu_full_outputs_full_avogadro_dict
@@ -424,7 +425,6 @@ class TestCalcCellCounts(TestCase):
                                 output_biom.matrix_data.data[obs_an],
                                 decimal=decimal_precision)
 
-
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -439,7 +439,7 @@ class TestCalcCellCounts(TestCase):
 
         prep_info_dict = {k: self.sample_and_prep_input_dict[k].copy() for k in
                           [GDNA_CONCENTRATION_NG_UL_KEY,
-                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
             self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
@@ -608,8 +608,8 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 1
         min_rsquared = 0.8
 
-        err_msg = (r"Found sample ids in prep info that were not in " 
-                   r"sample info: \{'example1'\}")
+        err_msg = (r"Found sample ids in prep info that were not in" 
+                   r" sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
@@ -680,12 +680,6 @@ class TestCalcCellCounts(TestCase):
             self.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
         lengths_df = pd.DataFrame(self.ogu_lengths_dict)
-        # Note that, in the output, the ogu_ids are apparently sorted
-        # alphabetically--different than the input order
-        expected_out_biom = biom.table.Table(
-            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
-            self.reordered_results_dict[OGU_ID_KEY],
-            self.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -720,12 +714,6 @@ class TestCalcCellCounts(TestCase):
             self.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
         lengths_df = pd.DataFrame(self.ogu_lengths_dict)
-        # Note that, in the output, the ogu_ids are apparently sorted
-        # alphabetically--different than the input order
-        expected_out_biom = biom.table.Table(
-            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
-            self.reordered_results_dict[OGU_ID_KEY],
-            self.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -1087,9 +1075,6 @@ class TestCalcCellCounts(TestCase):
         output_series = _calc_gdna_mass_to_sample_mass_by_sample_df(inputs_df)
         pd.testing.assert_series_equal(expected_series, output_series)
 
-    # TODO: will have to modify this to pass in total reads; may be able
-    #  to get away without changing math if pass in number that is the same
-    #  as what we get by adding up the reads for each OGU ...?
     def test__calc_ogu_gdna_mass_ng_series_for_sample(self):
         input_dict = {k: self.example1_ogu_full_inputs_dict[k] for k in
                       (OGU_ID_KEY, OGU_READ_COUNT_KEY)}
@@ -1103,8 +1088,11 @@ class TestCalcCellCounts(TestCase):
         slope = 1.24487652379132
         intercept = -6.77539505390338
 
-
-        sample_total_reads =472140
+        # This number comes from summing all the reads in the input_df.
+        # This matches what was done for the Zaramela calculations.  I
+        # suspect that this should perhaps be the total reads for the
+        # whole sample, but for testing this will do.
+        sample_total_reads = 472140
 
         input_df = pd.DataFrame(input_dict)
         expected_series = pd.Series(

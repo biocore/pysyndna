@@ -548,8 +548,8 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             self.reads_per_syndna_per_sample_dict)
 
-        err_msg = ("Found sample ids in reads data that were not in sample "
-                   "info: \{'B'\}")
+        err_msg = (r"Found sample ids in reads data that were not in sample "
+                   r"info: \{'B'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_sample_id_consistency(
                 sample_syndna_weights_and_total_reads_df,

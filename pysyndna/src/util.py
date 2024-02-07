@@ -245,8 +245,8 @@ def calc_copies_genomic_element_per_g_series(
     #  (https://stackoverflow.com/a/58640340)
     #  What to do?
 
-    denominator_series = genomic_elements_lengths_series * \
-                         genomic_element_unit_avg_g_per_mole
+    denominator_series = \
+        genomic_elements_lengths_series * genomic_element_unit_avg_g_per_mole
 
     copies_of_genomic_element_per_g_of_genomic_element_unit = \
         avogadros_num/denominator_series

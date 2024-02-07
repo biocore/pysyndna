@@ -208,7 +208,6 @@ class TestQuantOrfs(TestCase):
                            SSRNA_CONCENTRATION_NG_UL_KEY,
                            TOTAL_BIOLOGICAL_READS_KEY]}
 
-
         sample_info_df = pandas.DataFrame(sample_info_dict)
         prep_info_df = pandas.DataFrame(prep_info_dict)
         ogu_orf_coords_fp = os.path.join(self.data_dir, "coords.txt")

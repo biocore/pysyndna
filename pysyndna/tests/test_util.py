@@ -233,4 +233,3 @@ class TestCalcCellCounts(TestCase):
         obs_df = calc_gs_genomic_element_in_aliquot(
             input_df, 'conc_ng_ul', 'mass_key')
         assert_frame_equal(expected_df, obs_df)
-
