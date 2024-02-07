@@ -11,7 +11,7 @@ from pysyndna import fit_linear_regression_models, \
 from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     SYNDNA_POOL_MASS_NG_KEY, SYNDNA_INDIV_NG_UL_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
-    SYNDNA_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
+    SAMPLE_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
     _validate_syndna_id_consistency, _validate_sample_id_consistency, \
     _calc_indiv_syndna_weights, _fit_linear_regression_models
 
@@ -36,7 +36,7 @@ class FitSyndnaModelsTest(TestCase):
     # system.
     a_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0]],
-        SYNDNA_TOTAL_READS_KEY: [3216923],
+        SAMPLE_TOTAL_READS_KEY: [3216923],
         SYNDNA_POOL_MASS_NG_KEY: [0.25],
     }
 
@@ -46,7 +46,7 @@ class FitSyndnaModelsTest(TestCase):
     # Syndna pool masses are plausible values for our experimental system.
     a_b_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: sample_ids,
-        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+        SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
     }
 
@@ -57,11 +57,12 @@ class FitSyndnaModelsTest(TestCase):
     # Syndna pool masses are plausible values for our experimental system.
     a_b_c_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0], sample_ids[1], "C"],
-        SYNDNA_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
+        SAMPLE_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
     }
 
-    # The below sample values come from the "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
+    # The below sample values come from the
+    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
     # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
     # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
     # while the syndna ids are inferred from the contents of the "OTUID"
@@ -85,16 +86,20 @@ class FitSyndnaModelsTest(TestCase):
     # "A1_pool1_Fwd" *but* we use a different pool mass than Zaramela,
     # so the same syndna counts are based on different masses.
     lingress_results = {
-        'A': LinregressResult(
-            slope=1.244876523791319, intercept=-6.7242381884894655,
-            rvalue=0.9865030975156575, pvalue=1.428443560659758e-07,
-            stderr=0.07305408550335003,
-            intercept_stderr=0.2361976278251443),
-        'B': LinregressResult(
-            slope=1.24675913604407, intercept=-7.155318973708384,
-            rvalue=0.9863241797356326, pvalue=1.505381146809759e-07,
-            stderr=0.07365795255302438,
-            intercept_stderr=0.2563956755844754)
+        'A': {
+            "slope": 1.244876523791319,
+            "intercept": -6.7242381884894655,
+            "rvalue": 0.9865030975156575,
+            "pvalue": 1.428443560659758e-07,
+            "stderr": 0.07305408550335003,
+            "intercept_stderr": 0.2361976278251443},
+        'B': {
+            "slope": 1.24675913604407,
+            "intercept": -7.155318973708384,
+            "rvalue": 0.9863241797356326,
+            "pvalue": 1.505381146809759e-07,
+            "stderr": 0.07365795255302438,
+            "intercept_stderr": 0.2563956755844754}
     }
 
     prep_info_dict = copy.deepcopy(
@@ -111,14 +116,14 @@ class FitSyndnaModelsTest(TestCase):
             reads_per_syndna_per_sample_dict["B"])])
 
     def assert_lingressresult_dict_almost_equal(self, d1, d2, places=7):
-        """Assert that two dicts of LinregressResult are almost equal.
+        """Assert that two dicts of lingress results are almost equal.
 
         Parameters
         ----------
         d1 : dict
-            The first dict of LinregressResult to compare
+            The first dict to compare
         d2 : dict
-            The second dict of LinregressResult to compare
+            The second dict to compare
         places : int, optional
             The number of decimal places to compare to
 
@@ -131,30 +136,10 @@ class FitSyndnaModelsTest(TestCase):
         self.assertIsInstance(d2, dict)
         self.assertEqual(d1.keys(), d2.keys())
         for k in d1.keys():
-            self.assert_linregressresult_almost_equal(d1[k], d2[k], places)
-
-    def assert_linregressresult_almost_equal(self, l1, l2, places=7):
-        """Assert that two LinregressResult are almost equal.
-
-        Parameters
-        ----------
-        l1 : dict
-            The first LinregressResult to compare
-        l2 : dict
-            The second LinregressResult to compare
-        places : int, optional
-            The number of decimal places to compare to
-
-        Raises
-        ------
-        AssertionError
-            If the LinregressResults are not almost equal
-        """
-        self.assertIsInstance(l1, LinregressResult)
-        self.assertIsInstance(l2, LinregressResult)
-        self.assertEqual(len(l1), len(l2))
-        for i in range(0, len(l1)):
-            self.assertAlmostEqual(l1[i], l2[i], places=places)
+            for m in d1[k].keys():
+                m1 = d1[k][m]
+                m2 = d2[k][m]
+                self.assertAlmostEqual(m1, m2)
 
     def setUp(self):
         self.maxDiff = None
@@ -292,7 +277,7 @@ class FitSyndnaModelsTest(TestCase):
         prep_info_dict = {
             SAMPLE_ID_KEY: ["A", "B"],
             "sequencing_type": ["shotgun", "shotgun"],
-            SYNDNA_TOTAL_READS_KEY: [3216923, 1723417],
+            SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
             SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
             # missing the SYNDNA_POOL_NUM_KEY column
         }
@@ -340,16 +325,20 @@ class FitSyndnaModelsTest(TestCase):
         # syndnas with <200 total counts removed on "linear regressions" sheet
         # of "absolute_quant_example.xlsx").
         expected_out_dict = {
-            'A': LinregressResult(
-                slope=1.2561949109446753, intercept=-6.7671601206840855,
-                rvalue=0.982777689569875, pvalue=2.1705143708536327e-06,
-                stderr=0.08927614710714807,
-                intercept_stderr=0.30147987595768355),
-            'B': LinregressResult(
-                slope=1.2568191864801976, intercept=-7.196128673001381,
-                rvalue=0.9825127010266727, pvalue=2.2890733334160456e-06,
-                stderr=0.09002330756867402,
-                intercept_stderr=0.32657986324660143)
+            'A': {
+                "slope": 1.2561949109446753,
+                "intercept": -6.7671601206840855,
+                "rvalue": 0.982777689569875,
+                "pvalue": 2.1705143708536327e-06,
+                "stderr": 0.08927614710714807,
+                "intercept_stderr": 0.30147987595768355},
+            'B': {
+                "slope": 1.2568191864801976,
+                "intercept": -7.196128673001381,
+                "rvalue": 0.9825127010266727,
+                "pvalue": 2.2890733334160456e-06,
+                "stderr": 0.09002330756867402,
+                "intercept_stderr": 0.32657986324660143}
         }
         expected_out_msgs = [
             "The following sample ids were in the experiment info but not in "
@@ -382,8 +371,8 @@ class FitSyndnaModelsTest(TestCase):
         # which is in the data
 
         expected_err_msg = \
-            r"Found sample ids in reads_per_syndna_per_sample_df that were " \
-            r"not in sample_syndna_weights_and_total_reads_df: \{'B'\}"
+            (r"Found sample ids in reads data that were not in sample info: "
+             r"\{'B'\}")
 
         syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -559,8 +548,8 @@ class FitSyndnaModelsTest(TestCase):
         reads_per_syndna_per_sample_df = pd.DataFrame(
             self.reads_per_syndna_per_sample_dict)
 
-        err_msg = "Found sample ids in reads_per_syndna_per_sample_df " \
-                  "that were not in sample_syndna_weights_and_total_reads_df"
+        err_msg = (r"Found sample ids in reads data that were not in sample "
+                   r"info: \{'B'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             _validate_sample_id_consistency(
                 sample_syndna_weights_and_total_reads_df,
@@ -630,7 +619,7 @@ class FitSyndnaModelsTest(TestCase):
         input_fp = os.path.join(self.data_dir, 'modelling_input.tsv')
         working_df = pd.read_csv(input_fp, sep="\t", comment="#")
 
-        output = _fit_linear_regression_models(working_df)
+        output, out_msgs_list = _fit_linear_regression_models(working_df)
 
         expected_fp = os.path.join(self.data_dir, 'modelling_output.tsv')
         expected_df = pd.read_csv(expected_fp, sep="\t", comment="#")
@@ -645,3 +634,5 @@ class FitSyndnaModelsTest(TestCase):
             self.assertAlmostEqual(expected_slope, v.slope)
             self.assertAlmostEqual(expected_intercept, v.intercept)
         # next model
+
+        self.assertEqual([], out_msgs_list)
