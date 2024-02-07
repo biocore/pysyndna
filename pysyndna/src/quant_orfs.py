@@ -1,10 +1,10 @@
 import biom.table
 import pandas
-from pysyndna.src.util import calc_copies_per_g_series, \
-    calc_g_genomic_element_of_sample_in_aliquot, \
+from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
+    calc_gs_genomic_element_in_aliquot, \
     validate_required_columns_exist, \
-    validate_metadata_vs_reads_sample_id_consistency, \
-    validate_metadata_vs_prep_sample_id_consistency, SAMPLE_ID_KEY, \
+    validate_metadata_vs_reads_id_consistency, \
+    validate_metadata_vs_prep_id_consistency, SAMPLE_ID_KEY, \
     SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, RNA_BASE_G_PER_MOLE, \
     REQUIRED_SAMPLE_INFO_KEYS
 
@@ -107,7 +107,7 @@ def _calc_ogu_orf_copies_per_g_from_coords(
         output_df[OGU_ORF_LEN_KEY] + 1
 
     # calculate the copies per gram of each OGU+ORF ssRNA
-    ogu_orf_copies_per_g_series = calc_copies_per_g_series(
+    ogu_orf_copies_per_g_series = calc_copies_genomic_element_per_g_series(
         output_df[OGU_ORF_LEN_KEY], RNA_BASE_G_PER_MOLE)
 
     output_df[COPIES_PER_G_OGU_ORF_SSRNA_KEY] = \
@@ -155,7 +155,7 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample(
     # sample ids in the reads_per_ogu_orf_per_sample_biom. Ignore sample ids
     # in the quant_params_per_sample_df that are not in the biom table; those
     # could just be samples that failed sequencing/etc.
-    _ = validate_metadata_vs_reads_sample_id_consistency(
+    _ = validate_metadata_vs_reads_id_consistency(
         quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom)
 
     # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
@@ -165,7 +165,7 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample(
 
     # Calculate the grams of total ssRNA from each sample that are in the elute
     # after extraction
-    g_total_ssrna_per_sample_df = calc_g_genomic_element_of_sample_in_aliquot(
+    g_total_ssrna_per_sample_df = calc_gs_genomic_element_in_aliquot(
         quant_params_per_sample_df, SSRNA_CONCENTRATION_NG_UL_KEY,
         SSRNA_FROM_ALIQUOT_MASS_G_KEY)
 
@@ -322,7 +322,7 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
     # validate that the sample ids in the sample_info_df match the sample ids
     # in the prep_info_df. Ignore sample ids in sample_info_df that are not in
     # the prep_info_df; these could just not be included in this prep.
-    _ = validate_metadata_vs_prep_sample_id_consistency(
+    _ = validate_metadata_vs_prep_id_consistency(
         sample_info_df, prep_info_df)
 
     quant_params_per_sample_df = prep_info_df.merge(

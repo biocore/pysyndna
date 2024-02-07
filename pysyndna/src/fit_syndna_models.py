@@ -9,7 +9,7 @@ import yaml
 
 from typing import Optional
 from pysyndna.src.util import validate_required_columns_exist, \
-    validate_metadata_vs_reads_sample_id_consistency, SAMPLE_ID_KEY
+    validate_metadata_vs_reads_id_consistency, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
@@ -36,88 +36,6 @@ REGRESSION_KEYS = [SLOPE_KEY, INTERCEPT_KEY, RVALUE_KEY, PVALUE_KEY,
                    STDERR_KEY, INTERCEPT_STDERR_KEY]
 
 
-# TODO: if they sequenced over multiple lanes, would be different prep
-#  info files--talk to lab about whether they will ever do this :(
-#  this would require merge of multiple preparations
-def fit_linear_regression_models_for_qiita(
-        prep_info_df: pd.DataFrame,
-        reads_per_syndna_per_sample_biom: biom.Table,
-        min_sample_counts: int = DEFAULT_MIN_SAMPLE_COUNTS,
-        syndna_pool_config_fp: Optional[str] = None) -> dict[str: str]:
-
-    """Fits linear regressions predicting mass from counts using Qiita inputs.
-
-    Parameters
-    ----------
-    prep_info_df: pd.DataFrame
-        Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        and SYNDNA_TOTAL_READS_KEY
-    reads_per_syndna_per_sample_biom: biom.Table
-        Biom table holding read counts aligned to each synDNA in each sample.
-        Note: should already have combined forward and reverse counts.
-    min_sample_counts: int
-        Minimum number of counts required for a sample to be included in
-        the regression.  Samples with fewer counts will be excluded.
-    syndna_pool_config_fp: str, optional
-        Path to the yaml file holding the concentrations of each syndna
-        in the syndna pool used in this experiment.  If not provided, will
-        look for the config.yml file in the parent directory of this file.
-
-    Returns
-    -------
-    out_txt_by_out_type : dict of str
-        Dictionary of output strings (ready to be written to files) keyed
-        by the type of output they contain.  Currently, the following keys
-        are defined:
-        LIN_REGRESS_RESULT_KEY: yaml of dict[str, dict[str, float] | None]
-        FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
-    """
-
-    # check that the prep_info_df has the expected columns
-    expected_prep_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        SYNDNA_TOTAL_READS_KEY]
-    validate_required_columns_exist(
-        prep_info_df, expected_prep_info_cols,
-        "prep info is missing required column(s)")
-
-    # pull the syndna pool number from the prep info, ensure it is the same for
-    # all samples, and convert to the pool name
-    syndna_pool_number = prep_info_df[SYNDNA_POOL_NUM_KEY].unique()
-    if len(syndna_pool_number) > 1:
-        raise ValueError(
-            f"Multiple syndna_pool_numbers found in prep info: "
-            f"{syndna_pool_number}")
-    syndna_pool_name = f"pool{syndna_pool_number[0]}"
-
-    # look in the SYNDNA_INDIV_NG_UL_KEY section of the config file to find the
-    # individual syndna concentrations associated with the relevant syndna
-    # pool name and turn the resulting dictionary into a dataframe
-    config_dict = _extract_config_dict(syndna_pool_config_fp)
-    conc_ng_ul_per_indiv_syndna = \
-        config_dict[SYNDNA_INDIV_NG_UL_KEY][syndna_pool_name]
-    syndna_concs_df = pd.DataFrame(
-        conc_ng_ul_per_indiv_syndna.items(),
-        columns=[SYNDNA_ID_KEY, SYNDNA_INDIV_NG_UL_KEY])
-
-    # convert input biom table to a pd.SparseDataFrame, which is should act
-    # basically like a pd.DataFrame but take up less memory
-    reads_per_syndna_per_sample_df = \
-        reads_per_syndna_per_sample_biom.to_dataframe(dense=False)
-
-    # fit linear regression models for each sample
-    linregress_results_dict, msg_list = fit_linear_regression_models(
-        syndna_concs_df, prep_info_df, reads_per_syndna_per_sample_df,
-        min_sample_counts)
-
-    out_txt_by_out_type = {
-        LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_results_dict),
-        FIT_SYNDNA_MODELS_LOG_KEY: '\n'.join(msg_list)}
-
-    return out_txt_by_out_type
-
-
 def _extract_config_dict(config_fp=None):
     """Extracts a dictionary of config setting from a config file.
 
@@ -141,122 +59,6 @@ def _extract_config_dict(config_fp=None):
     with open(config_fp, "r") as f:
         config_dict = yaml.safe_load(f)
     return config_dict
-
-
-def fit_linear_regression_models(
-        syndna_concs_df: pd.DataFrame,
-        sample_syndna_weights_and_total_reads_df: pd.DataFrame,
-        reads_per_syndna_per_sample_df: pd.DataFrame,
-        min_sample_counts: int) -> \
-        (dict[str, dict[str, float] | None], list[str]):
-
-    """Fits per-sample linear regression models predicting mass from counts.
-
-    This fits a linear regression model for each sample, predicting
-    log10(mass of instances of a sequence) within a sample from
-    log10(counts per million for that sequence) within the sample,
-    using spike-in data from synDNAs.
-
-    Parameters
-    ----------
-    syndna_concs_df: pd.DataFrame
-        Dataframe containing SYNDNA_ID_KEY and SYNDNA_INDIV_NG_UL_KEY
-        (e.g. 1, 0.1, 0.01, 0.001, 0.0001) for all syndnas in the syndna pool
-        used in this experiment
-    sample_syndna_weights_and_total_reads_df: pd.DataFrame
-        Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
-        (the total weight of all syndnas in the sample combined, in ng), and
-        SYNDNA_TOTAL_READS_KEY (the number of total reads--not just aligned
-        reads--for all syndnas in the sample, including both r1 and r2)
-    reads_per_syndna_per_sample_df: pd.DataFrame
-        Wide-format dataframe with syndna ids as index and one
-        column for each sample id, which holds the read counts
-        aligned to that syndna in that sample. Note: should already have
-        combined forward and reverse counts.
-    min_sample_counts : int
-        Minimum number of counts required for a sample to be included in
-        the regression.  Samples with fewer counts will be excluded.
-
-    Returns
-    -------
-    linregress_result_dict :  dict[str, dict[str, float] | None]
-        Dictionary keyed by sample id, containing for each sample either None
-        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
-        representation of the sample's LinregressResult, with each property
-        name as a key and that property's value as the value, as a float.
-        Values are rounded to no more than 15 decimal places.
-    log_messages_list : list[str]
-        List of log messages generated during the fitting process.
-    """
-
-    log_messages_list = []
-
-    # check sample_syndna_weights_and_total_reads_df has the expected columns
-    expected_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SYNDNA_TOTAL_READS_KEY]
-    validate_required_columns_exist(
-        sample_syndna_weights_and_total_reads_df, expected_info_cols,
-        "sample metadata is missing required column(s)")
-
-    # id any syndnas that have an inadequate total number of reads aligned
-    # to them across all samples (less than min_sample_counts). Don't drop yet.
-    # Gathering this now bc it is easier while syndna id is still in the index,
-    # but we want the full column set while doing the validation checks.
-    # Note: synDNA author also made passing mention of dropping samples with
-    # inadequate "quality" but didn't provide any guidance on that.
-    too_low_counts_mask = \
-        reads_per_syndna_per_sample_df.sum(axis=1) < min_sample_counts
-    syndnas_to_drop = \
-        reads_per_syndna_per_sample_df[too_low_counts_mask].index.tolist()
-
-    # move the syndna ids from the index to a column, bc I hate implicit
-    reads_per_syndna_per_sample_df = \
-        reads_per_syndna_per_sample_df.reset_index(names=[SYNDNA_ID_KEY])
-
-    # validate that the syndna ids in the config and the data are consistent
-    _validate_syndna_id_consistency(syndna_concs_df,
-                                    reads_per_syndna_per_sample_df)
-
-    # validate that sample ids in the experiment info and data are consistent
-    missing_sample_ids = _validate_sample_id_consistency(
-        sample_syndna_weights_and_total_reads_df,
-        reads_per_syndna_per_sample_df)
-    if missing_sample_ids is not None:
-        log_messages_list.append(f'The following sample ids were in the '
-                                 f'experiment info but not in the data: '
-                                 f'{missing_sample_ids}')
-
-    # NOW remove any syndnas with too few counts from the dataframe,
-    # and log if there were any
-    filtered_reads_per_syndna_per_sample_df = \
-        reads_per_syndna_per_sample_df[
-            ~reads_per_syndna_per_sample_df[SYNDNA_ID_KEY].isin(
-                syndnas_to_drop)]
-    if len(syndnas_to_drop) > 0:
-        log_messages_list.append(f'The following syndnas were dropped '
-                                 f'because they had fewer than '
-                                 f'{min_sample_counts} total reads aligned:'
-                                 f'{syndnas_to_drop}')
-
-    # reformat filtered_reads_per_syndna_per_sample_df into "long form":
-    # columns for syndna id, sample id, and read count
-    working_df = filtered_reads_per_syndna_per_sample_df.melt(
-        id_vars=[SYNDNA_ID_KEY], var_name=SAMPLE_ID_KEY,
-        value_name=SYNDNA_COUNTS_KEY)
-
-    # merge w sample_total_reads_df to include total_reads column
-    working_df = working_df.merge(sample_syndna_weights_and_total_reads_df,
-                                  on=SAMPLE_ID_KEY, how='left')
-
-    # calculate the weight in ng of *each* syndna in each sample
-    working_df = _calc_indiv_syndna_weights(syndna_concs_df, working_df)
-
-    # fit linear regression models for each sample
-    linregress_by_sample_id = _fit_linear_regression_models(working_df)
-    linregress_results_dict = _convert_linregressresults_to_dict(
-        linregress_by_sample_id)
-
-    return linregress_results_dict, log_messages_list
 
 
 def _validate_syndna_id_consistency(
@@ -315,12 +117,12 @@ def _validate_sample_id_consistency(
     Parameters
     ----------
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
-        Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
+        A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
         (the total weight of all syndnas in the sample combined, in ng), and
         SYNDNA_TOTAL_READS_KEY (the number of total reads--not just aligned
         reads--for all syndnas in the sample, including both r1 and r2)
     reads_per_syndna_per_sample_df: pd.DataFrame
-        Dataframe with a column for syndna_id and then one additional column
+        A Dataframe with a column for syndna_id and then one additional column
         for each sample_id, which holds the read counts aligned to that syndna
         in that sample. Note: should already have combined forward and
         reverse counts.
@@ -340,7 +142,7 @@ def _validate_sample_id_consistency(
     simplified_reads_df = reads_per_syndna_per_sample_df.copy()
     simplified_reads_df.drop(columns=[SYNDNA_ID_KEY], inplace=True)
 
-    missing_sample_ids = validate_metadata_vs_reads_sample_id_consistency(
+    missing_sample_ids = validate_metadata_vs_reads_id_consistency(
         sample_syndna_weights_and_total_reads_df, simplified_reads_df)
 
     return missing_sample_ids
@@ -355,7 +157,7 @@ def _calc_indiv_syndna_weights(
     Parameters
     ----------
     syndna_concs_df: pd.DataFrame
-        Dataframe containing SYNDNA_ID_KEY and SYNDNA_INDIV_NG_UL_KEY
+        A Dataframe containing SYNDNA_ID_KEY and SYNDNA_INDIV_NG_UL_KEY
         (e.g. 1, 0.1, 0.01, 0.001, 0.0001) for all syndnas in the syndna pool
         used in this experiment
     working_df: pd.DataFrame
@@ -521,17 +323,215 @@ def truncate(a_float, num_decimals):
     Parameters
     ----------
     a_float : float
-        Float to be truncated.
+        A Float to be truncated.
     num_decimals : int
         Number of decimal places to which the float should be truncated.
 
     Returns
     -------
     truncated_float : float
-        Float truncated to the specified number of decimal places.
+        A Float truncated to the specified number of decimal places.
     """
 
     # multiply a_float by 10^num_decimals, convert to an integer, then divide
     # by 10^num_decimals to get the truncated float
     truncated_float = int(a_float * 10 ** num_decimals) / 10 ** num_decimals
     return truncated_float
+
+
+def fit_linear_regression_models(
+        syndna_concs_df: pd.DataFrame,
+        sample_syndna_weights_and_total_reads_df: pd.DataFrame,
+        reads_per_syndna_per_sample_df: pd.DataFrame,
+        min_sample_counts: int) -> \
+        (dict[str, dict[str, float] | None], list[str]):
+
+    """Fits per-sample linear regression models predicting mass from counts.
+
+    This fits a linear regression model for each sample, predicting
+    log10(mass of instances of a sequence) within a sample from
+    log10(counts per million for that sequence) within the sample,
+    using spike-in data from synDNAs.
+
+    Parameters
+    ----------
+    syndna_concs_df: pd.DataFrame
+        A Dataframe containing SYNDNA_ID_KEY and SYNDNA_INDIV_NG_UL_KEY
+        (e.g. 1, 0.1, 0.01, 0.001, 0.0001) for all syndnas in the syndna pool
+        used in this experiment
+    sample_syndna_weights_and_total_reads_df: pd.DataFrame
+        A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
+        (the total weight of all syndnas in the sample combined, in ng), and
+        SYNDNA_TOTAL_READS_KEY (the number of total reads--not just aligned
+        reads--for all syndnas in the sample, including both r1 and r2)
+    reads_per_syndna_per_sample_df: pd.DataFrame
+        Wide-format dataframe with syndna ids as index and one
+        column for each sample id, which holds the read counts
+        aligned to that syndna in that sample. Note: should already have
+        combined forward and reverse counts.
+    min_sample_counts : int
+        Minimum number of counts required for a sample to be included in
+        the regression.  Samples with fewer counts will be excluded.
+
+    Returns
+    -------
+    linregress_result_dict :  dict[str, dict[str, float] | None]
+        Dictionary keyed by sample id, containing for each sample either None
+        (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
+        representation of the sample's LinregressResult, with each property
+        name as a key and that property's value as the value, as a float.
+        Values are rounded to no more than 15 decimal places.
+    log_messages_list : list[str]
+        List of log messages generated during the fitting process.
+    """
+
+    log_messages_list = []
+
+    # check sample_syndna_weights_and_total_reads_df has the expected columns
+    expected_info_cols = [
+        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SYNDNA_TOTAL_READS_KEY]
+    validate_required_columns_exist(
+        sample_syndna_weights_and_total_reads_df, expected_info_cols,
+        "sample metadata is missing required column(s)")
+
+    # id any syndnas that have an inadequate total number of reads aligned
+    # to them across all samples (less than min_sample_counts). Don't drop yet.
+    # Gathering this now bc it is easier while syndna id is still in the index,
+    # but we want the full column set while doing the validation checks.
+    # Note: synDNA author also made passing mention of dropping samples with
+    # inadequate "quality" but didn't provide any guidance on that.
+    too_low_counts_mask = \
+        reads_per_syndna_per_sample_df.sum(axis=1) < min_sample_counts
+    syndnas_to_drop = \
+        reads_per_syndna_per_sample_df[too_low_counts_mask].index.tolist()
+
+    # move the syndna ids from the index to a column, bc I hate implicit
+    reads_per_syndna_per_sample_df = \
+        reads_per_syndna_per_sample_df.reset_index(names=[SYNDNA_ID_KEY])
+
+    # validate that the syndna ids in the config and the data are consistent
+    _validate_syndna_id_consistency(syndna_concs_df,
+                                    reads_per_syndna_per_sample_df)
+
+    # validate that sample ids in the experiment info and data are consistent
+    missing_sample_ids = _validate_sample_id_consistency(
+        sample_syndna_weights_and_total_reads_df,
+        reads_per_syndna_per_sample_df)
+    if missing_sample_ids is not None:
+        log_messages_list.append(f'The following sample ids were in the '
+                                 f'experiment info but not in the data: '
+                                 f'{missing_sample_ids}')
+
+    # NOW remove any syndnas with too few counts from the dataframe,
+    # and log if there were any
+    filtered_reads_per_syndna_per_sample_df = \
+        reads_per_syndna_per_sample_df[
+            ~reads_per_syndna_per_sample_df[SYNDNA_ID_KEY].isin(
+                syndnas_to_drop)]
+    if len(syndnas_to_drop) > 0:
+        log_messages_list.append(f'The following syndnas were dropped '
+                                 f'because they had fewer than '
+                                 f'{min_sample_counts} total reads aligned:'
+                                 f'{syndnas_to_drop}')
+
+    # reformat filtered_reads_per_syndna_per_sample_df into "long form":
+    # columns for syndna id, sample id, and read count
+    working_df = filtered_reads_per_syndna_per_sample_df.melt(
+        id_vars=[SYNDNA_ID_KEY], var_name=SAMPLE_ID_KEY,
+        value_name=SYNDNA_COUNTS_KEY)
+
+    # merge w sample_total_reads_df to include total_reads column
+    working_df = working_df.merge(sample_syndna_weights_and_total_reads_df,
+                                  on=SAMPLE_ID_KEY, how='left')
+
+    # calculate the weight in ng of *each* syndna in each sample
+    working_df = _calc_indiv_syndna_weights(syndna_concs_df, working_df)
+
+    # fit linear regression models for each sample
+    linregress_by_sample_id = _fit_linear_regression_models(working_df)
+    linregress_results_dict = _convert_linregressresults_to_dict(
+        linregress_by_sample_id)
+
+    return linregress_results_dict, log_messages_list
+
+
+# TODO: if they sequenced over multiple lanes, would be different prep
+#  info files--talk to lab about whether they will ever do this :(
+#  this would require merge of multiple preparations
+def fit_linear_regression_models_for_qiita(
+        prep_info_df: pd.DataFrame,
+        reads_per_syndna_per_sample_biom: biom.Table,
+        min_sample_counts: int = DEFAULT_MIN_SAMPLE_COUNTS,
+        syndna_pool_config_fp: Optional[str] = None) -> dict[str: str]:
+
+    """Fits linear regressions predicting mass from counts using Qiita inputs.
+
+    Parameters
+    ----------
+    prep_info_df: pd.DataFrame
+        A Dataframe containing prep info for all samples in the prep,
+        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
+        and SYNDNA_TOTAL_READS_KEY
+    reads_per_syndna_per_sample_biom: biom.Table
+        Biom table holding read counts aligned to each synDNA in each sample.
+        Note: should already have combined forward and reverse counts.
+    min_sample_counts: int
+        Minimum number of counts required for a sample to be included in
+        the regression.  Samples with fewer counts will be excluded.
+    syndna_pool_config_fp: str, optional
+        Path to the yaml file holding the concentrations of each syndna
+        in the syndna pool used in this experiment.  If not provided, will
+        look for the config.yml file in the parent directory of this file.
+
+    Returns
+    -------
+    out_txt_by_out_type : dict of str
+        Dictionary of output strings (ready to be written to files) keyed
+        by the type of output they contain.  Currently, the following keys
+        are defined:
+        LIN_REGRESS_RESULT_KEY: yaml of dict[str, dict[str, float] | None]
+        FIT_SYNDNA_MODELS_LOG_KEY: txt log of messages from the fitting process
+    """
+
+    # check that the prep_info_df has the expected columns
+    expected_prep_info_cols = [
+        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
+        SYNDNA_TOTAL_READS_KEY]
+    validate_required_columns_exist(
+        prep_info_df, expected_prep_info_cols,
+        "prep info is missing required column(s)")
+
+    # pull the syndna pool number from the prep info, ensure it is the same for
+    # all samples, and convert to the pool name
+    syndna_pool_number = prep_info_df[SYNDNA_POOL_NUM_KEY].unique()
+    if len(syndna_pool_number) > 1:
+        raise ValueError(
+            f"Multiple syndna_pool_numbers found in prep info: "
+            f"{syndna_pool_number}")
+    syndna_pool_name = f"pool{syndna_pool_number[0]}"
+
+    # look in the SYNDNA_INDIV_NG_UL_KEY section of the config file to find the
+    # individual syndna concentrations associated with the relevant syndna
+    # pool name and turn the resulting dictionary into a dataframe
+    config_dict = _extract_config_dict(syndna_pool_config_fp)
+    conc_ng_ul_per_indiv_syndna = \
+        config_dict[SYNDNA_INDIV_NG_UL_KEY][syndna_pool_name]
+    syndna_concs_df = pd.DataFrame(
+        conc_ng_ul_per_indiv_syndna.items(),
+        columns=[SYNDNA_ID_KEY, SYNDNA_INDIV_NG_UL_KEY])
+
+    # convert input biom table to a pd.SparseDataFrame, which is should act
+    # basically like a pd.DataFrame but take up less memory
+    reads_per_syndna_per_sample_df = \
+        reads_per_syndna_per_sample_biom.to_dataframe(dense=False)
+
+    # fit linear regression models for each sample
+    linregress_results_dict, msg_list = fit_linear_regression_models(
+        syndna_concs_df, prep_info_df, reads_per_syndna_per_sample_df,
+        min_sample_counts)
+
+    out_txt_by_out_type = {
+        LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_results_dict),
+        FIT_SYNDNA_MODELS_LOG_KEY: '\n'.join(msg_list)}
+
+    return out_txt_by_out_type

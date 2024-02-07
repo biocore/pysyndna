@@ -15,104 +15,6 @@ ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
 REQUIRED_SAMPLE_INFO_KEYS = [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]
 
 
-def validate_required_columns_exist(
-        input_df: pd.DataFrame,
-        required_cols_list: List[str],
-        error_msg: str):
-
-    """Checks that the input dataframe has the required columns.
-
-    Parameters
-    ----------
-    input_df: pd.DataFrame
-        A Dataframe to be checked.
-    required_cols_list: list[str]
-        List of column names that must be present in the dataframe.
-    error_msg: str
-        Error message to be raised if any of the required columns are missing.
-    """
-
-    missing_cols = set(required_cols_list) - set(input_df.columns)
-    if len(missing_cols) > 0:
-        missing_cols = sorted(missing_cols)
-        raise ValueError(
-            f"{error_msg}: {missing_cols}")
-
-
-def validate_metadata_vs_reads_sample_id_consistency(
-        metadata_df: pd.DataFrame,
-        reads_df: Union[pd.DataFrame, biom.Table]) \
-        -> List[str]:
-    """
-    Checks that the sample ids in the sample metadata and data are consistent.
-
-    Parameters
-    ----------
-    metadata_df: pd.DataFrame
-        A Dataframe containing at least SAMPLE_ID_KEY column
-    reads_df: pd.DataFrame | biom.Table
-        Either a Dataframe with a column for each SAMPLE_ID_KEY or a biom.Table
-        with a column for each SAMPLE_ID_KEY
-
-    Raises
-    ------
-    ValueError
-        If there are sample ids in the data that aren't in the metadata df
-
-    Returns
-    -------
-    missing_sample_ids : List[str] | None
-        List of sample ids that are in the sample info but not in the
-        data.  None if all sample ids in the experiment info were in the data.
-    """
-
-    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
-    if isinstance(reads_df, biom.Table):
-        sample_ids_in_reads = set(reads_df.ids(axis='sample'))
-    else:
-        sample_ids_in_reads = set(reads_df.columns)
-    missing_reads_ids = _validate_sample_id_consistency(
-        sample_ids_in_metadata, sample_ids_in_reads, "sample info",
-        "reads data")
-
-    return missing_reads_ids
-
-
-def validate_metadata_vs_prep_sample_id_consistency(
-        metadata_df: pd.DataFrame,
-        prep_df: pd.DataFrame) \
-        -> Union[List[str], None]:
-    """
-    Checks that sample ids in the sample metadata and prep info are consistent.
-
-    Parameters
-    ----------
-    metadata_df: pd.DataFrame
-        A Dataframe of sample metadata containing at least SAMPLE_ID_KEY column
-    prep_df: pd.DataFrame
-        A Dataframe of prep info with a column for SAMPLE_ID_KEY
-
-    Raises
-    ------
-    ValueError
-        If there are sample ids in prep info that aren't in sample metadata
-
-    Returns
-    -------
-    missing_sample_ids : List[str] | None
-        List of sample ids that are in the sample metadata but not in the
-        prep info.  None if all sample ids in the sample metadata were in the
-        prep info.
-    """
-
-    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
-    sample_ids_in_prep = set(prep_df[SAMPLE_ID_KEY])
-    missing_prep_ids = _validate_sample_id_consistency(
-        sample_ids_in_metadata, sample_ids_in_prep,
-        "sample info",  "prep info")
-    return missing_prep_ids
-
-
 def _validate_sample_id_consistency(
         sample_ids_in_metadata: set,
         sample_ids_in_data: set,
@@ -170,7 +72,105 @@ def _validate_sample_id_consistency(
     return missing_sample_ids
 
 
-def calc_copies_per_g_series(
+def validate_required_columns_exist(
+        input_df: pd.DataFrame,
+        required_cols_list: List[str],
+        error_msg: str):
+
+    """Checks that the input dataframe has the required columns.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        A Dataframe to be checked.
+    required_cols_list: list[str]
+        List of column names that must be present in the dataframe.
+    error_msg: str
+        Error message to be raised if any of the required columns are missing.
+    """
+
+    missing_cols = set(required_cols_list) - set(input_df.columns)
+    if len(missing_cols) > 0:
+        missing_cols = sorted(missing_cols)
+        raise ValueError(
+            f"{error_msg}: {missing_cols}")
+
+
+def validate_metadata_vs_reads_id_consistency(
+        metadata_df: pd.DataFrame,
+        reads_df: Union[pd.DataFrame, biom.Table]) \
+        -> Union[List[str], None]:
+    """
+    Checks that the sample ids in the sample metadata and data are consistent.
+
+    Parameters
+    ----------
+    metadata_df: pd.DataFrame
+        A Dataframe containing at least SAMPLE_ID_KEY column
+    reads_df: pd.DataFrame | biom.Table
+        Either a Dataframe with a column for each SAMPLE_ID_KEY or a biom.Table
+        with a column for each SAMPLE_ID_KEY
+
+    Raises
+    ------
+    ValueError
+        If there are sample ids in the data that aren't in the metadata df
+
+    Returns
+    -------
+    missing_sample_ids : List[str] | None
+        List of sample ids that are in the sample info but not in the
+        data.  None if all sample ids in the experiment info were in the data.
+    """
+
+    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
+    if isinstance(reads_df, biom.Table):
+        sample_ids_in_reads = set(reads_df.ids(axis='sample'))
+    else:
+        sample_ids_in_reads = set(reads_df.columns)
+    missing_reads_ids = _validate_sample_id_consistency(
+        sample_ids_in_metadata, sample_ids_in_reads, "sample info",
+        "reads data")
+
+    return missing_reads_ids
+
+
+def validate_metadata_vs_prep_id_consistency(
+        metadata_df: pd.DataFrame,
+        prep_df: pd.DataFrame) \
+        -> Union[List[str], None]:
+    """
+    Checks that sample ids in the sample metadata and prep info are consistent.
+
+    Parameters
+    ----------
+    metadata_df: pd.DataFrame
+        A Dataframe of sample metadata containing at least SAMPLE_ID_KEY column
+    prep_df: pd.DataFrame
+        A Dataframe of prep info with a column for SAMPLE_ID_KEY
+
+    Raises
+    ------
+    ValueError
+        If there are sample ids in prep info that aren't in sample metadata
+
+    Returns
+    -------
+    missing_sample_ids : List[str] | None
+        List of sample ids that are in the sample metadata but not in the
+        prep info.  None if all sample ids in the sample metadata were in the
+        prep info.
+    """
+
+    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
+    sample_ids_in_prep = set(prep_df[SAMPLE_ID_KEY])
+    missing_prep_ids = _validate_sample_id_consistency(
+        sample_ids_in_metadata, sample_ids_in_prep,
+        "sample info",  "prep info")
+    return missing_prep_ids
+
+
+def calc_copies_genomic_element_per_g_series(
         genomic_elements_lengths_series: pd.Series,
         genomic_element_unit_avg_g_per_mole: float,
         is_test: Optional[bool] = False) -> pd.Series:
@@ -183,7 +183,7 @@ def calc_copies_per_g_series(
     Parameters
     ----------
     genomic_elements_lengths_series: pd.Series
-        Series with index identifying each genomic element, containing length
+        A Series with index identifying each genomic element, containing length
         of each element in genomic element units.  For example, length in DNA
         basepairs for OGUs or length in (single-stranded) RNA bases for
         OGU+ORF RNAs.
@@ -200,7 +200,7 @@ def calc_copies_per_g_series(
     Returns
     -------
     ogu_genomes_series : pd.Series
-        Series with index of OGU_ID_KEY and values of the number of genomes
+        A Series with index of OGU_ID_KEY and values of the number of genomes
         of each OGU in the sequenced sample.
 
     Terminology:
@@ -254,7 +254,7 @@ def calc_copies_per_g_series(
     return copies_of_genomic_element_per_g_of_genomic_element_unit
 
 
-def calc_g_genomic_element_of_sample_in_aliquot(
+def calc_gs_genomic_element_in_aliquot(
         genomic_elements_df: pd.DataFrame,
         genomic_element_conc_key: str,
         genomic_element_mass_key: str) -> pandas.DataFrame:
