@@ -7,7 +7,7 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
     validate_required_columns_exist, \
     validate_metadata_vs_reads_id_consistency, \
-    validate_metadata_vs_prep_id_consistency, \
+    validate_metadata_vs_prep_id_consistency, cast_cols, \
     DNA_BASEPAIR_G_PER_MOLE, NANOGRAMS_PER_GRAM, \
     SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, \
     REQUIRED_SAMPLE_INFO_KEYS
@@ -629,11 +629,14 @@ def calc_ogu_cell_counts_biom(
     # cast the GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
     # ELUTE_VOL_UL_KEY, and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY columns of
     # params df to float if they aren't already
-    for col in [GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
-                ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]:
-        if working_params_df[col].dtype != float:
-            working_params_df[col] = \
-                working_params_df[col].astype(float)
+    float_col_names = [
+        GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+        ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]
+    working_params_df = cast_cols(working_params_df, float_col_names)
+
+    # cast the SAMPLE_TOTAL_READS_KEY column of params df to int if it isn't
+    working_params_df = \
+        cast_cols(working_params_df, [SAMPLE_TOTAL_READS_KEY], int)
 
     # calculate the ratio of extracted gDNA mass to sample mass put into
     # extraction for each sample
@@ -756,12 +759,14 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     _ = validate_metadata_vs_prep_id_consistency(
         sample_info_df, prep_info_df)
 
-    # calculate the mass of gDNA sequenced for each sample.  We have the
+    # make sure the SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
+    # then calculate the mass of gDNA sequenced for each sample.  We have the
     # mass of syndna pool that was added to each sample, and we know that the
     # syndna pool mass is calculated to be a certain percentage of the mass of
     # the sample (added into the library prep in addition to the sample mass).
     # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
     # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
+    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY])
     prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
         prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
         (1 / syndna_mass_fraction_of_sample)

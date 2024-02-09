@@ -170,6 +170,20 @@ def validate_metadata_vs_prep_id_consistency(
     return missing_prep_ids
 
 
+def cast_cols(params_df, float_col_names, cast_type=float):
+    working_params_df = params_df.copy()
+
+    # cast the contents of columns with input names to cast_type (e.g. float)
+    # if they are in the dataframe and they aren't already that type
+    for col in float_col_names:
+        if col in working_params_df.columns:
+            if working_params_df[col].dtype != cast_type:
+                working_params_df[col] = \
+                    working_params_df[col].astype(cast_type)
+
+    return working_params_df
+
+
 def calc_copies_genomic_element_per_g_series(
         genomic_elements_lengths_series: pd.Series,
         genomic_element_unit_avg_g_per_mole: float,

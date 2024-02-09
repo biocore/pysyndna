@@ -516,6 +516,101 @@ class TestCalcCellCounts(TestCase):
             "'example4;Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_casts(self):
+        # inputs are the same as in
+        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
+        # all the inputs are strings, including ones that must be ints/floats.
+        # These are automatically cast to what they need to be by the function.
+
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+        sample_ids = ["example1", "example4"]
+        sample_info_dict = \
+            {k: [str(x) for x in self.sample_and_prep_input_dict[k]] for
+             k in [SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+        sample_info_dict[SAMPLE_ID_KEY] = sample_ids
+
+        prep_info_dict = \
+            {k: [str(x) for x in self.sample_and_prep_input_dict[k]] for k in
+             [GDNA_CONCENTRATION_NG_UL_KEY,
+              ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
+            [str(x) for x in self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
+
+        # example4 has the same counts as example2
+        counts_vals = self._make_combined_counts_np_array()
+
+        # NB: The test values for example1 here are *slightly* different than
+        # those in self.example1_ogu_full_outputs_full_avogadro_dict because
+        # the gdna-to-sample mass ratio calculated internally during this
+        # soup-to-nuts function has more digits past the decimal than does the
+        # example1 entry in the manually-populated self.mass_and_totals_dict.
+        # Since we are multiplying/dividing by large numbers like e.g., 10^9
+        # (to change ng to g), this ends up making a slight difference in the
+        # end product: for example, for L.gasseri,
+        # 3787068*15* cells instead of 3787068*09* cells,
+        # 80657360 instead of 80657358 for L. valderiana,
+        # and 199150566 instead of 199150563 for R. albus.
+        # The values for example 4 are about an order of magnitude smaller
+        # than those for example 1 and thus match those from
+        # "absolute_quant_example.xlsx" more closely:
+        # both 56777765 for L. gasseri (with rounding),
+        # 12008439 instead of 12008440 for L. valderiana,
+        # and both 29865774 for R. albus.
+        # Remember, with reordering, the 4th sub-array is for L. gasseri,
+        # the 5th is for L. valderiana, and the 9th is for R. albus.
+        ogu_cell_counts_per_g_sample = np.array([
+            [157373183.3914873, 23597204.3149076],
+            [51026330.8697321, 134672840.2210325],
+            [41099206.6945521, 0],
+            [378706815.3787082, 56777764.5887874],
+            [80657360.0375914, 12008439.3369959],
+            [66764001.1050239, 9985433.5965833],
+            [78187617.9691203, 0],
+            [91085928.0975326, 13631697.3528372],
+            [199150566.7379318, 29865774.0278729],
+            [83241001.9519951, 12452394.7533948],
+            [41754672.7649972, 6239881.9809863],
+            [92468147.5568761, 13848368.6486051],
+            [41072627.7089503, 6138060.2138924]])
+
+        sample_info_df = pd.DataFrame(sample_info_dict)
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            self.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            ogu_cell_counts_per_g_sample,
+            self.reordered_results_dict[OGU_ID_KEY],
+            sample_ids)
+
+        read_len = 150
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            sample_info_df, prep_info_df, models_fp, counts_biom,
+            lengths_fp, read_len, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+        self.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
+        self.assertEqual(
+            "The following items have coverage lower than the minimum of 1: "
+            "['example4;Neisseria subflava', "
+            "'example4;Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
         # missing a required column column
         sample_info_dict = {k: self.sample_and_prep_input_dict for k in

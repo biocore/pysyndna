@@ -4,11 +4,12 @@ import os
 import pandas
 from pandas.testing import assert_frame_equal
 from unittest import TestCase
-from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample, \
+from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs, \
+    calc_copies_of_ogu_orf_ssrna_per_g_sample, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
 from pysyndna.src.quant_orfs import _read_ogu_orf_coords_to_df, \
     _calc_ogu_orf_copies_per_g_from_coords, \
-    _calc_copies_of_ogu_orf_ssrna_per_g_sample, \
+    _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs, \
     OGU_ORF_ID_KEY, OGU_ORF_START_KEY, OGU_ORF_END_KEY, OGU_ORF_LEN_KEY, \
     COPIES_PER_G_OGU_ORF_SSRNA_KEY, SAMPLE_ID_KEY, \
     SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY, \
@@ -97,7 +98,7 @@ class TestQuantOrfs(TestCase):
 
         assert_frame_equal(expected_df, output_df)
 
-    def test__calc_copies_of_ogu_orf_ssrna_per_g_sample(self):
+    def test__calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(self):
         input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
         input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
             self.LEN_AND_COPIES_DICT,
@@ -113,7 +114,7 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = _calc_copies_of_ogu_orf_ssrna_per_g_sample(
+        output_biom = _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
             input_quant_params_per_sample_df,
             input_reads_per_ogu_orf_per_sample_biom,
             input_ogu_orf_copies_per_g_ssrna_df)
@@ -125,7 +126,36 @@ class TestQuantOrfs(TestCase):
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
 
-    def test__calc_copies_of_ogu_orf_ssrna_per_g_sample_ids_err(self):
+    def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(self):
+        # This is the same as the previous test, but using the public function
+        input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
+        input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
+            self.LEN_AND_COPIES_DICT,
+            index=self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY])
+
+        input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
+            self.COUNT_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        expected_biom = biom.table.Table(
+            self.COPIES_PER_G_SAMPLE_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
+            input_quant_params_per_sample_df,
+            input_reads_per_ogu_orf_per_sample_biom,
+            input_ogu_orf_copies_per_g_ssrna_df)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = expected_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+    def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs_ids_err(self):
         # drop the first sample from the params dataframe; now the reads
         # will contain a sample that the params dataframe does not
         input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
@@ -143,12 +173,12 @@ class TestQuantOrfs(TestCase):
         expected_msg = r"Found sample ids in reads data that were not in" \
                        r" sample info: \{'IBSRS3526007'\}"
         with self.assertRaisesRegex(ValueError, expected_msg):
-            _ = _calc_copies_of_ogu_orf_ssrna_per_g_sample(
+            _ = calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
                 input_quant_params_per_sample_df,
                 input_reads_per_ogu_orf_per_sample_biom,
                 input_ogu_orf_copies_per_g_ssrna_df)
 
-    def test__calc_copies_of_ogu_orf_ssrna_per_g_sample_col_err(self):
+    def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs_col_err(self):
         params_dict = self.PARAMS_DICT.copy()
 
         # drop a necessary column from the params dict
@@ -168,7 +198,7 @@ class TestQuantOrfs(TestCase):
         expected_msg = r"parameters dataframe is missing required " \
                        r"column\(s\): \['total_biological_reads_r1r2'\]"
         with self.assertRaisesRegex(ValueError, expected_msg):
-            _ = _calc_copies_of_ogu_orf_ssrna_per_g_sample(
+            _ = calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
                 input_quant_params_per_sample_df,
                 input_reads_per_ogu_orf_per_sample_biom,
                 input_ogu_orf_copies_per_g_ssrna_df)
@@ -200,10 +230,45 @@ class TestQuantOrfs(TestCase):
         pandas.testing.assert_frame_equal(output_df, expected_df)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(self):
-        sample_info_dict = {k: self.PARAMS_DICT[k] for k in
+        sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
-        prep_info_dict = {k: self.PARAMS_DICT[k] for k in
+        prep_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
+                          [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
+                           SSRNA_CONCENTRATION_NG_UL_KEY,
+                           TOTAL_BIOLOGICAL_READS_KEY]}
+
+        sample_info_df = pandas.DataFrame(sample_info_dict)
+        prep_info_df = pandas.DataFrame(prep_info_dict)
+        ogu_orf_coords_fp = os.path.join(self.data_dir, "coords.txt")
+
+        input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
+            self.COUNT_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        expected_biom = biom.table.Table(
+            self.COPIES_PER_G_SAMPLE_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+            sample_info_df, prep_info_df,
+            input_reads_per_ogu_orf_per_sample_biom,
+            ogu_orf_coords_fp)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = expected_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+    def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_w_casts(self):
+        sample_info_dict = {k: [str(x) for x in self.PARAMS_DICT[k]] for k in
+                            [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+
+        prep_info_dict = {k: [str(x) for x in self.PARAMS_DICT[k]] for k in
                           [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
                            SSRNA_CONCENTRATION_NG_UL_KEY,
                            TOTAL_BIOLOGICAL_READS_KEY]}
@@ -235,10 +300,10 @@ class TestQuantOrfs(TestCase):
         pandas.testing.assert_frame_equal(output_df, expected_df)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_col_err(self):
-        sample_info_dict = {k: self.PARAMS_DICT[k] for k in
+        sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                             [SAMPLE_ID_KEY]}
 
-        prep_info_dict = {k: self.PARAMS_DICT[k] for k in
+        prep_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                           [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
                            SSRNA_CONCENTRATION_NG_UL_KEY,
                            TOTAL_BIOLOGICAL_READS_KEY]}
@@ -261,10 +326,10 @@ class TestQuantOrfs(TestCase):
                 ogu_orf_coords_fp)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_col_err2(self):
-        sample_info_dict = {k: self.PARAMS_DICT[k] for k in
+        sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
-        prep_info_dict = {k: self.PARAMS_DICT[k] for k in
+        prep_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                           [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
                            SSRNA_CONCENTRATION_NG_UL_KEY]}
 
@@ -286,10 +351,10 @@ class TestQuantOrfs(TestCase):
                 ogu_orf_coords_fp)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_id_err(self):
-        sample_info_dict = {k: self.PARAMS_DICT[k] for k in
+        sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
-        prep_info_dict = {k: self.PARAMS_DICT[k] for k in
+        prep_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
                           [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
                            SSRNA_CONCENTRATION_NG_UL_KEY,
                            TOTAL_BIOLOGICAL_READS_KEY]}

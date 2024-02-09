@@ -6,7 +6,7 @@ from unittest import TestCase
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
     validate_metadata_vs_prep_id_consistency, \
-    validate_metadata_vs_reads_id_consistency, \
+    validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY
 
 
@@ -201,6 +201,72 @@ class TestCalcCellCounts(TestCase):
         with self.assertRaisesRegex(ValueError, expected_err):
             _ = validate_metadata_vs_reads_id_consistency(
                 input_df, reads_biom)
+
+    def test_cast_cols(self):
+        # all inputs are strings
+        input_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'conc_ng_ul': ['1.0', '2.0'],
+            'elute_vol_ul': ['3.0', '4.0'],
+            'mass_key': ['5.0', '6.0'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        # specified columns become floats (but not all--sample_id still str)
+        expected_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'conc_ng_ul': [1.0, 2.0],
+            'elute_vol_ul': [3.0, 4.0],
+            'mass_key': [5.0, 6.0],
+        }
+        expected_df = pandas.DataFrame(expected_dict)
+
+        obs_df = cast_cols(
+            input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'])
+        assert_frame_equal(expected_df, obs_df)
+
+    def test_cast_cols_alt_type(self):
+        # all inputs are strings
+        input_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'conc_ng_ul': ['1', '2'],
+            'elute_vol_ul': ['3', '4'],
+            'mass_key': ['5', '6'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        # specified columns become floats (but not all--sample_id still str)
+        expected_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'conc_ng_ul': [1, 2],
+            'elute_vol_ul': [3, 4],
+            'mass_key': [5, 6],
+        }
+        expected_df = pandas.DataFrame(expected_dict)
+
+        obs_df = cast_cols(
+            input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'], int)
+        assert_frame_equal(expected_df, obs_df)
+
+    def test_cast_cols_absent_cols(self):
+        # all inputs are strings
+        input_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'mass_key': ['5.0', '6.0'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        # mass_key becomes float, other cols in input list are absent
+        expected_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'mass_key': [5.0, 6.0],
+        }
+        expected_df = pandas.DataFrame(expected_dict)
+
+        obs_df = cast_cols(
+            input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'])
+        assert_frame_equal(expected_df, obs_df)
+
 
     def test_calc_copies_genomic_element_per_g_series(self):
         # example from "rna_copy_quant_example.xlsx" "full_calc" tab,

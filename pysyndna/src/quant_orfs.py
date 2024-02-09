@@ -3,7 +3,7 @@ import pandas
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
     validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, \
+    validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_metadata_vs_prep_id_consistency, SAMPLE_ID_KEY, \
     SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, RNA_BASE_G_PER_MOLE, \
     REQUIRED_SAMPLE_INFO_KEYS
@@ -117,7 +117,7 @@ def _calc_ogu_orf_copies_per_g_from_coords(
     return output_df
 
 
-def _calc_copies_of_ogu_orf_ssrna_per_g_sample(
+def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
         ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> biom.Table:
@@ -142,21 +142,6 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample(
     copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
         A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
     """
-
-    # turn REQUIRED_SAMPLE_INFO_KEYS and REQUIRED_RNA_PREP_INFO_KEYS into sets
-    # and combine them into a single set, then turn it back into a list
-    required_cols_list = list(
-        set(REQUIRED_SAMPLE_INFO_KEYS) | set(REQUIRED_RNA_PREP_INFO_KEYS))
-    validate_required_columns_exist(
-        quant_params_per_sample_df, required_cols_list,
-        "parameters dataframe is missing required column(s)")
-
-    # validate that the sample ids in the quant_params_per_sample_df match the
-    # sample ids in the reads_per_ogu_orf_per_sample_biom. Ignore sample ids
-    # in the quant_params_per_sample_df that are not in the biom table; those
-    # could just be samples that failed sequencing/etc.
-    _ = validate_metadata_vs_reads_id_consistency(
-        quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom)
 
     # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
     # lookup of values by sample id during biom lambda functions
@@ -224,6 +209,72 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample(
     return copies_of_ogu_orf_ssrna_per_g_sample_biom
 
 
+def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
+        quant_params_per_sample_df: pandas.DataFrame,
+        reads_per_ogu_orf_per_sample_biom: biom.Table,
+        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> biom.Table:
+    """Calculate the copies of each OGU+ORF ssRNA per gram of sample.
+
+    Parameters
+    ----------
+    quant_params_per_sample_df : pandas.DataFrame
+        A DataFrame containing at least SAMPLE_ID_KEY,
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
+        ELUTE_VOL_UL_KEY, and TOTAL_BIOLOGICAL_READS_KEY.
+    reads_per_ogu_orf_per_sample_biom : biom.Table
+        A biom.Table with the number of reads per OGU+ORF per sample, such
+        as that output by woltka.
+    ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame
+        A DataFrame with columns for OGU_ORF_ID_KEY and
+        COPIES_PER_G_OGU_ORF_SSRNA_KEY.
+
+    Returns
+    -------
+    copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
+        A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
+    """
+
+    # turn REQUIRED_SAMPLE_INFO_KEYS and REQUIRED_RNA_PREP_INFO_KEYS into sets
+    # and combine them into a single set, then turn it back into a list
+    required_cols_list = list(
+        set(REQUIRED_SAMPLE_INFO_KEYS) | set(REQUIRED_RNA_PREP_INFO_KEYS))
+    validate_required_columns_exist(
+        quant_params_per_sample_df, required_cols_list,
+        "parameters dataframe is missing required column(s)")
+
+    # validate that the sample ids in the quant_params_per_sample_df match the
+    # sample ids in the reads_per_ogu_orf_per_sample_biom. Ignore sample ids
+    # in the quant_params_per_sample_df that are not in the biom table; those
+    # could just be samples that failed sequencing/etc.
+    _ = validate_metadata_vs_reads_id_consistency(
+        quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom)
+
+    # Cast SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
+    # and ELUTE_VOL_UL_KEY cols to floats if not already
+    float_col_names = \
+        [SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
+         ELUTE_VOL_UL_KEY]
+    quant_params_per_sample_df = cast_cols(
+        quant_params_per_sample_df, float_col_names)
+
+    # Cast TOTAL_BIOLOGICAL_READS_KEY to int if not already
+    quant_params_per_sample_df = cast_cols(
+        quant_params_per_sample_df, [TOTAL_BIOLOGICAL_READS_KEY], int)
+
+    # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
+    # lookup of values by sample id during biom lambda functions
+    quant_params_per_sample_df.index = \
+        quant_params_per_sample_df[SAMPLE_ID_KEY]
+
+    # Calculate the grams of total ssRNA from each sample that are in the elute
+    copies_of_ogu_orf_ssrna_per_g_sample_biom = \
+        _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
+            quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
+            ogu_orf_copies_per_g_ssrna_df)
+
+    return copies_of_ogu_orf_ssrna_per_g_sample_biom
+
+
 def calc_copies_of_ogu_orf_ssrna_per_g_sample(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
@@ -264,7 +315,7 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample(
         ogu_orf_coords_df)
 
     copies_of_ogu_orf_ssrna_per_g_sample_biom = \
-        _calc_copies_of_ogu_orf_ssrna_per_g_sample(
+        calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
             quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
             ogu_orf_copies_per_g_ssrna_df)
 
