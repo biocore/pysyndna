@@ -10,7 +10,7 @@ import yaml
 
 from typing import Optional, List, Dict, Union
 from pysyndna.src.util import validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, SAMPLE_ID_KEY
+    validate_metadata_vs_reads_id_consistency, cast_cols, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
@@ -401,6 +401,18 @@ def fit_linear_regression_models(
     validate_required_columns_exist(
         sample_syndna_weights_and_total_reads_df, expected_info_cols,
         "sample metadata is missing required column(s)")
+    expected_syndna_cols = [SYNDNA_ID_KEY, SYNDNA_INDIV_NG_UL_KEY]
+    validate_required_columns_exist(
+        syndna_concs_df, expected_syndna_cols,
+        "syndna concentrations are missing required column(s)")
+
+    # cast numeric input columns to the correct type
+    sample_syndna_weights_and_total_reads_df = cast_cols(
+        sample_syndna_weights_and_total_reads_df, [SYNDNA_POOL_MASS_NG_KEY])
+    sample_syndna_weights_and_total_reads_df = cast_cols(
+        sample_syndna_weights_and_total_reads_df,
+        [SAMPLE_TOTAL_READS_KEY], int)
+    syndna_concs_df = cast_cols(syndna_concs_df, [SYNDNA_INDIV_NG_UL_KEY])
 
     # id any syndnas that have an inadequate total number of reads aligned
     # to them across all samples (less than min_sample_counts). Don't drop yet.

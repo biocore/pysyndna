@@ -180,6 +180,45 @@ class FitSyndnaModelsTest(TestCase):
 
         self.assertDictEqual(expected_out, output_dict)
 
+    def test_fit_linear_regression_models_for_qiita_w_casts(self):
+        # same as test_fit_linear_regression_models_for_qiita, but with
+        # all param values passed in as strings
+        prep_info_dict = {k: [str(x) for x in self.prep_info_dict[k]]
+                          for k in self.prep_info_dict}
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
+        min_counts = 50
+
+        # These are text versions of the linear regression results
+        # for the full data (see self.lingress_results and the
+        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        expected_out = {
+            'lin_regress_by_sample_id':
+                'A:\n'
+                '  intercept: -6.724238188489\n'
+                '  intercept_stderr: 0.236197627825\n'
+                '  pvalue: 1.42844e-07\n'
+                '  rvalue: 0.986503097515\n'
+                '  slope: 1.244876523791\n'
+                '  stderr: 0.073054085503\n'
+                'B:\n'
+                '  intercept: -7.155318973708\n'
+                '  intercept_stderr: 0.256395675584\n'
+                '  pvalue: 1.50538e-07\n'
+                '  rvalue: 0.986324179735\n'
+                '  slope: 1.246759136044\n'
+                '  stderr: 0.073657952553\n',
+            'fit_syndna_models_log': ''
+        }
+
+        output_dict = fit_linear_regression_models_for_qiita(
+            prep_info_df, input_biom, min_counts)
+
+        self.assertDictEqual(expected_out, output_dict)
+
     def test_fit_linear_regression_models_for_qiita_w_alt_config(self):
         prep_info_df = pd.DataFrame(self.prep_info_dict)
         input_biom = biom.table.Table(
@@ -303,6 +342,34 @@ class FitSyndnaModelsTest(TestCase):
         syndna_concs_df = pd.DataFrame(self.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
             self.a_b_sample_syndna_weights_and_total_reads_dict)
+        reads_per_syndna_per_sample_df = pd.DataFrame(
+            self.reads_per_syndna_per_sample_dict)
+        reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
+
+        out_linregress_dict, out_msgs = fit_linear_regression_models(
+            syndna_concs_df,
+            sample_syndna_weights_and_total_reads_df,
+            reads_per_syndna_per_sample_df, min_count)
+
+        self.assert_lingressresult_dict_almost_equal(
+            self.lingress_results, out_linregress_dict)
+        self.assertEqual([], out_msgs)
+
+    def test_fit_linear_regression_models_w_casts(self):
+        min_count = 50
+
+        # same as test_fit_linear_regression_models, but with
+        # all param values passed in as strings
+        syndna_concs_dict = {k: [str(x) for x in self.syndna_concs_dict[k]]
+                            for k in self.syndna_concs_dict}
+        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        a_b_sample_syndna_weights_and_total_reads_dict = {
+            k: [str(x) for x in
+                self.a_b_sample_syndna_weights_and_total_reads_dict[k]]
+            for k in self.a_b_sample_syndna_weights_and_total_reads_dict}
+        sample_syndna_weights_and_total_reads_df = pd.DataFrame(
+            a_b_sample_syndna_weights_and_total_reads_dict)
+
         reads_per_syndna_per_sample_df = pd.DataFrame(
             self.reads_per_syndna_per_sample_dict)
         reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
