@@ -361,7 +361,7 @@ class FitSyndnaModelsTest(TestCase):
         # same as test_fit_linear_regression_models, but with
         # all param values passed in as strings
         syndna_concs_dict = {k: [str(x) for x in self.syndna_concs_dict[k]]
-                            for k in self.syndna_concs_dict}
+                             for k in self.syndna_concs_dict}
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
         a_b_sample_syndna_weights_and_total_reads_dict = {
             k: [str(x) for x in

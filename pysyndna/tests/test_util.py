@@ -267,7 +267,6 @@ class TestCalcCellCounts(TestCase):
             input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'])
         assert_frame_equal(expected_df, obs_df)
 
-
     def test_calc_copies_genomic_element_per_g_series(self):
         # example from "rna_copy_quant_example.xlsx" "full_calc" tab,
         # ogu_orf_calculations table
