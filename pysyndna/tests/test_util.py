@@ -206,18 +206,19 @@ class TestCalcCellCounts(TestCase):
         # all inputs are strings
         input_dict = {
             'sample_id': ['sample1', 'sample2'],
-            'conc_ng_ul': ['1.0', '2.0'],
-            'elute_vol_ul': ['3.0', '4.0'],
-            'mass_key': ['5.0', '6.0'],
+            'conc_ng_ul': ['1', '2'],
+            'elute_vol_ul': ['3', 'not applicable'],
+            'mass_key': ['5', '6'],
         }
         input_df = pandas.DataFrame(input_dict)
 
-        # specified columns become floats (but not all--sample_id still str)
+        # all columns containing just numbers become ints; the specified col
+        # that contains a string becomes float bc int type can't hold NaN
         expected_dict = {
             'sample_id': ['sample1', 'sample2'],
-            'conc_ng_ul': [1.0, 2.0],
-            'elute_vol_ul': [3.0, 4.0],
-            'mass_key': [5.0, 6.0],
+            'conc_ng_ul': [1, 2],
+            'elute_vol_ul': [3, np.nan],
+            'mass_key': [5, 6],
         }
         expected_df = pandas.DataFrame(expected_dict)
 
@@ -225,41 +226,42 @@ class TestCalcCellCounts(TestCase):
             input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'])
         assert_frame_equal(expected_df, obs_df)
 
-    def test_cast_cols_alt_type(self):
+    def test_cast_cols_force_float(self):
         # all inputs are strings
         input_dict = {
             'sample_id': ['sample1', 'sample2'],
             'conc_ng_ul': ['1', '2'],
-            'elute_vol_ul': ['3', '4'],
-            'mass_key': ['5', '6'],
+            'elute_vol_ul': ['3.0', 'not applicable'],
+            'mass_key': ['5.0', '6.0'],
         }
         input_df = pandas.DataFrame(input_dict)
 
-        # specified columns become floats (but not all--sample_id still str)
+        # specified columns become floats even if they could be ints;
+        # any that can't become floats become NaN
         expected_dict = {
             'sample_id': ['sample1', 'sample2'],
-            'conc_ng_ul': [1, 2],
-            'elute_vol_ul': [3, 4],
-            'mass_key': [5, 6],
+            'conc_ng_ul': [1.0, 2.0],
+            'elute_vol_ul': [3.0, np.nan],
+            'mass_key': [5.0, 6.0],
         }
         expected_df = pandas.DataFrame(expected_dict)
 
         obs_df = cast_cols(
-            input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'], int)
+            input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'], True)
         assert_frame_equal(expected_df, obs_df)
 
     def test_cast_cols_absent_cols(self):
         # all inputs are strings
         input_dict = {
             'sample_id': ['sample1', 'sample2'],
-            'mass_key': ['5.0', '6.0'],
+            'mass_key': ['5.0', 'not applicable'],
         }
         input_df = pandas.DataFrame(input_dict)
 
         # mass_key becomes float, other cols in input list are absent
         expected_dict = {
             'sample_id': ['sample1', 'sample2'],
-            'mass_key': [5.0, 6.0],
+            'mass_key': [5.0, np.nan],
         }
         expected_df = pandas.DataFrame(expected_dict)
 

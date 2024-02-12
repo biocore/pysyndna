@@ -408,11 +408,13 @@ def fit_linear_regression_models(
 
     # cast numeric input columns to the correct type
     sample_syndna_weights_and_total_reads_df = cast_cols(
-        sample_syndna_weights_and_total_reads_df, [SYNDNA_POOL_MASS_NG_KEY])
+        sample_syndna_weights_and_total_reads_df,
+        [SYNDNA_POOL_MASS_NG_KEY], True)
     sample_syndna_weights_and_total_reads_df = cast_cols(
         sample_syndna_weights_and_total_reads_df,
-        [SAMPLE_TOTAL_READS_KEY], int)
-    syndna_concs_df = cast_cols(syndna_concs_df, [SYNDNA_INDIV_NG_UL_KEY])
+        [SAMPLE_TOTAL_READS_KEY])
+    syndna_concs_df = cast_cols(
+        syndna_concs_df, [SYNDNA_INDIV_NG_UL_KEY], True)
 
     # id any syndnas that have an inadequate total number of reads aligned
     # to them across all samples (less than min_sample_counts). Don't drop yet.

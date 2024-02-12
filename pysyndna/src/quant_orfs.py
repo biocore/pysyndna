@@ -255,11 +255,11 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         [SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
          ELUTE_VOL_UL_KEY]
     quant_params_per_sample_df = cast_cols(
-        quant_params_per_sample_df, float_col_names)
+        quant_params_per_sample_df, float_col_names, True)
 
-    # Cast TOTAL_BIOLOGICAL_READS_KEY to int if not already
+    # Cast TOTAL_BIOLOGICAL_READS_KEY to numeric if not already
     quant_params_per_sample_df = cast_cols(
-        quant_params_per_sample_df, [TOTAL_BIOLOGICAL_READS_KEY], int)
+        quant_params_per_sample_df, [TOTAL_BIOLOGICAL_READS_KEY])
 
     # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
     # lookup of values by sample id during biom lambda functions

@@ -170,16 +170,18 @@ def validate_metadata_vs_prep_id_consistency(
     return missing_prep_ids
 
 
-def cast_cols(params_df, float_col_names, cast_type=float):
+def cast_cols(params_df, numeric_col_names, force_float=False):
     working_params_df = params_df.copy()
 
     # cast the contents of columns with input names to cast_type (e.g. float)
     # if they are in the dataframe and they aren't already that type
-    for col in float_col_names:
+    for col in numeric_col_names:
         if col in working_params_df.columns:
-            if working_params_df[col].dtype != cast_type:
+            working_params_df[col] = pandas.to_numeric(
+                working_params_df[col], errors='coerce')
+            if force_float:
                 working_params_df[col] = \
-                    working_params_df[col].astype(cast_type)
+                    working_params_df[col].astype(float)
 
     return working_params_df
 

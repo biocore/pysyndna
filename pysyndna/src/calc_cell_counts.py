@@ -632,11 +632,11 @@ def calc_ogu_cell_counts_biom(
     float_col_names = [
         GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
         ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]
-    working_params_df = cast_cols(working_params_df, float_col_names)
+    working_params_df = cast_cols(working_params_df, float_col_names, True)
 
-    # cast the SAMPLE_TOTAL_READS_KEY column of params df to int if it isn't
+    # cast SAMPLE_TOTAL_READS_KEY column of params df to numeric if it isn't
     working_params_df = \
-        cast_cols(working_params_df, [SAMPLE_TOTAL_READS_KEY], int)
+        cast_cols(working_params_df, [SAMPLE_TOTAL_READS_KEY])
 
     # calculate the ratio of extracted gDNA mass to sample mass put into
     # extraction for each sample
@@ -766,7 +766,7 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     # the sample (added into the library prep in addition to the sample mass).
     # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
     # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
-    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY])
+    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY], True)
     prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
         prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
         (1 / syndna_mass_fraction_of_sample)
