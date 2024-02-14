@@ -16,7 +16,8 @@ from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
     OGU_CELLS_PER_G_OF_GDNA_KEY, SYNDNA_POOL_MASS_NG_KEY, \
     GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, \
     GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, \
-    OGU_CELLS_PER_G_OF_SAMPLE_KEY, TOTAL_OGU_READS_KEY, OGU_COVERAGE_KEY, \
+    OGU_CELLS_PER_G_OF_SAMPLE_KEY, TOTAL_OGU_READS_KEY, \
+    OGU_PERCENT_COVERAGE_KEY, \
     CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY, SAMPLE_TOTAL_READS_KEY, \
     _calc_long_format_ogu_cell_counts_df, \
     _prepare_cell_counts_calc_df, \
@@ -123,7 +124,7 @@ class TestCalcCellCounts(TestCase):
         # bc example 2 has 12 counts here instead of 12145).
         # All other positions are identical.
         OGU_READ_COUNT_KEY: [79951, 93024, 86188, 45441, 31185, 24929,
-                             1975, 0, 22303, 197830, 14478, 12, 14609]
+                             1975, 0, 22303, 197830, 14478, 100, 14609]
     })
 
     # This dict contains the gdna mass from Zaramela and the results of
@@ -199,16 +200,16 @@ class TestCalcCellCounts(TestCase):
         # header "Applying the linear models to sequencing data" of the
         # https://github.com/lzaramela/SynDNA/blob/main/SynDNA_saliva_samples_analysis.ipynb
         # notebook by capturing the value of the dataframe when i=1.
-        # The Cov column is OGU_COVERAGE_KEY. (Note that the coverage calc
+        # The Cov column is OGU_PERCENT_COVERAGE_KEY. (Note that the coverage calc
         # is upstream of the part of the calculation using Avogadro's number
         # so it is not affected by the truncated vs. full Avogadro's number.)
-        OGU_COVERAGE_KEY: [6.29597514334489, 3.19032039014754,
-                           2.56862497316419, 1.76537729965377,
-                           1.90692890582578, 1.84090986293668,
-                           3.31880713389496, 1.70934318831428,
-                           1.51731341482939, 1.19420333792332,
-                           1.05484891342717, 1.08394039151921,
-                           1.03533221485547],
+        OGU_PERCENT_COVERAGE_KEY: [629.597514334489, 319.032039014754,
+                                   256.862497316419, 176.537729965377,
+                                   190.692890582578, 184.090986293668,
+                                   331.880713389496, 170.934318831428,
+                                   151.731341482939, 119.420333792332,
+                                   105.484891342717, 108.394039151921,
+                                   103.533221485547],
         # for the arrays below, the 1st, 2nd, and 7th values (those for
         # L. gasseri, R. albus, and L. valderiana) match those worked out in
         # detail for example1 in the "absolute_quant_example.xlsx" spreadsheet
@@ -281,13 +282,13 @@ class TestCalcCellCounts(TestCase):
         # these positions are different from the example1 counts (and still
         # large enough to pass the min_coverage = 1 threshold).  These two
         # values have been checked by hand.
-        OGU_COVERAGE_KEY: [6.296053893, 3.19032039014754,
-                           2.56862497316419, 1.76537729965377,
-                           1.90692890582578, 1.84090986293668,
-                           3.31880713389496,
-                           1.51731341482939, 11.94203338,
-                           1.05484891342717,
-                           1.03533221485547],
+        OGU_PERCENT_COVERAGE_KEY: [629.6053893, 319.032039014754,
+                                   256.862497316419, 176.537729965377,
+                                   190.692890582578, 184.090986293668,
+                                   331.880713389496,
+                                   151.731341482939, 1194.203338,
+                                   105.484891342717,
+                                   103.533221485547],
         OGU_GENOMES_PER_G_OF_GDNA_KEY: [
             17086455403978.045, 8987677125515.266, 7101240813289.261,
             4167468287030.2075, 4102264162505.8833, 3747369928484.789,
@@ -511,8 +512,8 @@ class TestCalcCellCounts(TestCase):
         self.assert_biom_tables_equal(
             expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
         self.assertEqual(
-            "The following items have coverage lower than the minimum of 1: "
-            "['example4;Neisseria subflava', "
+            "The following items have % coverage lower than the minimum of "
+            "1.0: ['example4;Neisseria subflava', "
             "'example4;Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
@@ -592,9 +593,10 @@ class TestCalcCellCounts(TestCase):
             self.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
-        read_len = 150
-        min_coverage = 1
-        min_rsquared = 0.8
+        # pass in strings for the numeric values to ensure they get cast
+        read_len = "150"
+        min_coverage = "1"
+        min_rsquared = "0.8"
 
         output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info_df, prep_info_df, models_fp, counts_biom,
@@ -606,8 +608,8 @@ class TestCalcCellCounts(TestCase):
         self.assert_biom_tables_equal(
             expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
         self.assertEqual(
-            "The following items have coverage lower than the minimum of 1: "
-            "['example4;Neisseria subflava', "
+            "The following items have % coverage lower than the minimum of "
+            "1.0: ['example4;Neisseria subflava', "
             "'example4;Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
@@ -754,8 +756,8 @@ class TestCalcCellCounts(TestCase):
         self.assert_biom_tables_equal(expected_out_biom, output_biom,
                                       decimal_precision=2)
         self.assertListEqual(
-            ["The following items have coverage lower than the minimum of 1: "
-             "['example2;Neisseria subflava', "
+            ["The following items have % coverage lower than the minimum of "
+             "1.0: ['example2;Neisseria subflava', "
              "'example2;Haemophilus influenzae']"],
             output_msgs)
 
@@ -870,8 +872,8 @@ class TestCalcCellCounts(TestCase):
         self.assert_biom_tables_equal(expected_out_biom, output_biom,
                                       decimal_precision=2)
         self.assertListEqual(
-            ["The following items have coverage lower than the minimum of 1: "
-             "['example2;Neisseria subflava', "
+            ["The following items have % coverage lower than the minimum of "
+             "1.0: ['example2;Neisseria subflava', "
              "'example2;Haemophilus influenzae']"],
             output_msgs)
 
@@ -907,8 +909,8 @@ class TestCalcCellCounts(TestCase):
             OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
                 self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
-            OGU_COVERAGE_KEY: SparseArray(
-                self._combine_filtered_out(OGU_COVERAGE_KEY)),
+            OGU_PERCENT_COVERAGE_KEY: SparseArray(
+                self._combine_filtered_out(OGU_PERCENT_COVERAGE_KEY)),
             OGU_GDNA_MASS_NG_KEY: SparseArray(ogu_masses),
             OGU_GENOMES_PER_G_OF_GDNA_KEY: SparseArray(
                 self._combine_filtered_out(OGU_GENOMES_PER_G_OF_GDNA_KEY)),
@@ -934,8 +936,8 @@ class TestCalcCellCounts(TestCase):
 
         pd.testing.assert_frame_equal(expected_df, output_df)
         self.assertListEqual(
-            ["The following items have coverage lower than the minimum of 1: "
-             "['example2;Neisseria subflava',"
+            ["The following items have % coverage lower than the minimum of "
+             "1.0: ['example2;Neisseria subflava',"
              " 'example2;Haemophilus influenzae']"],
             output_msgs)
 
@@ -988,8 +990,8 @@ class TestCalcCellCounts(TestCase):
             OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
                 self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
-            OGU_COVERAGE_KEY: SparseArray(
-                self._combine_filtered_out(OGU_COVERAGE_KEY))
+            OGU_PERCENT_COVERAGE_KEY: SparseArray(
+                self._combine_filtered_out(OGU_PERCENT_COVERAGE_KEY))
         }
 
         counts_df = pd.DataFrame(counts_dict)
@@ -1004,8 +1006,8 @@ class TestCalcCellCounts(TestCase):
             counts_df, lengths_df, read_len, min_coverage)
 
         pd.testing.assert_frame_equal(expected_out_df, output_df)
-        self.assertListEqual(["The following items have coverage lower "
-                              "than the minimum of 1: "
+        self.assertListEqual(["The following items have % coverage lower "
+                              "than the minimum of 1.0: "
                               "['example2;Neisseria subflava',"
                               " 'example2;Haemophilus influenzae']"],
                              output_msgs)
@@ -1023,7 +1025,7 @@ class TestCalcCellCounts(TestCase):
                          "Fusobacterium periodonticum",
                          "Streptococcus pneumoniae", "Haemophilus influenzae",
                          "Veillonella dispar"],
-            "A": SparseArray([0, 0, 0, 0, 0, 0,
+            "A": SparseArray([150, 0, 0, 0, 0, 0,
                               1975, 26130, 22303, 19783, 14478, 12145, 14609]),
             "B": SparseArray([0, 0, 0, 0, 0, 0,
                               1975, 0, 22303, 197830, 14478, 12, 14609]),
@@ -1054,11 +1056,11 @@ class TestCalcCellCounts(TestCase):
                                               28956, 12157, 29218,
                                               3950, 44606, 217613, 28956,
                                               29218]),
-            OGU_COVERAGE_KEY: SparseArray([
-                3.318807134, 1.709343188, 1.517313415, 1.194203338,
-                1.054848913, 1.083940392, 1.035332215,
-                3.318807134, 1.517313415, 11.94203338, 1.054848913,
-                1.035332215])
+            OGU_PERCENT_COVERAGE_KEY: SparseArray([
+                331.8807134, 170.9343188, 151.7313415, 119.4203338,
+                105.4848913, 108.3940392, 103.5332215,
+                331.8807134, 151.7313415, 1194.203338, 105.4848913,
+                103.5332215])
         }
 
         counts_df = pd.DataFrame(counts_dict)
@@ -1067,14 +1069,15 @@ class TestCalcCellCounts(TestCase):
         expected_out_df = pd.DataFrame(expected_out_dict)
 
         read_len = 150
-        min_coverage = 1
+        min_coverage = 100
 
         output_df, output_msgs = _prepare_cell_counts_calc_df(
             counts_df, lengths_df, read_len, min_coverage)
 
         pd.testing.assert_frame_equal(expected_out_df, output_df)
         self.assertListEqual(
-            ["The following items have coverage lower than the minimum of 1: "
+            ["The following items have % coverage lower than the minimum "
+             "of 100.0: "
              "['A;Lactobacillus gasseri', 'A;Ruminococcus albus', "
              "'A;Escherichia coli', 'A;Tyzzerella nexilis', "
              "'A;Prevotella sp. oral taxon 299', 'A;Streptococcus mitis', "
