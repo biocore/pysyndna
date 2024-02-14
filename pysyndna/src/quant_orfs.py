@@ -1,5 +1,6 @@
 import biom.table
 import pandas
+from typing import List
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
     validate_required_columns_exist, \
@@ -18,6 +19,8 @@ SSRNA_CONCENTRATION_NG_UL_KEY = "total_rna_concentration_ng_ul"
 SSRNA_FROM_ALIQUOT_MASS_G_KEY = "ssrna_from_aliquot_mass_g"
 REQUIRED_RNA_PREP_INFO_KEYS = [SAMPLE_ID_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
                                ELUTE_VOL_UL_KEY, TOTAL_BIOLOGICAL_READS_KEY]
+REQUIRED_PARAM_KEYS = list(
+    set(REQUIRED_SAMPLE_INFO_KEYS) | set(REQUIRED_RNA_PREP_INFO_KEYS))
 
 
 def _read_ogu_orf_coords_to_df(wol_reannotations_fp: str) -> pandas.DataFrame:
@@ -117,10 +120,64 @@ def _calc_ogu_orf_copies_per_g_from_coords(
     return output_df
 
 
+def _filter_nan_samples_from_biom(
+        quant_params_per_sample_df: pandas.DataFrame,
+        an_ogu_orf_per_sample_biom: biom.Table) -> \
+        (biom.Table, List[str]):
+    """Filter samples with NaNs in necessary param column(s) from biom.
+
+    Parameters
+    ----------
+    quant_params_per_sample_df : pandas.DataFrame
+        A DataFrame containing at least SAMPLE_ID_KEY,
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
+        ELUTE_VOL_UL_KEY, and TOTAL_BIOLOGICAL_READS_KEY.
+    an_ogu_orf_per_sample_biom : biom.Table
+        A biom.Table with the values for each OGU+ORF for each sample.
+
+    Returns
+    -------
+    filtered_ogu_orf_per_sample_biom : biom.Table
+        A biom.Table with the values for each OGU+ORF for each sample that is
+        NOT NaN in any of the necessary prep/sample columns.
+    log_msgs_list: list[str]
+        A list of log messages, if any, generated during the function's
+        operation.  Empty if no log messages were generated.
+    """
+
+    log_msgs_list = []
+
+    # identify samples w/NaNs in sample/prep info columns we need to use
+    # (such as, frequently, blanks)
+    nan_samples = quant_params_per_sample_df[
+        quant_params_per_sample_df[REQUIRED_PARAM_KEYS].isna().any(
+            axis=1)].index.tolist()
+
+    if len(nan_samples) > 0:
+        def is_nan(val, id_, _):
+            return id_ in nan_samples
+        filtered_ogu_orf_per_sample_biom = \
+            an_ogu_orf_per_sample_biom.filter(
+                is_nan, invert=True, inplace=False)
+
+        log_msgs_list.append(
+            "Dropping samples with NaNs in necessary prep/sample column(s): " +
+            ", ".join(nan_samples))
+    else:
+        filtered_ogu_orf_per_sample_biom = \
+            an_ogu_orf_per_sample_biom
+
+    # TODO: should I add check to error if there are any NaNs in biom?
+    #  I think I'd have to convert to df to do that, which would be slow
+
+    return filtered_ogu_orf_per_sample_biom, log_msgs_list
+
+
 def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
-        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> biom.Table:
+        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> \
+        (biom.Table, List[str]):
 
     """Calculate the copies of each OGU+ORF ssRNA per gram of sample.
 
@@ -141,6 +198,9 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     -------
     copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
         A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
+    log_msgs_list: list[str]
+        A list of log messages, if any, generated during the function's
+        operation.  Empty if no log messages were generated.
     """
 
     # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
@@ -206,13 +266,20 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         copies_per_ogu_orf_per_sample_biom.transform(
             f=get_copies_per_g_sample, axis='sample', inplace=False)
 
-    return copies_of_ogu_orf_ssrna_per_g_sample_biom
+    filtered_copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
+        _filter_nan_samples_from_biom(
+            quant_params_per_sample_df,
+            copies_of_ogu_orf_ssrna_per_g_sample_biom)
+
+    return filtered_copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
 
 def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
-        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> biom.Table:
+        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> \
+        (biom.Table, List[str]):
+
     """Calculate the copies of each OGU+ORF ssRNA per gram of sample.
 
     Parameters
@@ -232,14 +299,13 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     -------
     copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
         A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
+    log_msgs_list: list[str]
+        A list of log messages, if any, generated during the function's
+        operation.  Empty if no log messages were generated.
     """
 
-    # turn REQUIRED_SAMPLE_INFO_KEYS and REQUIRED_RNA_PREP_INFO_KEYS into sets
-    # and combine them into a single set, then turn it back into a list
-    required_cols_list = list(
-        set(REQUIRED_SAMPLE_INFO_KEYS) | set(REQUIRED_RNA_PREP_INFO_KEYS))
     validate_required_columns_exist(
-        quant_params_per_sample_df, required_cols_list,
+        quant_params_per_sample_df, REQUIRED_PARAM_KEYS,
         "parameters dataframe is missing required column(s)")
 
     # validate that the sample ids in the quant_params_per_sample_df match the
@@ -267,18 +333,19 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df[SAMPLE_ID_KEY]
 
     # Calculate the grams of total ssRNA from each sample that are in the elute
-    copies_of_ogu_orf_ssrna_per_g_sample_biom = \
+    copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
         _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
             quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
             ogu_orf_copies_per_g_ssrna_df)
 
-    return copies_of_ogu_orf_ssrna_per_g_sample_biom
+    return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
 
 def calc_copies_of_ogu_orf_ssrna_per_g_sample(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
-        ogu_orf_coords_fp: str) -> biom.Table:
+        ogu_orf_coords_fp: str) -> (biom.Table, List[str]):
+
     """Calculate the copies of each OGU+ORF ssRNA per gram of sample.
 
     Parameters
@@ -307,6 +374,9 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample(
     -------
     copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
         A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
+    log_msgs_list: list[str]
+        A list of log messages, if any, generated during the function's
+        operation.  Empty if no log messages were generated.
     """
 
     # Calculate the copies per gram of each OGU+ORF ssRNA
@@ -314,19 +384,19 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample(
     ogu_orf_copies_per_g_ssrna_df = _calc_ogu_orf_copies_per_g_from_coords(
         ogu_orf_coords_df)
 
-    copies_of_ogu_orf_ssrna_per_g_sample_biom = \
+    copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
         calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
             quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
             ogu_orf_copies_per_g_ssrna_df)
 
-    return copies_of_ogu_orf_ssrna_per_g_sample_biom
+    return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
 
 def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
         sample_info_df: pandas.DataFrame,
         prep_info_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
-        ogu_orf_coords_fp: str) -> biom.Table:
+        ogu_orf_coords_fp: str) -> (biom.Table, str):
 
     """Calculate the copies of each OGU+ORF ssRNA per gram of sample for Qiita.
 
@@ -359,6 +429,9 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
     -------
     copies_of_ogu_orf_ssrna_per_g_sample : biom.Table
         A biom.Table with the copies of each OGU+ORF ssRNA per gram of sample.
+    log_msgs: str
+        A string containing log messages, if any, generated during the
+        function's operation.  An empty string if no messages were generated.
     """
 
     # check if the inputs all have the required columns
@@ -379,9 +452,14 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
     quant_params_per_sample_df = prep_info_df.merge(
         sample_info_df, on=SAMPLE_ID_KEY, how="inner")
 
-    copies_of_ogu_orf_ssrna_per_g_sample_biom = \
+    copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
         calc_copies_of_ogu_orf_ssrna_per_g_sample(
             quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
             ogu_orf_coords_fp)
+
+    log_msgs_str = '\n'.join(log_msgs_list)
+    return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_str
+
+
 
     return copies_of_ogu_orf_ssrna_per_g_sample_biom

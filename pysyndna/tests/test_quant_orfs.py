@@ -8,7 +8,7 @@ from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
 from pysyndna.src.quant_orfs import _read_ogu_orf_coords_to_df, \
-    _calc_ogu_orf_copies_per_g_from_coords, \
+    _calc_ogu_orf_copies_per_g_from_coords, _filter_nan_samples_from_biom, \
     _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs, \
     OGU_ORF_ID_KEY, OGU_ORF_START_KEY, OGU_ORF_END_KEY, OGU_ORF_LEN_KEY, \
     COPIES_PER_G_OGU_ORF_SSRNA_KEY, SAMPLE_ID_KEY, \
@@ -98,6 +98,76 @@ class TestQuantOrfs(TestCase):
 
         assert_frame_equal(expected_df, output_df)
 
+    def test__filter_nan_samples_from_biom(self):
+        first_sample_id = self.PARAMS_DICT[SAMPLE_ID_KEY][0]
+
+        input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
+        input_quant_params_per_sample_df.loc[
+            first_sample_id, SAMPLE_IN_ALIQUOT_MASS_G_KEY] = np.nan
+
+        remaining_count_vals = np.array([
+            [0],
+            [0],
+            [1],
+            [0],
+            [694],
+            [382],
+            [0],
+            [10],
+            [630],
+            [1003]])
+
+        input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
+            self.COUNT_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        expected_biom = biom.table.Table(
+            remaining_count_vals,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            [self.PARAMS_DICT[SAMPLE_ID_KEY][1]])
+
+        expected_msgs = ['Dropping samples with NaNs in necessary prep/sample '
+                         'column(s): IBSRS3526007']
+
+        output_biom, output_msgs = _filter_nan_samples_from_biom(
+            input_quant_params_per_sample_df,
+            input_reads_per_ogu_orf_per_sample_biom)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = expected_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual(expected_msgs, output_msgs)
+
+    def test__filter_nan_samples_from_biom_none_filtered(self):
+        input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
+        input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
+            self.LEN_AND_COPIES_DICT,
+            index=self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY])
+
+        input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
+            self.COUNT_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        output_biom, output_msgs = \
+            _filter_nan_samples_from_biom(
+                input_quant_params_per_sample_df,
+                input_reads_per_ogu_orf_per_sample_biom)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = input_reads_per_ogu_orf_per_sample_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual([], output_msgs)
+
     def test__calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(self):
         input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
         input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
@@ -114,10 +184,11 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
-            input_quant_params_per_sample_df,
-            input_reads_per_ogu_orf_per_sample_biom,
-            input_ogu_orf_copies_per_g_ssrna_df)
+        output_biom, output_msgs = \
+            _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
+                input_quant_params_per_sample_df,
+                input_reads_per_ogu_orf_per_sample_biom,
+                input_ogu_orf_copies_per_g_ssrna_df)
 
         # NB: Comparing the bioms as dataframes because the biom equality
         # compare does not allow "almost equal" checking for float values,
@@ -125,6 +196,8 @@ class TestQuantOrfs(TestCase):
         output_df = output_biom.to_dataframe()
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual([], output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(self):
         # This is the same as the previous test, but using the public function
@@ -143,10 +216,11 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
-            input_quant_params_per_sample_df,
-            input_reads_per_ogu_orf_per_sample_biom,
-            input_ogu_orf_copies_per_g_ssrna_df)
+        output_biom, output_msgs = \
+            calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
+                input_quant_params_per_sample_df,
+                input_reads_per_ogu_orf_per_sample_biom,
+                input_ogu_orf_copies_per_g_ssrna_df)
 
         # NB: Comparing the bioms as dataframes because the biom equality
         # compare does not allow "almost equal" checking for float values,
@@ -154,6 +228,8 @@ class TestQuantOrfs(TestCase):
         output_df = output_biom.to_dataframe()
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual([], output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs_ids_err(self):
         # drop the first sample from the params dataframe; now the reads
@@ -217,7 +293,7 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample(
+        output_biom, output_msgs = calc_copies_of_ogu_orf_ssrna_per_g_sample(
             input_quant_params_per_sample_df,
             input_reads_per_ogu_orf_per_sample_biom,
             ogu_orf_coords_fp)
@@ -228,6 +304,8 @@ class TestQuantOrfs(TestCase):
         output_df = output_biom.to_dataframe()
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual([], output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(self):
         sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
@@ -252,10 +330,11 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
-            sample_info_df, prep_info_df,
-            input_reads_per_ogu_orf_per_sample_biom,
-            ogu_orf_coords_fp)
+        output_biom, output_msgs = \
+            calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+                sample_info_df, prep_info_df,
+                input_reads_per_ogu_orf_per_sample_biom,
+                ogu_orf_coords_fp)
 
         # NB: Comparing the bioms as dataframes because the biom equality
         # compare does not allow "almost equal" checking for float values,
@@ -263,6 +342,64 @@ class TestQuantOrfs(TestCase):
         output_df = output_biom.to_dataframe()
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertEqual("", output_msgs)
+
+    def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_wo_nans(self):
+        sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
+                            [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+
+        prep_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
+                          [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
+                           SSRNA_CONCENTRATION_NG_UL_KEY,
+                           TOTAL_BIOLOGICAL_READS_KEY]}
+        # introduce a NaN into the needed prep info for the second sample,
+        # so it will be left out of results
+        prep_info_dict[TOTAL_BIOLOGICAL_READS_KEY][1] = np.nan
+
+        sample_info_df = pandas.DataFrame(sample_info_dict)
+        prep_info_df = pandas.DataFrame(prep_info_dict)
+        ogu_orf_coords_fp = os.path.join(self.data_dir, "coords.txt")
+
+        input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
+            self.COUNT_VALS,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            self.SAMPLE_IDS)
+
+        output_vals = np.array([
+            [0],
+            [4.4849829E+07],
+            [0],
+            [8.0386085E+08],
+            [0],
+            [1.4680090E+11],
+            [0],
+            [5.4657898E+09],
+            [0],
+            [1.3511272E+09]])
+
+        expected_biom = biom.table.Table(
+            output_vals,
+            self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
+            [self.SAMPLE_IDS[0]])
+
+        expected_msgs = 'Dropping samples with NaNs in necessary ' + \
+                        'prep/sample column(s): IQSRS3526010'
+
+        output_biom, output_msgs = \
+            calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+                sample_info_df, prep_info_df,
+                input_reads_per_ogu_orf_per_sample_biom,
+                ogu_orf_coords_fp)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = expected_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertEqual(expected_msgs, output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_w_casts(self):
         sample_info_dict = {k: [str(x) for x in self.PARAMS_DICT[k]] for k in
@@ -287,10 +424,11 @@ class TestQuantOrfs(TestCase):
             self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY],
             self.SAMPLE_IDS)
 
-        output_biom = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
-            sample_info_df, prep_info_df,
-            input_reads_per_ogu_orf_per_sample_biom,
-            ogu_orf_coords_fp)
+        output_biom, output_msgs = \
+            calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+                sample_info_df, prep_info_df,
+                input_reads_per_ogu_orf_per_sample_biom,
+                ogu_orf_coords_fp)
 
         # NB: Comparing the bioms as dataframes because the biom equality
         # compare does not allow "almost equal" checking for float values,
@@ -298,6 +436,8 @@ class TestQuantOrfs(TestCase):
         output_df = output_biom.to_dataframe()
         expected_df = expected_biom.to_dataframe()
         pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertEqual("", output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_col_err(self):
         sample_info_dict = {k: self.PARAMS_DICT[k].copy() for k in
