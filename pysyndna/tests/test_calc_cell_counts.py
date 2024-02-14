@@ -602,6 +602,17 @@ class TestCalcCellCounts(TestCase):
             sample_info_df, prep_info_df, models_fp, counts_biom,
             lengths_fp, read_len, min_coverage, min_rsquared)
 
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+        self.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
+        self.assertEqual(
+            "The following items have % coverage lower than the minimum of "
+            "1.0: ['example4;Neisseria subflava', "
+            "'example4;Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_negs(self):
         # inputs are the same as in
         # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that

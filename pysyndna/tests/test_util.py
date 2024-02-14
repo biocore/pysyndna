@@ -382,11 +382,6 @@ class TestUtils(TestCase):
             params_dict, index=sample_ids)
         input_df = pandas.DataFrame(input_dict, index=obs_ids)
 
-        # only one sample left after filtering
-        expected_df = pandas.DataFrame(
-            {sample_ids[1]: input_dict[sample_ids[1]]},
-            index=obs_ids)
-
         expected_err = "There are NaNs remaining in the filtered table."
 
         with self.assertRaisesRegex(ValueError, expected_err):
@@ -445,7 +440,7 @@ class TestUtils(TestCase):
 
         # only one sample left after filtering
         expected_biom = biom.table.Table(remaining_count_vals, obs_ids,
-            [sample_ids[1]])
+                                         [sample_ids[1]])
 
         expected_msgs = ['Dropping samples with NaNs in necessary prep/sample '
                          'column(s): samp1',
