@@ -10,7 +10,8 @@ import yaml
 
 from typing import Optional, List, Dict, Union
 from pysyndna.src.util import validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, cast_cols, SAMPLE_ID_KEY
+    validate_metadata_vs_reads_id_consistency, cast_cols, \
+    filter_data_by_sample_info, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
@@ -444,11 +445,25 @@ def fit_linear_regression_models(
                                  f'experiment info but not in the data: '
                                  f'{missing_sample_ids}')
 
+    # Remove from input biom any samples that have bad params
+    cols_to_filter_on = expected_info_cols.copy()
+    cols_to_filter_on.remove(SAMPLE_ID_KEY)  # don't filter on sample id
+    # TODO: this is a hack; I'm not sure what effect setting the index to
+    #  SAMPLE_ID_KEY on the "real" df would have, and I don't have time to
+    #  vet it, so I'm just making a copy and setting the index on that.
+    filter_params_df = sample_syndna_weights_and_total_reads_df.copy()
+    filter_params_df.set_index(SAMPLE_ID_KEY, inplace=True)
+    filtered_reads_per_syndna_per_sample_df, filter_log_msgs_list = \
+        filter_data_by_sample_info(
+            filter_params_df, reads_per_syndna_per_sample_df,
+            cols_to_filter_on)
+    log_messages_list.extend(filter_log_msgs_list)
+
     # NOW remove any syndnas with too few counts from the dataframe,
     # and log if there were any
     filtered_reads_per_syndna_per_sample_df = \
-        reads_per_syndna_per_sample_df[
-            ~reads_per_syndna_per_sample_df[SYNDNA_ID_KEY].isin(
+        filtered_reads_per_syndna_per_sample_df[
+            ~filtered_reads_per_syndna_per_sample_df[SYNDNA_ID_KEY].isin(
                 syndnas_to_drop)]
     if len(syndnas_to_drop) > 0:
         log_messages_list.append(f'The following syndnas were dropped '
@@ -524,6 +539,9 @@ def fit_linear_regression_models_for_qiita(
     validate_required_columns_exist(
         prep_info_df, expected_prep_info_cols,
         "prep info is missing required column(s)")
+
+    # cast SYNDNA_POOL_NUM_KEY column of params df to numeric if it isn't
+    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_NUM_KEY])
 
     # pull the syndna pool number from the prep info, ensure it is the same for
     # all samples, and convert to the pool name

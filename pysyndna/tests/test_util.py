@@ -5,12 +5,12 @@ from pandas.testing import assert_series_equal, assert_frame_equal
 from unittest import TestCase
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
-    validate_metadata_vs_prep_id_consistency, \
+    validate_metadata_vs_prep_id_consistency, filter_data_by_sample_info, \
     validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY
 
 
-class TestCalcCellCounts(TestCase):
+class TestUtils(TestCase):
     def test_validate_required_columns_exist_true(self):
         input_dict = {
             'sample_id': ['sample1'],
@@ -268,6 +268,293 @@ class TestCalcCellCounts(TestCase):
         obs_df = cast_cols(
             input_df, ['conc_ng_ul', 'elute_vol_ul', 'mass_key'])
         assert_frame_equal(expected_df, obs_df)
+
+    def test_filter_data_by_sample_info_df(self):
+        sample_ids = ['samp1', 'samp2', 'samp3']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the needed params NaN for first sample.
+        # make one of the needed params negative for third sample.
+        # make one of the UNneeded params NaN for second sample.
+        # the first and third should be filtered out of resulting biom table,
+        # the second should remain.
+        params_dict = {
+            'a': sample_ids,
+            'b': [np.nan, 0.00082, 0.45],
+            'c': [0.132714286, 0.0042, -0.183],
+            'd': [70, 70, 70],
+            'e': [213988, np.nan, 3031038]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        input_dict = {
+            sample_ids[0]: [0, 2, 0, 35, 0, 10292, 0, 190, 0, 34],
+            sample_ids[1]: [0, 0, 1, 0, 694, 382, 0, 10, 630, 1003],
+            sample_ids[2]: [0, 1, 0, 4, 29, 435, 0, 18, 30, 452]}
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_df = pandas.DataFrame(input_dict, index=obs_ids)
+
+        # only one sample left after filtering
+        expected_df = pandas.DataFrame(
+            {sample_ids[1]: input_dict[sample_ids[1]]},
+            index=obs_ids)
+
+        expected_msgs = ['Dropping samples with NaNs in necessary prep/sample '
+                         'column(s): samp1',
+                         'Dropping samples with negative values in necessary '
+                         'prep/sample column(s): samp3']
+
+        output_df, output_msgs = filter_data_by_sample_info(
+            input_quant_params_per_sample_df, input_df, required_params)
+
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+        self.assertListEqual(expected_msgs, output_msgs)
+
+    def test_filter_data_by_sample_info_df_none_filtered(self):
+        sample_ids = ['samp1', 'samp2']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the UNneeded params NaN for second sample.
+        # this should not cause any filtering in the df.
+        params_dict = {
+            'a': sample_ids,
+            'b': [0.003, 0.00082],
+            'c': [0.132714286, 0.0042],
+            'd': [70, 70],
+            'e': [213988, np.nan]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        input_dict = {
+            sample_ids[0]: [0, 2, 0, 35, 0, 10292, 0, 190, 0, 34],
+            sample_ids[1]: [0, 0, 1, 0, 694, 382, 0, 10, 630, 1003]}
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_df = pandas.DataFrame(input_dict, index=obs_ids)
+
+        output_df, output_msgs = filter_data_by_sample_info(
+            input_quant_params_per_sample_df, input_df, required_params)
+
+        pandas.testing.assert_frame_equal(output_df, input_df)
+        self.assertListEqual([], output_msgs)
+
+    def test_filter_data_by_sample_info_df_err(self):
+        sample_ids = ['samp1', 'samp2', 'samp3']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the needed params NaN for first sample.
+        # make one of the needed params negative for third sample.
+        # make one of the UNneeded params NaN for second sample.
+        # the first and third should be filtered out of resulting biom table,
+        # the second should remain.
+        params_dict = {
+            'a': sample_ids,
+            'b': [np.nan, 0.00082, 0.45],
+            'c': [0.132714286, 0.0042, -0.183],
+            'd': [70, 70, 70],
+            'e': [213988, np.nan, 3031038]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        # if there are nan values in the input table that AREN'T caused by
+        # NaNs in the quant params dataframe, an error should be raised
+        input_dict = {
+            sample_ids[0]: [0, 2, 0, 35, 0, 10292, 0, 190, 0, 34],
+            sample_ids[1]: [0, 0, 1, 0, 694, 382, np.nan, 10, 630, 1003],
+            sample_ids[2]: [0, 1, 0, 4, 29, 435, 0, 18, 30, 452]}
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_df = pandas.DataFrame(input_dict, index=obs_ids)
+
+        # only one sample left after filtering
+        expected_df = pandas.DataFrame(
+            {sample_ids[1]: input_dict[sample_ids[1]]},
+            index=obs_ids)
+
+        expected_err = "There are NaNs remaining in the filtered table."
+
+        with self.assertRaisesRegex(ValueError, expected_err):
+            _ = filter_data_by_sample_info(
+                input_quant_params_per_sample_df, input_df, required_params)
+
+    def test_filter_data_by_sample_info_biom(self):
+        sample_ids = ['samp1', 'samp2', 'samp3']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the needed params NaN for first sample.
+        # make one of the needed params negative for third sample.
+        # make one of the UNneeded params NaN for second sample.
+        # the first and third should be filtered out of resulting biom table,
+        # the second should remain.
+        params_dict = {
+            'a': sample_ids,
+            'b': [np.nan, 0.00082, 0.45],
+            'c': [0.132714286, 0.0042, -0.183],
+            'd': [70, 70, 70],
+            'e': [213988, np.nan, 3031038]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        input_vals = np.array([
+            [0, 0, 0],
+            [2, 0, 1],
+            [0, 1, 0],
+            [35, 0, 4],
+            [0, 694, 29],
+            [10292, 382, 435],
+            [0, 0, 0],
+            [190, 10, 18],
+            [0, 630, 30],
+            [34, 1003, 452]])
+
+        remaining_count_vals = np.array([
+            [0],
+            [0],
+            [1],
+            [0],
+            [694],
+            [382],
+            [0],
+            [10],
+            [630],
+            [1003]])
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_biom = biom.table.Table(input_vals, obs_ids, sample_ids)
+
+        # only one sample left after filtering
+        expected_biom = biom.table.Table(remaining_count_vals, obs_ids,
+            [sample_ids[1]])
+
+        expected_msgs = ['Dropping samples with NaNs in necessary prep/sample '
+                         'column(s): samp1',
+                         'Dropping samples with negative values in necessary '
+                         'prep/sample column(s): samp3']
+
+        output_biom, output_msgs = filter_data_by_sample_info(
+            input_quant_params_per_sample_df, input_biom, required_params)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = expected_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual(expected_msgs, output_msgs)
+
+    def test_filter_data_by_sample_info_biom_err(self):
+        sample_ids = ['samp1', 'samp2']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the needed params NaN for first sample.
+        # make one of the UNneeded params NaN for second sample.
+        # the first one should be filtered out of the resulting biom table,
+        # the second should remain.
+        params_dict = {
+            'a': sample_ids,
+            'b': [np.nan, 0.00082],
+            'c': [0.132714286, 0.0042],
+            'd': [70, 70],
+            'e': [213988, np.nan]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        # if there are nan values in the input table that AREN'T caused by
+        # NaNs in the quant params dataframe, an error should be raised
+        input_vals = np.array([
+            [0, 0],
+            [2, 0],
+            [0, 1],
+            [35, 0],
+            [0, 694],
+            [10292, 382],
+            [0, np.nan],
+            [190, 10],
+            [0, 630],
+            [34, 1003]])
+
+        expected_err = "There are NaNs remaining in the filtered table."
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_biom = biom.table.Table(input_vals, obs_ids, sample_ids)
+
+        with self.assertRaisesRegex(ValueError, expected_err):
+            _ = filter_data_by_sample_info(
+                input_quant_params_per_sample_df, input_biom, required_params)
+
+    def test_filter_data_by_sample_info_biom_none_filtered(self):
+        sample_ids = ['samp1', 'samp2']
+        required_params = ['b', 'c', 'd']
+
+        # make one of the UNneeded params NaN for second sample.
+        # this should not cause any filtering in the biom.
+        params_dict = {
+            'a': sample_ids,
+            'b': [0.003, 0.00082],
+            'c': [0.132714286, 0.0042],
+            'd': [70, 70],
+            'e': [213988, np.nan]
+        }
+
+        obs_ids = ["G000005825_1", "G000005825_2", "G000005825_3",
+                   "G000005825_4", "G000005825_5", "G900163845_3247",
+                   "G900163845_3248", "G900163845_3249",
+                   "G900163845_3250", "G900163845_3251"]
+
+        input_vals = np.array([
+            [0, 0],
+            [2, 0],
+            [0, 1],
+            [35, 0],
+            [0, 694],
+            [10292, 382],
+            [0, 0],
+            [190, 10],
+            [0, 630],
+            [34, 1003]])
+
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            params_dict, index=sample_ids)
+        input_biom = biom.table.Table(input_vals, obs_ids, sample_ids)
+
+        output_biom, output_msgs = filter_data_by_sample_info(
+            input_quant_params_per_sample_df, input_biom, required_params)
+
+        # NB: Comparing the bioms as dataframes because the biom equality
+        # compare does not allow "almost equal" checking for float values,
+        # whereas rtol and atol are built in to assert_frame_equal
+        output_df = output_biom.to_dataframe()
+        expected_df = input_biom.to_dataframe()
+        pandas.testing.assert_frame_equal(output_df, expected_df)
+
+        self.assertListEqual([], output_msgs)
 
     def test_calc_copies_genomic_element_per_g_series(self):
         # example from "rna_copy_quant_example.xlsx" "full_calc" tab,

@@ -256,6 +256,39 @@ class FitSyndnaModelsTest(TestCase):
 
         self.assertDictEqual(expected_out, output_dict)
 
+    def test_fit_linear_regression_models_for_qiita_w_negs(self):
+        prep_info_dict = copy.deepcopy(self.prep_info_dict)
+        prep_info_dict[SYNDNA_POOL_MASS_NG_KEY][0] = \
+            -1 * prep_info_dict[SYNDNA_POOL_MASS_NG_KEY][0]
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        input_biom = biom.table.Table(
+            self.reads_per_syndna_per_sample_array,
+            self.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            self.sample_ids)
+        min_counts = 50
+
+        # These are text versions of the linear regression results
+        # for the full data (see self.lingress_results and the
+        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        expected_out = {
+            'lin_regress_by_sample_id':
+                'B:\n'
+                '  intercept: -7.155318973708\n'
+                '  intercept_stderr: 0.256395675584\n'
+                '  pvalue: 1.50538e-07\n'
+                '  rvalue: 0.986324179735\n'
+                '  slope: 1.246759136044\n'
+                '  stderr: 0.073657952553\n',
+            'fit_syndna_models_log':
+                'Dropping samples with negative values in necessary '
+                'prep/sample column(s): A'
+        }
+
+        output_dict = fit_linear_regression_models_for_qiita(
+            prep_info_df, input_biom, min_counts)
+
+        self.assertDictEqual(expected_out, output_dict)
+
     def test_fit_linear_regression_models_for_qiita_w_log_msgs(self):
         prep_info_df = pd.DataFrame(self.prep_info_dict)
         input_biom = biom.table.Table(

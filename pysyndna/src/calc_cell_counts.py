@@ -6,7 +6,7 @@ from typing import Optional, Union, Dict, List
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     calc_gs_genomic_element_in_aliquot, \
     validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, \
+    validate_metadata_vs_reads_id_consistency, filter_data_by_sample_info, \
     validate_metadata_vs_prep_id_consistency, cast_cols, \
     DNA_BASEPAIR_G_PER_MOLE, NANOGRAMS_PER_GRAM, \
     SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, \
@@ -620,7 +620,8 @@ def calc_ogu_cell_counts_biom(
 
     # check if the inputs all have the required columns
     required_cols_list = list(
-        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY} |
+        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+         SAMPLE_IN_ALIQUOT_MASS_G_KEY} |
         set(REQUIRED_DNA_PREP_INFO_KEYS))
     validate_required_columns_exist(
         absolute_quant_params_per_sample_df, required_cols_list,
@@ -646,6 +647,18 @@ def calc_ogu_cell_counts_biom(
     working_params_df = \
         cast_cols(working_params_df, [SAMPLE_TOTAL_READS_KEY])
 
+    # Remove from input biom any samples that have bad params
+    cols_to_filter_on = required_cols_list.copy()
+    cols_to_filter_on.remove(SAMPLE_ID_KEY)  # don't filter on sample id
+    # TODO: this is a hack; I'm not sure what effect setting the index to
+    #  SAMPLE_ID_KEY on the "real" df would have, and I don't have time to
+    #  vet it, so I'm just making a copy and setting the index on that.
+    filter_params_df = working_params_df.copy()
+    filter_params_df.set_index(SAMPLE_ID_KEY, inplace=True)
+    filtered_ogu_counts_per_sample_biom, log_msgs_list = \
+        filter_data_by_sample_info(
+            filter_params_df, ogu_counts_per_sample_biom, cols_to_filter_on)
+
     # calculate the ratio of extracted gDNA mass to sample mass put into
     # extraction for each sample
     gdna_mass_to_sample_mass_by_sample_series = \
@@ -664,14 +677,15 @@ def calc_ogu_cell_counts_biom(
 
     # convert input biom table to a dataframe with sparse columns, which
     # should act basically the same as a dense dataframe but use less memory
-    ogu_counts_per_sample_df = ogu_counts_per_sample_biom.to_dataframe(
-        dense=False)
+    ogu_counts_per_sample_df = \
+        filtered_ogu_counts_per_sample_biom.to_dataframe(dense=False)
 
-    ogu_cell_counts_long_format_df, log_msgs_list = (
+    ogu_cell_counts_long_format_df, calc_log_msgs_list = (
         _calc_long_format_ogu_cell_counts_df(
             linregress_by_sample_id, ogu_counts_per_sample_df,
             ogu_lengths_df, per_sample_calc_info_df, read_length,
             min_coverage, min_rsquared))
+    log_msgs_list.extend(calc_log_msgs_list)
 
     ogu_cell_counts_wide_format_df = ogu_cell_counts_long_format_df.pivot(
         index=OGU_ID_KEY, columns=SAMPLE_ID_KEY)[output_cell_counts_metric]

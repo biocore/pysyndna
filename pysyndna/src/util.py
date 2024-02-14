@@ -1,6 +1,7 @@
 from typing import Optional, Union, List
 
 import biom
+import numpy as np
 import pandas
 import pandas as pd
 
@@ -184,6 +185,87 @@ def cast_cols(params_df, numeric_col_names, force_float=False):
                     working_params_df[col].astype(float)
 
     return working_params_df
+
+
+def filter_data_by_sample_info(
+        quant_params_per_sample_df: pandas.DataFrame,
+        a_data_table: Union[biom.Table, pd.DataFrame],
+        param_cols_to_filter_on: List[str]) -> \
+        (Union[biom.Table, pd.DataFrame], List[str]):
+    """Filter samples with NaNs in necessary param column(s) from table.
+
+    Parameters
+    ----------
+    quant_params_per_sample_df : pandas.DataFrame
+        A DataFrame containing combined sample and prep info, with sample id
+        as the index.
+    a_data_table : biom.Table | pd.DataFrame
+        A biom.Table with the values for each sample or a dataframe with
+        columns for each sample.
+    param_cols_to_filter_on : list[str]
+        A list of column names in quant_params_per_sample_df that are
+        necessary and should not have NaNs or negatives in them.
+
+    Returns
+    -------
+    filtered_table : biom.Table | pd.DataFrame
+        If input was a biom, a biom.Table with values for each sample that is
+        NOT NaN or negative in any of the necessary prep/sample columns.  If
+        input was a dataframe, a dataframe with columns for each sample that
+        is NOT NaN or negative in any of the necessary prep/sample columns.
+    log_msgs_list: list[str]
+        A list of log messages, if any, generated during the function's
+        operation.  Empty if no log messages were generated.
+    """
+
+    log_msgs_list = []
+    remaining_nans_msg = "There are NaNs remaining in the filtered table."
+
+    # identify samples w/NaNs in sample/prep info columns we need to use
+    # (such as, frequently, blanks)
+    nan_samples = quant_params_per_sample_df[
+        quant_params_per_sample_df[param_cols_to_filter_on].isna().any(
+            axis=1)].index.tolist()
+
+    neg_samples = quant_params_per_sample_df[
+        quant_params_per_sample_df[param_cols_to_filter_on].lt(0).any(
+            axis=1)].index.tolist()
+
+    problem_samples = list(set(nan_samples) | set(neg_samples))
+
+    if len(problem_samples) > 0:
+        if isinstance(a_data_table, biom.Table):
+            def is_problem(val, id_, _):
+                return id_ in problem_samples
+            filtered_table = a_data_table.filter(
+                is_problem, invert=True, inplace=False)
+
+            # check if there are any NaNs left in the biom table (presumably
+            # from causes other than NaN sample/prep info); if so, error
+            # (this check for NaNs within the biom table suggested by @wasade)
+            if np.isnan(filtered_table.matrix_data.data).any():
+                raise ValueError(remaining_nans_msg)
+        elif isinstance(a_data_table, pd.DataFrame):
+            filtered_table = a_data_table.drop(problem_samples, axis=1)
+            if filtered_table.isnull().values.any():
+                raise ValueError(remaining_nans_msg)
+        else:
+            raise ValueError(
+                "a_data_table must be a biom.Table or a pd.DataFrame")
+
+        if len(nan_samples) > 0:
+            log_msgs_list.append(
+                "Dropping samples with NaNs in necessary "
+                "prep/sample column(s): " + ", ".join(nan_samples))
+
+        if len(neg_samples) > 0:
+            log_msgs_list.append(
+                "Dropping samples with negative values in necessary "
+                "prep/sample column(s): " + ", ".join(neg_samples))
+    else:
+        filtered_table = a_data_table
+
+    return filtered_table, log_msgs_list
 
 
 def calc_copies_genomic_element_per_g_series(

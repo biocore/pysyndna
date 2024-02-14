@@ -2,7 +2,7 @@ import biom.table
 import pandas
 from typing import List
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
-    calc_gs_genomic_element_in_aliquot, \
+    calc_gs_genomic_element_in_aliquot, filter_data_by_sample_info, \
     validate_required_columns_exist, \
     validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_metadata_vs_prep_id_consistency, SAMPLE_ID_KEY, \
@@ -120,59 +120,6 @@ def _calc_ogu_orf_copies_per_g_from_coords(
     return output_df
 
 
-def _filter_nan_samples_from_biom(
-        quant_params_per_sample_df: pandas.DataFrame,
-        an_ogu_orf_per_sample_biom: biom.Table) -> \
-        (biom.Table, List[str]):
-    """Filter samples with NaNs in necessary param column(s) from biom.
-
-    Parameters
-    ----------
-    quant_params_per_sample_df : pandas.DataFrame
-        A DataFrame containing at least SAMPLE_ID_KEY,
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY, SSRNA_CONCENTRATION_NG_UL_KEY,
-        ELUTE_VOL_UL_KEY, and TOTAL_BIOLOGICAL_READS_KEY.
-    an_ogu_orf_per_sample_biom : biom.Table
-        A biom.Table with the values for each OGU+ORF for each sample.
-
-    Returns
-    -------
-    filtered_ogu_orf_per_sample_biom : biom.Table
-        A biom.Table with the values for each OGU+ORF for each sample that is
-        NOT NaN in any of the necessary prep/sample columns.
-    log_msgs_list: list[str]
-        A list of log messages, if any, generated during the function's
-        operation.  Empty if no log messages were generated.
-    """
-
-    log_msgs_list = []
-
-    # identify samples w/NaNs in sample/prep info columns we need to use
-    # (such as, frequently, blanks)
-    nan_samples = quant_params_per_sample_df[
-        quant_params_per_sample_df[REQUIRED_PARAM_KEYS].isna().any(
-            axis=1)].index.tolist()
-
-    if len(nan_samples) > 0:
-        def is_nan(val, id_, _):
-            return id_ in nan_samples
-        filtered_ogu_orf_per_sample_biom = \
-            an_ogu_orf_per_sample_biom.filter(
-                is_nan, invert=True, inplace=False)
-
-        log_msgs_list.append(
-            "Dropping samples with NaNs in necessary prep/sample column(s): " +
-            ", ".join(nan_samples))
-    else:
-        filtered_ogu_orf_per_sample_biom = \
-            an_ogu_orf_per_sample_biom
-
-    # TODO: should I add check to error if there are any NaNs in biom?
-    #  I think I'd have to convert to df to do that, which would be slow
-
-    return filtered_ogu_orf_per_sample_biom, log_msgs_list
-
-
 def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
@@ -202,6 +149,8 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         A list of log messages, if any, generated during the function's
         operation.  Empty if no log messages were generated.
     """
+
+    log_msgs_list = []  # not actually using this now, might later
 
     # Set index on quant_params_per_sample_df to be SAMPLE_ID_KEY for easy
     # lookup of values by sample id during biom lambda functions
@@ -266,12 +215,7 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         copies_per_ogu_orf_per_sample_biom.transform(
             f=get_copies_per_g_sample, axis='sample', inplace=False)
 
-    filtered_copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
-        _filter_nan_samples_from_biom(
-            quant_params_per_sample_df,
-            copies_of_ogu_orf_ssrna_per_g_sample_biom)
-
-    return filtered_copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
+    return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
 
 def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
@@ -332,11 +276,21 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     quant_params_per_sample_df.index = \
         quant_params_per_sample_df[SAMPLE_ID_KEY]
 
+    # Remove from input biom any samples that have bad params
+    cols_to_filter_on = REQUIRED_PARAM_KEYS.copy()
+    cols_to_filter_on.remove(SAMPLE_ID_KEY)  # don't filter on sample id
+    filtered_reads_per_ogu_orf_per_sample_biom, log_msgs_list = \
+        filter_data_by_sample_info(
+            quant_params_per_sample_df,
+            reads_per_ogu_orf_per_sample_biom, cols_to_filter_on)
+
     # Calculate the grams of total ssRNA from each sample that are in the elute
-    copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
+    copies_of_ogu_orf_ssrna_per_g_sample_biom, calc_log_msgs_list = \
         _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
-            quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
+            quant_params_per_sample_df,
+            filtered_reads_per_ogu_orf_per_sample_biom,
             ogu_orf_copies_per_g_ssrna_df)
+    log_msgs_list.extend(calc_log_msgs_list)
 
     return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
