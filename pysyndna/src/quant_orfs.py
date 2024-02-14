@@ -460,6 +460,4 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
     log_msgs_str = '\n'.join(log_msgs_list)
     return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_str
 
-
-
     return copies_of_ogu_orf_ssrna_per_g_sample_biom

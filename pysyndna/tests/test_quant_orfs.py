@@ -145,9 +145,6 @@ class TestQuantOrfs(TestCase):
 
     def test__filter_nan_samples_from_biom_none_filtered(self):
         input_quant_params_per_sample_df = pandas.DataFrame(self.PARAMS_DICT)
-        input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
-            self.LEN_AND_COPIES_DICT,
-            index=self.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY])
 
         input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
             self.COUNT_VALS,
