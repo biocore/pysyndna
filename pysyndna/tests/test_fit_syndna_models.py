@@ -13,7 +13,8 @@ from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
     SAMPLE_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
     _validate_syndna_id_consistency, _validate_sample_id_consistency, \
-    _calc_indiv_syndna_weights, _fit_linear_regression_models
+    _calc_indiv_syndna_weights, _fit_linear_regression_models, \
+    _convert_linregressresults_to_dict
 
 
 class FitSyndnaModelsTest(TestCase):
@@ -736,3 +737,23 @@ class FitSyndnaModelsTest(TestCase):
         # next model
 
         self.assertEqual([], out_msgs_list)
+
+    def test__convert_linregressresults_to_dict(self):
+        a_result = LinregressResult(
+            slope=np.float64(1.6609640474436806), intercept=-8.316627866835997,
+            rvalue=0.9999999999999998, pvalue=0.0, stderr=0.0,
+            intercept_stderr=0.0)
+
+        input_dict = {"sample_a": a_result}
+
+        expected_dict = {"sample_a": {
+            "slope": 1.660964047443,
+            "intercept": -8.316627866835,
+            "rvalue": 0.999999999999,
+            "pvalue": 0.0,
+            "stderr": 0.0,
+            "intercept_stderr": 0.0}
+        }
+
+        output_dict = _convert_linregressresults_to_dict(input_dict)
+        self.assertDictEqual(expected_dict, output_dict)

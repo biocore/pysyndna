@@ -307,12 +307,17 @@ def _convert_linregressresults_to_dict(
                     break
 
                 # convert to regular floats, bc yaml doesn't like np.float64
+                val = v
                 if isinstance(v, np.float64):
-                    new_float = float(v)
+                    val = float(v)
+
+                if isinstance(val, float):
                     # truncate to 12 decimal places; the precision of float in
                     # python is dependent upon the underlying C implementation,
                     # and sometimes differs between mac/ubuntu past this point.
-                    new_dict[k] = truncate(new_float, 12)
+                    val = truncate(val, 12)
+
+                new_dict[k] = val
 
             # if there are any values in REGRESSION_KEYS that are not in the
             # keys of new_dict, then raise an error
