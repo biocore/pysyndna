@@ -6,6 +6,7 @@ dependencies:
   - python
   - biom-format
   - flake8
+  - nose
   - numpy
   - pandas
   - pep8
