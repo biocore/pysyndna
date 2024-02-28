@@ -11,4 +11,5 @@ dependencies:
   - pandas
   - pep8
   - pyyaml
+  - scikit-learn
   - scipy

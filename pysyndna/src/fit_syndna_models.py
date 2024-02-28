@@ -84,7 +84,7 @@ def _validate_syndna_id_consistency(
     Raises
     ------
     ValueError
-        If there are syndna ids in the data that are not in the config or
+        If there are syndna ids in the data that are not in the config, or
         vice versa.
     """
 
