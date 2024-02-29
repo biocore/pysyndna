@@ -1,5 +1,6 @@
 import biom
 import numpy as np
+import numpy.testing as npt
 import pandas
 from pandas.testing import assert_series_equal, assert_frame_equal
 from unittest import TestCase
@@ -8,6 +9,60 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     validate_metadata_vs_prep_id_consistency, filter_data_by_sample_info, \
     validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY
+
+
+class Testers(TestCase):
+    def assert_dicts_almost_equal(self, d1, d2):
+        """Assert that two dicts are almost equal.
+
+        Parameters
+        ----------
+        d1 : dict
+            The first dict to compare
+        d2 : dict
+            The second dict to compare
+
+        Raises
+        ------
+        AssertionError
+            If the dicts are not almost equal
+        """
+        self.assertIsInstance(d1, dict)
+        self.assertIsInstance(d2, dict)
+        self.assertEqual(d1.keys(), d2.keys())
+        for k in d1.keys():
+            for m in d1[k].keys():
+                m1 = d1[k][m]
+                m2 = d2[k][m]
+                self.assertAlmostEqual(m1, m2)
+
+    # The built-in self.assertEqual works fine to compare biom tables that
+    # don't have NaNs, but it doesn't work for tables that do have NaNs
+    # because NaN != NaN so two tables that contain NaNs are by definition
+    # unequal even if the NaNs occur at the same table locations.
+    # This function is a workaround for that.
+    def assert_biom_tables_equal(self, expected_out_biom, output_biom,
+                                 decimal_precision=7):
+        # default decimal precision is the set to the default for
+        # npt.assert_almost_equal
+
+        # check the ids are equal, then check the observations are equal
+        self.assertEqual(set(expected_out_biom.ids()), set(output_biom.ids()))
+        self.assertEqual(set(expected_out_biom.ids(axis='observation')),
+                         set(output_biom.ids(axis='observation')))
+
+        # check that the two tables have the same NaN positions
+        npt.assert_equal(np.isnan(expected_out_biom.matrix_data.data),
+                         np.isnan(output_biom.matrix_data.data))
+
+        # check that the two tables have the same non-NaN values at the same
+        # positions
+        obs_an = ~(np.isnan(output_biom.matrix_data.data))
+        exp_an = ~(np.isnan(expected_out_biom.matrix_data.data))
+        npt.assert_equal(exp_an, obs_an)
+        npt.assert_almost_equal(expected_out_biom.matrix_data.data[exp_an],
+                                output_biom.matrix_data.data[obs_an],
+                                decimal=decimal_precision)
 
 
 class TestUtils(TestCase):

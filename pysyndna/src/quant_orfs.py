@@ -23,58 +23,6 @@ REQUIRED_PARAM_KEYS = list(
     set(REQUIRED_SAMPLE_INFO_KEYS) | set(REQUIRED_RNA_PREP_INFO_KEYS))
 
 
-def _read_ogu_orf_coords_to_df(wol_reannotations_fp: str) -> pandas.DataFrame:
-    """Read the OGU+ORF coordinates file into a DataFrame.
-
-    Parameters
-    ----------
-    wol_reannotations_fp : str
-    Filepath to the ORF coordinates file in the wol reannotations format, e.g.:
-    >G000005825
-    1	816	2168
-    2	2348	3490
-    3	3744	3959
-    4	3971	5086
-    5	5098	5373
-    6	5432	7372
-    7	7399	9966
-
-    Returns
-    -------
-    ogu_orf_coords_df : pandas.DataFrame
-    A DataFrame containing columns for OGU_ORF_ID_KEY, OGU_ORF_START_KEY,
-    and OGU_ORF_END_KEY.
-    """
-    curr_ogu_id, curr_ogu_orf_id = None, None
-    curr_ogu_orf_start, curr_ogu_orf_end = None, None
-    ogu_orf_ids, ogu_orf_starts, ogu_orf_ends = [], [], []
-
-    with open(wol_reannotations_fp, "r") as fh:
-        for line in fh.readlines():
-            line = line.strip()
-            if line.startswith(">G"):
-                curr_ogu_id = line.replace(">", "")
-            else:
-                line_pieces = line.split("\t")
-                curr_orf_id = line_pieces[0]
-                curr_ogu_orf_start = int(line_pieces[1])
-                curr_ogu_orf_end = int(line_pieces[2])
-                curr_ogu_orf_id = curr_ogu_id + "_" + curr_orf_id
-                ogu_orf_ids.append(curr_ogu_orf_id)
-                ogu_orf_starts.append(curr_ogu_orf_start)
-                ogu_orf_ends.append(curr_ogu_orf_end)
-            # endif what to do with this line
-        # next line
-
-    ogu_orf_coords_dict = {
-        OGU_ORF_ID_KEY: ogu_orf_ids,
-        OGU_ORF_START_KEY: ogu_orf_starts,
-        OGU_ORF_END_KEY: ogu_orf_ends
-    }
-    coords_df = pandas.DataFrame(ogu_orf_coords_dict)
-    return coords_df
-
-
 def _calc_ogu_orf_copies_per_g_from_coords(
         ogu_orf_coords_df: pandas.DataFrame) -> pandas.DataFrame:
     """Calculate the copies per gram of each OGU+ORF ssRNA.
@@ -218,10 +166,94 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
 
+def read_ogu_orf_coords_to_df(wol_reannotations_fp: str) -> pandas.DataFrame:
+    """Read the OGU+ORF coordinates file into a DataFrame.
+
+    Parameters
+    ----------
+    wol_reannotations_fp : str
+    Filepath to the ORF coordinates file in the wol reannotations format, e.g.:
+    >G000005825
+    1	816	2168
+    2	2348	3490
+    3	3744	3959
+    4	3971	5086
+    5	5098	5373
+    6	5432	7372
+    7	7399	9966
+
+    Returns
+    -------
+    ogu_orf_coords_df : pandas.DataFrame
+    A DataFrame containing columns for OGU_ORF_ID_KEY, OGU_ORF_START_KEY,
+    and OGU_ORF_END_KEY.
+    """
+    curr_ogu_id, curr_ogu_orf_id = None, None
+    curr_ogu_orf_start, curr_ogu_orf_end = None, None
+    ogu_orf_ids, ogu_orf_starts, ogu_orf_ends = [], [], []
+
+    with open(wol_reannotations_fp, "r") as fh:
+        for line in fh.readlines():
+            line = line.strip()
+            if line.startswith(">G"):
+                curr_ogu_id = line.replace(">", "")
+            else:
+                line_pieces = line.split("\t")
+                curr_orf_id = line_pieces[0]
+                curr_ogu_orf_start = int(line_pieces[1])
+                curr_ogu_orf_end = int(line_pieces[2])
+                curr_ogu_orf_id = curr_ogu_id + "_" + curr_orf_id
+                ogu_orf_ids.append(curr_ogu_orf_id)
+                ogu_orf_starts.append(curr_ogu_orf_start)
+                ogu_orf_ends.append(curr_ogu_orf_end)
+            # endif what to do with this line
+        # next line
+
+    ogu_orf_coords_dict = {
+        OGU_ORF_ID_KEY: ogu_orf_ids,
+        OGU_ORF_START_KEY: ogu_orf_starts,
+        OGU_ORF_END_KEY: ogu_orf_ends
+    }
+    coords_df = pandas.DataFrame(ogu_orf_coords_dict)
+    coords_df = validate_and_cast_ogu_orf_coords_df(coords_df)
+    return coords_df
+
+
+def validate_and_cast_ogu_orf_coords_df(
+        ogu_orf_coords_df: pandas.DataFrame) -> pandas.DataFrame:
+    """Validate and cast the OGU+ORF coordinates DataFrame.
+
+    Parameters
+    ----------
+    ogu_orf_coords_df : pandas.DataFrame
+        A DataFrame containing columns for OGU_ORF_ID_KEY, OGU_ORF_START_KEY,
+        and OGU_ORF_END_KEY.
+
+    Returns
+    -------
+    checked_df: pandas.DataFrame
+        The input DataFrame, after validation and casting.
+    """
+
+    # Check that the required columns are present
+    validate_required_columns_exist(
+        ogu_orf_coords_df,
+        [OGU_ORF_ID_KEY, OGU_ORF_START_KEY, OGU_ORF_END_KEY],
+        "OGU+ORF coordinates dataframe is missing required column(s)")
+
+    # Cast the start and end columns to integers
+    ogu_orf_coords_df = cast_cols(
+        ogu_orf_coords_df, [OGU_ORF_START_KEY, OGU_ORF_END_KEY])
+
+    # NB: it is NOT required that start be less than end, per woltka docs
+
+    return ogu_orf_coords_df
+
+
 def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         quant_params_per_sample_df: pandas.DataFrame,
         reads_per_ogu_orf_per_sample_biom: biom.Table,
-        ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame) -> \
+        ogu_orf_coords_df: pandas.DataFrame) -> \
         (biom.Table, List[str]):
 
     """Calculate the copies of each OGU+ORF ssRNA per gram of sample.
@@ -235,9 +267,9 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     reads_per_ogu_orf_per_sample_biom : biom.Table
         A biom.Table with the number of reads per OGU+ORF per sample, such
         as that output by woltka.
-    ogu_orf_copies_per_g_ssrna_df: pandas.DataFrame
-        A DataFrame with columns for OGU_ORF_ID_KEY and
-        COPIES_PER_G_OGU_ORF_SSRNA_KEY.
+    ogu_orf_coords_df: pandas.DataFrame
+        A DataFrame with columns for OGU_ORF_ID_KEY, OGU_ORF_START_KEY, and
+        OGU_ORF_END_KEY.
 
     Returns
     -------
@@ -283,6 +315,11 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
         filter_data_by_sample_info(
             quant_params_per_sample_df,
             reads_per_ogu_orf_per_sample_biom, cols_to_filter_on)
+
+    # validate the input OGU+ORF dataframe, then transform it to OGU+ORF copies
+    ogu_orf_coords_df = validate_and_cast_ogu_orf_coords_df(ogu_orf_coords_df)
+    ogu_orf_copies_per_g_ssrna_df = _calc_ogu_orf_copies_per_g_from_coords(
+        ogu_orf_coords_df)
 
     # Calculate the grams of total ssRNA from each sample that are in the elute
     copies_of_ogu_orf_ssrna_per_g_sample_biom, calc_log_msgs_list = \
@@ -333,15 +370,13 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample(
         operation.  Empty if no log messages were generated.
     """
 
-    # Calculate the copies per gram of each OGU+ORF ssRNA
-    ogu_orf_coords_df = _read_ogu_orf_coords_to_df(ogu_orf_coords_fp)
-    ogu_orf_copies_per_g_ssrna_df = _calc_ogu_orf_copies_per_g_from_coords(
-        ogu_orf_coords_df)
+    # Load the orf coords into a dataframe
+    ogu_orf_coords_df = read_ogu_orf_coords_to_df(ogu_orf_coords_fp)
 
     copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list = \
         calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
             quant_params_per_sample_df, reads_per_ogu_orf_per_sample_biom,
-            ogu_orf_copies_per_g_ssrna_df)
+            ogu_orf_coords_df)
 
     return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_list
 
@@ -413,5 +448,3 @@ def calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
 
     log_msgs_str = '\n'.join(log_msgs_list)
     return copies_of_ogu_orf_ssrna_per_g_sample_biom, log_msgs_str
-
-    return copies_of_ogu_orf_ssrna_per_g_sample_biom

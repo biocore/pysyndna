@@ -4,6 +4,7 @@ from pysyndna.src.calc_cell_counts import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita, \
     OGU_CELLS_PER_G_OF_GDNA_KEY, OGU_CELLS_PER_G_OF_SAMPLE_KEY
 from pysyndna.src.quant_orfs import \
+    read_ogu_orf_coords_to_df, validate_and_cast_ogu_orf_coords_df, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample, \
     calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita

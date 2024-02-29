@@ -26,9 +26,10 @@ from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
     _calc_ogu_gdna_mass_ng_series_for_sample, \
     _calc_ogu_genomes_per_g_of_gdna_series_for_sample, \
     _calc_ogu_genomes_series_for_sample
+from pysyndna.tests.test_util import Testers
 
 
-class TestCalcCellCounts(TestCase):
+class TestCalcCellCountsData:
     # Throughout below, example1 is the "Sample A" data from
     # test_fit_syndna_models.py, paired with "standard" elute volume and
     # gdna density values. example2 is the "Sample B" data from
@@ -345,11 +346,12 @@ class TestCalcCellCounts(TestCase):
             [5715054273735.247, 1847161346896.6194]],
     }
 
-    def _combine_inputs(self):
-        sample_names = self._generate_sample_names_list(use_filtered_ex2=False)
+    @classmethod
+    def combine_inputs(cls):
+        sample_names = cls.generate_sample_names_list(use_filtered_ex2=False)
         col_list = [OGU_ID_KEY, OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY]
-        parallel_dicts_list = [self.example1_ogu_full_inputs_dict,
-                               self.example2_ogu_full_inputs_dict]
+        parallel_dicts_list = [TestCalcCellCountsData.example1_ogu_full_inputs_dict,
+                               TestCalcCellCountsData.example2_ogu_full_inputs_dict]
         input_dict = {SAMPLE_ID_KEY: sample_names}
         for col_name in col_list:
             curr_col_list = []
@@ -359,35 +361,38 @@ class TestCalcCellCounts(TestCase):
 
         return input_dict
 
-    def _combine_filtered_out(self, col_name):
+    @classmethod
+    def combine_filtered_out(cls, col_name):
         example1_copy = (
-            self.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
+            TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
         example2_copy = (
-            self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[
+            TestCalcCellCountsData.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[
                 col_name].copy())
         example1_copy.extend(example2_copy)
         return example1_copy
 
-    def _make_combined_counts_np_array(self):
+    @classmethod
+    def make_combined_counts_np_array(cls):
         # combine each item in the OGU_READ_COUNT_KEY array for
         # self.example1_ogu_full_inputs_dict with the analogous item in
         # self.example2_ogu_full_inputs_dict to make an array of two-item
         # arrays, and turn this into an np.array
         counts_array = np.array(
             [list(x) for x in zip(
-                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
-                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
+                cls.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
+                cls.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
         return counts_array
 
-    def _generate_sample_names_list(self, use_filtered_ex2=True):
+    @classmethod
+    def generate_sample_names_list(cls, use_filtered_ex2=True):
         sample_names = ["example1", "example2"]
-        parallel_dicts_list = [self.example1_ogu_full_inputs_dict]
+        parallel_dicts_list = [cls.example1_ogu_full_inputs_dict]
         if use_filtered_ex2:
             parallel_dicts_list.append(
-                self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict)
+                cls.example2_ogu_filtered_inputs_outputs_full_avogadro_dict)
         else:
             parallel_dicts_list.append(
-                self.example2_ogu_full_inputs_dict)
+                cls.example2_ogu_full_inputs_dict)
 
         output = []
         for curr_index in range(len(sample_names)):
@@ -398,33 +403,92 @@ class TestCalcCellCounts(TestCase):
             output.extend(curr_names_list)
         return output
 
-    # The built-in self.assertEqual works fine to compare biom tables that
-    # don't have NaNs, but it doesn't work for tables that do have NaNs
-    # because NaN != NaN so two tables that contain NaNs are by definition
-    # unequal even if the NaNs occur at the same table locations.
-    # This function is a workaround for that.
-    def assert_biom_tables_equal(self, expected_out_biom, output_biom,
-                                 decimal_precision=7):
-        # default decimal precision is the set to the default for
-        # npt.assert_almost_equal
 
-        # check the ids are equal, then check the observations are equal
-        self.assertEqual(set(expected_out_biom.ids()), set(output_biom.ids()))
-        self.assertEqual(set(expected_out_biom.ids(axis='observation')),
-                         set(output_biom.ids(axis='observation')))
+class TestCalcCellCounts(TestCase):
+    # @classmethod
+    # def _combine_inputs(cls):
+    #     sample_names = cls._generate_sample_names_list(use_filtered_ex2=False)
+    #     col_list = [OGU_ID_KEY, OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY]
+    #     parallel_dicts_list = [TestCalcCellCountsData.example1_ogu_full_inputs_dict,
+    #                            TestCalcCellCountsData.example2_ogu_full_inputs_dict]
+    #     input_dict = {SAMPLE_ID_KEY: sample_names}
+    #     for col_name in col_list:
+    #         curr_col_list = []
+    #         for curr_dict in parallel_dicts_list:
+    #             curr_col_list.extend(curr_dict[col_name].copy())
+    #         input_dict[col_name] = curr_col_list
+    # 
+    #     return input_dict
+    # 
+    # @classmethod
+    # def _combine_filtered_out(cls, col_name):
+    #     example1_copy = (
+    #         TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
+    #     example2_copy = (
+    #         TestCalcCellCountsData.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[
+    #             col_name].copy())
+    #     example1_copy.extend(example2_copy)
+    #     return example1_copy
+    # 
+    # @classmethod
+    # def _make_combined_counts_np_array(cls):
+    #     # combine each item in the OGU_READ_COUNT_KEY array for
+    #     # self.example1_ogu_full_inputs_dict with the analogous item in
+    #     # self.example2_ogu_full_inputs_dict to make an array of two-item
+    #     # arrays, and turn this into an np.array
+    #     counts_array = np.array(
+    #         [list(x) for x in zip(
+    #             TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
+    #             TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
+    #     return counts_array
+    # 
+    # @classmethod
+    # def _generate_sample_names_list(cls, use_filtered_ex2=True):
+    #     sample_names = ["example1", "example2"]
+    #     parallel_dicts_list = [TestCalcCellCountsData.example1_ogu_full_inputs_dict]
+    #     if use_filtered_ex2:
+    #         parallel_dicts_list.append(
+    #             TestCalcCellCountsData.example2_ogu_filtered_inputs_outputs_full_avogadro_dict)
+    #     else:
+    #         parallel_dicts_list.append(
+    #             TestCalcCellCountsData.example2_ogu_full_inputs_dict)
+    # 
+    #     output = []
+    #     for curr_index in range(len(sample_names)):
+    #         curr_sample_name = sample_names[curr_index]
+    #         curr_parallel_dict = parallel_dicts_list[curr_index]
+    #         curr_names_list = [curr_sample_name for _ in
+    #                            range(len(curr_parallel_dict[OGU_ID_KEY]))]
+    #         output.extend(curr_names_list)
+    #     return output
 
-        # check that the two tables have the same NaN positions
-        npt.assert_equal(np.isnan(expected_out_biom.matrix_data.data),
-                         np.isnan(output_biom.matrix_data.data))
-
-        # check that the two tables have the same non-NaN values at the same
-        # positions
-        obs_an = ~(np.isnan(output_biom.matrix_data.data))
-        exp_an = ~(np.isnan(expected_out_biom.matrix_data.data))
-        npt.assert_equal(exp_an, obs_an)
-        npt.assert_almost_equal(expected_out_biom.matrix_data.data[exp_an],
-                                output_biom.matrix_data.data[obs_an],
-                                decimal=decimal_precision)
+    # # The built-in self.assertEqual works fine to compare biom tables that
+    # # don't have NaNs, but it doesn't work for tables that do have NaNs
+    # # because NaN != NaN so two tables that contain NaNs are by definition
+    # # unequal even if the NaNs occur at the same table locations.
+    # # This function is a workaround for that.
+    # def assert_biom_tables_equal(self, expected_out_biom, output_biom,
+    #                              decimal_precision=7):
+    #     # default decimal precision is the set to the default for
+    #     # npt.assert_almost_equal
+    #
+    #     # check the ids are equal, then check the observations are equal
+    #     self.assertEqual(set(expected_out_biom.ids()), set(output_biom.ids()))
+    #     self.assertEqual(set(expected_out_biom.ids(axis='observation')),
+    #                      set(output_biom.ids(axis='observation')))
+    #
+    #     # check that the two tables have the same NaN positions
+    #     npt.assert_equal(np.isnan(expected_out_biom.matrix_data.data),
+    #                      np.isnan(output_biom.matrix_data.data))
+    #
+    #     # check that the two tables have the same non-NaN values at the same
+    #     # positions
+    #     obs_an = ~(np.isnan(output_biom.matrix_data.data))
+    #     exp_an = ~(np.isnan(expected_out_biom.matrix_data.data))
+    #     npt.assert_equal(exp_an, obs_an)
+    #     npt.assert_almost_equal(expected_out_biom.matrix_data.data[exp_an],
+    #                             output_biom.matrix_data.data[obs_an],
+    #                             decimal=decimal_precision)
 
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -434,20 +498,20 @@ class TestCalcCellCounts(TestCase):
         # see "absolute_quant_example.xlsx" for details.
         example4_elute_vol = 70
         sample_ids = ["example1", "example4"]
-        sample_info_dict = {k: self.sample_and_prep_input_dict[k].copy() for
+        sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for
                             k in [SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
         sample_info_dict[SAMPLE_ID_KEY] = sample_ids
 
-        prep_info_dict = {k: self.sample_and_prep_input_dict[k].copy() for k in
+        prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for k in
                           [GDNA_CONCENTRATION_NG_UL_KEY,
                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
 
         # example4 has the same counts as example2
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         # NB: The test values for example1 here are *slightly* different than
         # those in self.example1_ogu_full_outputs_full_avogadro_dict because
@@ -487,7 +551,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -495,7 +559,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             ogu_cell_counts_per_g_sample,
-            self.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
         read_len = 150
@@ -509,7 +573,9 @@ class TestCalcCellCounts(TestCase):
         self.assertSetEqual(
             set(output_dict.keys()),
             {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
-        self.assert_biom_tables_equal(
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
             expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
@@ -528,21 +594,21 @@ class TestCalcCellCounts(TestCase):
         example4_elute_vol = 70
         sample_ids = ["example1", "example4"]
         sample_info_dict = \
-            {k: [str(x) for x in self.sample_and_prep_input_dict[k]] for
+            {k: [str(x) for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for
              k in [SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
         sample_info_dict[SAMPLE_ID_KEY] = sample_ids
 
         prep_info_dict = \
-            {k: [str(x) for x in self.sample_and_prep_input_dict[k]] for k in
+            {k: [str(x) for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
               ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            [str(x) for x in self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
+            [str(x) for x in TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
 
         # example4 has the same counts as example2
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         # NB: The test values for example1 here are *slightly* different than
         # those in self.example1_ogu_full_outputs_full_avogadro_dict because
@@ -582,7 +648,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -590,7 +656,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             ogu_cell_counts_per_g_sample,
-            self.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
         # pass in strings for the numeric values to ensure they get cast
@@ -605,7 +671,9 @@ class TestCalcCellCounts(TestCase):
         self.assertSetEqual(
             set(output_dict.keys()),
             {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
-        self.assert_biom_tables_equal(
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
             expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
@@ -624,23 +692,23 @@ class TestCalcCellCounts(TestCase):
         example4_elute_vol = 70
         sample_ids = ["example1", "example4"]
         sample_info_dict = \
-            {k: [x for x in self.sample_and_prep_input_dict[k]] for
+            {k: [x for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for
              k in [SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
         sample_info_dict[SAMPLE_ID_KEY] = sample_ids
         sample_info_dict[SAMPLE_IN_ALIQUOT_MASS_G_KEY][1] = \
             -1 * sample_info_dict[SAMPLE_IN_ALIQUOT_MASS_G_KEY][1]
 
         prep_info_dict = \
-            {k: [x for x in self.sample_and_prep_input_dict[k]] for k in
+            {k: [x for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
               ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            [x for x in self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
+            [x for x in TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
 
         # example4 has the same counts as example2
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         # NB: The test values for example1 here are *slightly* different than
         # those in self.example1_ogu_full_outputs_full_avogadro_dict because
@@ -680,7 +748,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -688,7 +756,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             ogu_cell_counts_per_g_sample,
-            self.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             [sample_ids[0]])
 
         read_len = 150
@@ -702,7 +770,9 @@ class TestCalcCellCounts(TestCase):
         self.assertSetEqual(
             set(output_dict.keys()),
             {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
-        self.assert_biom_tables_equal(
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
             expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
         self.assertEqual(
             "Dropping samples with negative values in necessary "
@@ -711,19 +781,19 @@ class TestCalcCellCounts(TestCase):
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
         # missing a required column column
-        sample_info_dict = {k: self.sample_and_prep_input_dict for k in
+        sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict for k in
                             [SAMPLE_ID_KEY]}
 
-        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
         sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -740,22 +810,22 @@ class TestCalcCellCounts(TestCase):
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
-        sample_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
         # missing required columns
-        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -772,16 +842,16 @@ class TestCalcCellCounts(TestCase):
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_ids_err(self):
-        sample_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
-        prep_info_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         # remove one of the sample ids from the sample info; this will cause
         # an error (whereas the reverse--sample id in sample info but not in
@@ -792,7 +862,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_df = pd.DataFrame(prep_info_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
@@ -809,27 +879,27 @@ class TestCalcCellCounts(TestCase):
                 lengths_fp, read_len, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_biom(self):
-        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
                         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
         params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         params_df = pd.DataFrame(params_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
-            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
-            self.reordered_results_dict[OGU_ID_KEY],
-            self.reordered_results_dict[SAMPLE_ID_KEY])
+            np.array(TestCalcCellCountsData.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -843,13 +913,14 @@ class TestCalcCellCounts(TestCase):
         # of Avogadro's #, not the truncated version that was used in the
         # notebook, so the results are slightly different (but more realistic)
         output_biom, output_msgs = calc_ogu_cell_counts_biom(
-            params_df, self.linregresses_dict, counts_biom, lengths_df,
+            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
             read_len, min_coverage, min_rsquared, output_metric)
 
         # NB: only checking results to 2 decimals because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
         # portion of values this huge is not very important.
-        self.assert_biom_tables_equal(expected_out_biom, output_biom,
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
                                       decimal_precision=2)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
@@ -859,20 +930,20 @@ class TestCalcCellCounts(TestCase):
 
     def test_calc_ogu_cell_counts_biom_w_col_err(self):
         # missing SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY col
-        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY]}
         params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         params_df = pd.DataFrame(params_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         read_len = 150
         min_coverage = 1
@@ -883,18 +954,18 @@ class TestCalcCellCounts(TestCase):
                   r"\['sequenced_sample_gdna_mass_ng'\]"
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_biom(
-                params_df, self.linregresses_dict, counts_biom, lengths_df,
+                params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
                 read_len, min_coverage, min_rsquared, output_metric)
 
     def test_calc_ogu_cell_counts_biom_w_id_err(self):
-        params_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
                         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
         params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         # remove one of the sample ids from the params info; this will cause
         # an error (whereas the reverse--sample id in params info but not in
@@ -904,9 +975,9 @@ class TestCalcCellCounts(TestCase):
 
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         read_len = 150
         min_coverage = 1
@@ -917,7 +988,7 @@ class TestCalcCellCounts(TestCase):
                    r"sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_biom(
-                params_df, self.linregresses_dict, counts_biom, lengths_df,
+                params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
                 read_len, min_coverage, min_rsquared, output_metric)
 
     def test_calc_ogu_cell_counts_biom_w_cast(self):
@@ -929,23 +1000,23 @@ class TestCalcCellCounts(TestCase):
             SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, "0.029491697"],
             ELUTE_VOL_UL_KEY: ["100", "70"],
             SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, "4.76"],
-            SAMPLE_TOTAL_READS_KEY: self.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+            SAMPLE_TOTAL_READS_KEY: TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
         }
 
-        counts_vals = self._make_combined_counts_np_array()
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
         params_df = pd.DataFrame(params_dict)
         counts_biom = biom.table.Table(
             counts_vals,
-            self.ogu_lengths_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
-            np.array(self.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
-            self.reordered_results_dict[OGU_ID_KEY],
-            self.reordered_results_dict[SAMPLE_ID_KEY])
+            np.array(TestCalcCellCountsData.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[SAMPLE_ID_KEY])
 
         read_len = 150
         min_coverage = 1
@@ -959,13 +1030,14 @@ class TestCalcCellCounts(TestCase):
         # of Avogadro's #, not the truncated version that was used in the
         # notebook, so the results are slightly different (but more realistic)
         output_biom, output_msgs = calc_ogu_cell_counts_biom(
-            params_df, self.linregresses_dict, counts_biom, lengths_df,
+            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
             read_len, min_coverage, min_rsquared, output_metric)
 
         # NB: only checking results to 2 decimals because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
         # portion of values this huge is not very important.
-        self.assert_biom_tables_equal(expected_out_biom, output_biom,
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
                                       decimal_precision=2)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
@@ -975,15 +1047,15 @@ class TestCalcCellCounts(TestCase):
 
     def test__calc_long_format_ogu_cell_counts_df(self):
         counts_dict = {
-            OGU_ID_KEY: self.example1_ogu_full_inputs_dict[OGU_ID_KEY],
+            OGU_ID_KEY: TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
             "example1": SparseArray(
-                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
             "example2": SparseArray(
-                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
         }
 
         ogu_masses = \
-            self.example1_ogu_full_outputs_short_avogadro_dict[
+            TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
                 OGU_GDNA_MASS_NG_KEY].copy()
         # NB: The example2 test values were NOT verified manually.  They
         # are what the code that produces correct results for all the
@@ -998,28 +1070,28 @@ class TestCalcCellCounts(TestCase):
         # was used in the notebook, so the results are slightly different
         # (but more realistic)
         expected_dict = {
-            OGU_ID_KEY: self._combine_filtered_out(OGU_ID_KEY),
-            SAMPLE_ID_KEY: self._generate_sample_names_list(),
+            OGU_ID_KEY: TestCalcCellCountsData.combine_filtered_out(OGU_ID_KEY),
+            SAMPLE_ID_KEY: TestCalcCellCountsData.generate_sample_names_list(),
             OGU_READ_COUNT_KEY: SparseArray(
-                self._combine_filtered_out(OGU_READ_COUNT_KEY)),
-            OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
+                TestCalcCellCountsData.combine_filtered_out(OGU_READ_COUNT_KEY)),
+            OGU_LEN_IN_BP_KEY: TestCalcCellCountsData.combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
-                self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
+                TestCalcCellCountsData.combine_filtered_out(TOTAL_OGU_READS_KEY)),
             OGU_PERCENT_COVERAGE_KEY: SparseArray(
-                self._combine_filtered_out(OGU_PERCENT_COVERAGE_KEY)),
+                TestCalcCellCountsData.combine_filtered_out(OGU_PERCENT_COVERAGE_KEY)),
             OGU_GDNA_MASS_NG_KEY: SparseArray(ogu_masses),
             OGU_GENOMES_PER_G_OF_GDNA_KEY: SparseArray(
-                self._combine_filtered_out(OGU_GENOMES_PER_G_OF_GDNA_KEY)),
+                TestCalcCellCountsData.combine_filtered_out(OGU_GENOMES_PER_G_OF_GDNA_KEY)),
             OGU_CELLS_PER_G_OF_GDNA_KEY: SparseArray(
-                self._combine_filtered_out(OGU_CELLS_PER_G_OF_GDNA_KEY)),
+                TestCalcCellCountsData.combine_filtered_out(OGU_CELLS_PER_G_OF_GDNA_KEY)),
             OGU_CELLS_PER_G_OF_SAMPLE_KEY: SparseArray(
-                self._combine_filtered_out(OGU_CELLS_PER_G_OF_SAMPLE_KEY))
+                TestCalcCellCountsData.combine_filtered_out(OGU_CELLS_PER_G_OF_SAMPLE_KEY))
         }
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        per_sample_calc_info_df = pd.DataFrame(self.mass_and_totals_dict)
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        per_sample_calc_info_df = pd.DataFrame(TestCalcCellCountsData.mass_and_totals_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_df = pd.DataFrame(expected_dict)
 
         read_len = 150
@@ -1027,7 +1099,7 @@ class TestCalcCellCounts(TestCase):
         min_rsquared = 0.8
 
         output_df, output_msgs = _calc_long_format_ogu_cell_counts_df(
-            self.linregresses_dict, counts_df, lengths_df,
+            TestCalcCellCountsData.linregresses_dict, counts_df, lengths_df,
             per_sample_calc_info_df, read_len, min_coverage, min_rsquared)
 
         pd.testing.assert_frame_equal(expected_df, output_df)
@@ -1039,14 +1111,14 @@ class TestCalcCellCounts(TestCase):
 
     def test__calc_long_format_ogu_cell_counts_df_error(self):
         counts_dict = {
-            OGU_ID_KEY: self.example1_ogu_full_inputs_dict[OGU_ID_KEY],
+            OGU_ID_KEY: TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
             "example1": SparseArray(
-                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
             "example2": SparseArray(
-                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
         }
 
-        mass_ratio_dict = {k: self.mass_and_totals_dict[k] for k in
+        mass_ratio_dict = {k: TestCalcCellCountsData.mass_and_totals_dict[k] for k in
                            (SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)}
 
         linregresses_dict = {
@@ -1057,7 +1129,7 @@ class TestCalcCellCounts(TestCase):
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
         mass_ratio_df = pd.DataFrame(mass_ratio_dict)
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         read_len = 150
         min_coverage = 1
@@ -1071,28 +1143,28 @@ class TestCalcCellCounts(TestCase):
 
     def test__prepare_cell_counts_calc_df_w_log_msgs_low_coverage(self):
         counts_dict = {
-            OGU_ID_KEY: self.example1_ogu_full_inputs_dict[OGU_ID_KEY],
+            OGU_ID_KEY: TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
             "example1": SparseArray(
-                self.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
             "example2": SparseArray(
-                self.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
+                TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
         }
 
         expected_out_dict = {
-            OGU_ID_KEY: self._combine_filtered_out(OGU_ID_KEY),
-            SAMPLE_ID_KEY: self._generate_sample_names_list(),
+            OGU_ID_KEY: TestCalcCellCountsData.combine_filtered_out(OGU_ID_KEY),
+            SAMPLE_ID_KEY: TestCalcCellCountsData.generate_sample_names_list(),
             OGU_READ_COUNT_KEY: SparseArray(
-                self._combine_filtered_out(OGU_READ_COUNT_KEY)),
-            OGU_LEN_IN_BP_KEY: self._combine_filtered_out(OGU_LEN_IN_BP_KEY),
+                TestCalcCellCountsData.combine_filtered_out(OGU_READ_COUNT_KEY)),
+            OGU_LEN_IN_BP_KEY: TestCalcCellCountsData.combine_filtered_out(OGU_LEN_IN_BP_KEY),
             TOTAL_OGU_READS_KEY: SparseArray(
-                self._combine_filtered_out(TOTAL_OGU_READS_KEY)),
+                TestCalcCellCountsData.combine_filtered_out(TOTAL_OGU_READS_KEY)),
             OGU_PERCENT_COVERAGE_KEY: SparseArray(
-                self._combine_filtered_out(OGU_PERCENT_COVERAGE_KEY))
+                TestCalcCellCountsData.combine_filtered_out(OGU_PERCENT_COVERAGE_KEY))
         }
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_out_df = pd.DataFrame(expected_out_dict)
 
         read_len = 150
@@ -1161,7 +1233,7 @@ class TestCalcCellCounts(TestCase):
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        lengths_df = pd.DataFrame(self.ogu_lengths_dict)
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_out_df = pd.DataFrame(expected_out_dict)
 
         read_len = 150
@@ -1184,12 +1256,12 @@ class TestCalcCellCounts(TestCase):
             output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample(self):
-        input_dict = self._combine_inputs()
+        input_dict = TestCalcCellCountsData.combine_inputs()
         input_df = pd.DataFrame(input_dict)
-        per_sample_info_df = pd.DataFrame(self.mass_and_totals_dict)
+        per_sample_info_df = pd.DataFrame(TestCalcCellCountsData.mass_and_totals_dict)
 
         expected_additions_dict = {
-            k: self.example1_ogu_full_outputs_short_avogadro_dict[k] for k in
+            k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k] for k in
             (OGU_ID_KEY, OGU_GDNA_MASS_NG_KEY,
              OGU_GENOMES_PER_G_OF_GDNA_KEY,
              OGU_CELLS_PER_G_OF_GDNA_KEY,
@@ -1203,19 +1275,19 @@ class TestCalcCellCounts(TestCase):
         min_rsquared = 0.8
 
         output_df, output_msgs = _calc_ogu_cell_counts_df_for_sample(
-            sample_id, self.linregresses_dict, per_sample_info_df, input_df,
+            sample_id, TestCalcCellCountsData.linregresses_dict, per_sample_info_df, input_df,
             min_rsquared, is_test=True)
 
         pd.testing.assert_frame_equal(expected_out_df, output_df)
         self.assertListEqual([], output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample_w_log_msgs_no_model(self):
-        input_dict = self._combine_inputs()
+        input_dict = TestCalcCellCountsData.combine_inputs()
         input_df = pd.DataFrame(input_dict)
-        mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
+        mass_ratio_df = pd.DataFrame(TestCalcCellCountsData.sample_and_prep_input_dict)
 
         # No entry for example 1, which should trigger a log message.
-        linregresses_dict = copy.deepcopy(self.linregresses_dict)
+        linregresses_dict = copy.deepcopy(TestCalcCellCountsData.linregresses_dict)
         del linregresses_dict["example1"]
 
         sample_id = "example1"
@@ -1230,9 +1302,9 @@ class TestCalcCellCounts(TestCase):
             ["No linear regression fitted for sample example1"], output_msgs)
 
     def test__calc_ogu_cell_counts_df_for_sample_w_log_msgs_low_rsquared(self):
-        input_dict = self._combine_inputs()
+        input_dict = TestCalcCellCountsData.combine_inputs()
         input_df = pd.DataFrame(input_dict)
-        mass_ratio_df = pd.DataFrame(self.sample_and_prep_input_dict)
+        mass_ratio_df = pd.DataFrame(TestCalcCellCountsData.sample_and_prep_input_dict)
 
         sample_id = "example1"
         high_min_rsquared = 0.99
@@ -1241,7 +1313,7 @@ class TestCalcCellCounts(TestCase):
         # ridiculously high) so the linear model for sample A will be judged
         # not good enough to use
         output_df, output_msgs = _calc_ogu_cell_counts_df_for_sample(
-            sample_id, self.linregresses_dict, mass_ratio_df, input_df,
+            sample_id, TestCalcCellCountsData.linregresses_dict, mass_ratio_df, input_df,
             high_min_rsquared, is_test=True)
 
         self.assertIsNone(output_df)
@@ -1251,11 +1323,11 @@ class TestCalcCellCounts(TestCase):
                              output_msgs)
 
     def test__calc_gdna_mass_to_sample_mass_by_sample_df(self):
-        inputs_dict = {k: self.sample_and_prep_input_dict[k] for k in
+        inputs_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        (SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
                         SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY)}
 
-        expected_dict = {k: self.mass_and_totals_dict[k] for k in
+        expected_dict = {k: TestCalcCellCountsData.mass_and_totals_dict[k] for k in
                          (SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)}
 
         inputs_df = pd.DataFrame(inputs_dict)
@@ -1270,7 +1342,7 @@ class TestCalcCellCounts(TestCase):
         pd.testing.assert_series_equal(expected_series, output_series)
 
     def test__calc_ogu_gdna_mass_ng_series_for_sample(self):
-        input_dict = {k: self.example1_ogu_full_inputs_dict[k] for k in
+        input_dict = {k: TestCalcCellCountsData.example1_ogu_full_inputs_dict[k] for k in
                       (OGU_ID_KEY, OGU_READ_COUNT_KEY)}
 
         # Inputs are taken from the values for A1_pool1_Fwd in the
@@ -1290,9 +1362,9 @@ class TestCalcCellCounts(TestCase):
 
         input_df = pd.DataFrame(input_dict)
         expected_series = pd.Series(
-            self.example1_ogu_full_outputs_short_avogadro_dict[
+            TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
                 OGU_GDNA_MASS_NG_KEY],
-            index=self.example1_ogu_full_inputs_dict[OGU_ID_KEY],
+            index=TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
             name=OGU_GDNA_MASS_NG_KEY)
         expected_series.index.name = OGU_ID_KEY
 
@@ -1305,14 +1377,14 @@ class TestCalcCellCounts(TestCase):
         # this is the default value for our experimental system
         total_sample_gdna_mass_ng = 5
 
-        input_dict = {k: self.example1_ogu_full_outputs_short_avogadro_dict[k]
+        input_dict = {k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k]
                       for k in
                       (OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY)}
         input_df = pd.DataFrame(input_dict)
         expected_series = pd.Series(
-            self.example1_ogu_full_outputs_short_avogadro_dict[
+            TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
                 OGU_CELLS_PER_G_OF_GDNA_KEY],
-            index=self.example1_ogu_full_outputs_short_avogadro_dict[
+            index=TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
                 OGU_ID_KEY])
         expected_series.index.name = OGU_ID_KEY
 
@@ -1349,7 +1421,7 @@ class TestCalcCellCounts(TestCase):
                                     28574.60346]
         }
 
-        input_dict = {k: self.example1_ogu_full_outputs_short_avogadro_dict[k]
+        input_dict = {k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k]
                       for k in
                       (OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY)}
         input_df = pd.DataFrame(input_dict)
