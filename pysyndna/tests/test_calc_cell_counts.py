@@ -1,7 +1,6 @@
 import biom.table
 import copy
 import numpy as np
-import numpy.testing as npt
 import pandas as pd
 from pandas.arrays import SparseArray
 from pandas.testing import assert_series_equal
@@ -405,91 +404,6 @@ class TestCalcCellCountsData:
 
 
 class TestCalcCellCounts(TestCase):
-    # @classmethod
-    # def _combine_inputs(cls):
-    #     sample_names = cls._generate_sample_names_list(use_filtered_ex2=False)
-    #     col_list = [OGU_ID_KEY, OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY]
-    #     parallel_dicts_list = [TestCalcCellCountsData.example1_ogu_full_inputs_dict,
-    #                            TestCalcCellCountsData.example2_ogu_full_inputs_dict]
-    #     input_dict = {SAMPLE_ID_KEY: sample_names}
-    #     for col_name in col_list:
-    #         curr_col_list = []
-    #         for curr_dict in parallel_dicts_list:
-    #             curr_col_list.extend(curr_dict[col_name].copy())
-    #         input_dict[col_name] = curr_col_list
-    # 
-    #     return input_dict
-    # 
-    # @classmethod
-    # def _combine_filtered_out(cls, col_name):
-    #     example1_copy = (
-    #         TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
-    #     example2_copy = (
-    #         TestCalcCellCountsData.example2_ogu_filtered_inputs_outputs_full_avogadro_dict[
-    #             col_name].copy())
-    #     example1_copy.extend(example2_copy)
-    #     return example1_copy
-    # 
-    # @classmethod
-    # def _make_combined_counts_np_array(cls):
-    #     # combine each item in the OGU_READ_COUNT_KEY array for
-    #     # self.example1_ogu_full_inputs_dict with the analogous item in
-    #     # self.example2_ogu_full_inputs_dict to make an array of two-item
-    #     # arrays, and turn this into an np.array
-    #     counts_array = np.array(
-    #         [list(x) for x in zip(
-    #             TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
-    #             TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])])
-    #     return counts_array
-    # 
-    # @classmethod
-    # def _generate_sample_names_list(cls, use_filtered_ex2=True):
-    #     sample_names = ["example1", "example2"]
-    #     parallel_dicts_list = [TestCalcCellCountsData.example1_ogu_full_inputs_dict]
-    #     if use_filtered_ex2:
-    #         parallel_dicts_list.append(
-    #             TestCalcCellCountsData.example2_ogu_filtered_inputs_outputs_full_avogadro_dict)
-    #     else:
-    #         parallel_dicts_list.append(
-    #             TestCalcCellCountsData.example2_ogu_full_inputs_dict)
-    # 
-    #     output = []
-    #     for curr_index in range(len(sample_names)):
-    #         curr_sample_name = sample_names[curr_index]
-    #         curr_parallel_dict = parallel_dicts_list[curr_index]
-    #         curr_names_list = [curr_sample_name for _ in
-    #                            range(len(curr_parallel_dict[OGU_ID_KEY]))]
-    #         output.extend(curr_names_list)
-    #     return output
-
-    # # The built-in self.assertEqual works fine to compare biom tables that
-    # # don't have NaNs, but it doesn't work for tables that do have NaNs
-    # # because NaN != NaN so two tables that contain NaNs are by definition
-    # # unequal even if the NaNs occur at the same table locations.
-    # # This function is a workaround for that.
-    # def assert_biom_tables_equal(self, expected_out_biom, output_biom,
-    #                              decimal_precision=7):
-    #     # default decimal precision is the set to the default for
-    #     # npt.assert_almost_equal
-    #
-    #     # check the ids are equal, then check the observations are equal
-    #     self.assertEqual(set(expected_out_biom.ids()), set(output_biom.ids()))
-    #     self.assertEqual(set(expected_out_biom.ids(axis='observation')),
-    #                      set(output_biom.ids(axis='observation')))
-    #
-    #     # check that the two tables have the same NaN positions
-    #     npt.assert_equal(np.isnan(expected_out_biom.matrix_data.data),
-    #                      np.isnan(output_biom.matrix_data.data))
-    #
-    #     # check that the two tables have the same non-NaN values at the same
-    #     # positions
-    #     obs_an = ~(np.isnan(output_biom.matrix_data.data))
-    #     exp_an = ~(np.isnan(expected_out_biom.matrix_data.data))
-    #     npt.assert_equal(exp_an, obs_an)
-    #     npt.assert_almost_equal(expected_out_biom.matrix_data.data[exp_an],
-    #                             output_biom.matrix_data.data[obs_an],
-    #                             decimal=decimal_precision)
-
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -921,7 +835,7 @@ class TestCalcCellCounts(TestCase):
         # portion of values this huge is not very important.
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
-                                      decimal_precision=2)
+                                          decimal_precision=2)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
              "1.0: ['example2;Neisseria subflava', "
@@ -1038,7 +952,7 @@ class TestCalcCellCounts(TestCase):
         # portion of values this huge is not very important.
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
-                                      decimal_precision=2)
+                                          decimal_precision=2)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
              "1.0: ['example2;Neisseria subflava', "

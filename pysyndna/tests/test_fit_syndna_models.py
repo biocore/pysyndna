@@ -17,6 +17,7 @@ from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
     _convert_linregressresults_to_dict
 from pysyndna.tests.test_util import Testers
 
+
 class FitSyndnaModelsTestData():
     syndna_concs_dict = {
         SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
