@@ -572,6 +572,7 @@ def calc_ogu_cell_counts_biom(
         absolute_quant_params_per_sample_df: pd.DataFrame,
         linregress_by_sample_id: Dict[str, Dict[str, float]],
         ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
         read_length: int,
         min_coverage: float,
@@ -593,13 +594,15 @@ def calc_ogu_cell_counts_biom(
         representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_percent_coverage_df : pd.DataFrame
+        A Dataframe of OGU_ID_KEY and OGU_PERCENT_COVERAGE_KEY for each OGU.
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     read_length : int
         Length of reads in bp (usually but not always 150).
     min_coverage : float
-        Minimum allowable % coverage of an OGU in a sample needed to include
-        that OGU/sample in the output
+        Minimum allowable % coverage of an OGU across the whole dataset
+        required to include that OGU in the output.
     min_rsquared: float
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
@@ -627,11 +630,23 @@ def calc_ogu_cell_counts_biom(
         absolute_quant_params_per_sample_df, required_cols_list,
         "sample info is missing required column(s)")
 
+    validate_required_columns_exist(
+        ogu_lengths_df, [OGU_ID_KEY, OGU_LEN_IN_BP_KEY],
+        "OGU lengths are missing required column(s)")
+
+    validate_required_columns_exist(
+        ogu_percent_coverage_df, [OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY],
+        "OGU percent coverage is missing required column(s)")
+
     # Check if any samples in the reads data are missing from the metadata;
     # Not bothering to report samples that are in metadata but not the reads--
     # maybe those failed the sequencing run.
     _ = validate_metadata_vs_reads_id_consistency(
         absolute_quant_params_per_sample_df, ogu_counts_per_sample_biom)
+
+    # Check if there are any OGUs in the read data that are missing from the
+    # OGU lengths data; if so, throw an error
+
 
     working_params_df = absolute_quant_params_per_sample_df.copy()
 
