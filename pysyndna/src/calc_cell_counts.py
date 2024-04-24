@@ -31,8 +31,7 @@ GDNA_FROM_ALIQUOT_MASS_G_KEY = 'extracted_gdna_concentration_g'
 SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY = 'sequenced_sample_gdna_mass_ng'
 OGU_ID_KEY = 'ogu_id'
 OGU_READ_COUNT_KEY = 'ogu_read_count'
-OGU_CPM_KEY = 'ogu_CPM'
-LOG_10_OGU_CPM_KEY = 'log10_ogu_CPM'
+LOG_10_OGU_READ_COUNT_KEY = 'log10_ogu_read_count'
 OGU_PERCENT_COVERAGE_KEY = 'percent_coverage_of_ogu'
 TOTAL_OGU_READS_KEY = 'total_reads_per_ogu'
 LOG_10_OGU_GDNA_MASS_NG_KEY = 'log10_ogu_gdna_mass_ng'
@@ -365,16 +364,11 @@ def _calc_ogu_cell_counts_df_for_sample(
     sample_df = working_df[
         working_df[SAMPLE_ID_KEY] == sample_id].copy()
 
-    # get the total reads sequenced for this sample
-    sample_total_reads = per_sample_info_df.loc[
-        per_sample_info_df[SAMPLE_ID_KEY] == sample_id,
-        SAMPLE_TOTAL_READS_KEY].values[0]
-
     # predict mass of each OGU's gDNA in this sample from its counts
     # using the linear model
     ogu_gdna_masses = _calc_ogu_gdna_mass_ng_series_for_sample(
             sample_df, linregress_result[SLOPE_KEY],
-            linregress_result[INTERCEPT_KEY], sample_total_reads)
+            linregress_result[INTERCEPT_KEY])
     sample_df[OGU_GDNA_MASS_NG_KEY] = \
         sample_df[OGU_ID_KEY].map(ogu_gdna_masses)
 
@@ -413,8 +407,7 @@ def _calc_ogu_cell_counts_df_for_sample(
 def _calc_ogu_gdna_mass_ng_series_for_sample(
         sample_df: pd.DataFrame,
         sample_linregress_slope: float,
-        sample_linregress_intercept: float,
-        sample_total_reads: int) -> pd.Series:
+        sample_linregress_intercept: float) -> pd.Series:
 
     """Calculates mass of OGU gDNA in ng for each OGU in a sample.
 
@@ -427,9 +420,6 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
         Slope of the linear regression model for the sample.
     sample_linregress_intercept: float
         Intercept of the linear regression model for the sample.
-    sample_total_reads: int
-        Total number of reads for the sample (including all reads, not just
-        aligned ones).
 
     Returns
     -------
@@ -439,23 +429,26 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
     """
     working_df = sample_df.copy()
 
-    # add a column of counts per million (CPM) for each ogu by dividing
-    # each read_count by the total number of reads for this sample
-    # and then multiplying by a million (1,000,000)
-    # NB: dividing int/int in python gives float
-    working_df[OGU_CPM_KEY] = (working_df[OGU_READ_COUNT_KEY] /
-                               sample_total_reads) * 1000000
+    # NOTE that the linear regressions were originally done as described in
+    # the Zaramela et al notebooks, where the log10 of the CPM values were
+    # used as the independent variable.  Later scripts by Oriane Moyne
+    # showed that this is not necessary and that it is equivalent to simply
+    # use log10 of the read counts as the independent variable (as long as it
+    # is used for *both* the fit and the prediction, of course!).  Please see
+    # documentation on the fit_syndna_models.src._fit_linear_regression_models
+    # method for a full description of this change.
 
-    # add column of log10(ogu CPM) by taking log base 10 of the ogu CPM column
-    working_df[LOG_10_OGU_CPM_KEY] = np.log10(working_df[OGU_CPM_KEY])
+    # add column of log10(ogu read counts)
+    working_df[LOG_10_OGU_READ_COUNT_KEY] = \
+        np.log10(working_df[OGU_READ_COUNT_KEY])
 
     # calculate log10(ogu gdna mass) of each OGU's gDNA in this sample
-    # by multiplying each OGU's log10(ogu CPM) by the slope of this sample's
-    # regression model and adding the model's intercept.
+    # by multiplying each OGU's log10(ogu read count) by the slope of this
+    # sample's regression model and adding the model's intercept.
     # NB: this requires that the linear regression models were derived
     # using synDNA masses *in ng* and not in some other unit.
     working_df[LOG_10_OGU_GDNA_MASS_NG_KEY] = (
-            working_df[LOG_10_OGU_CPM_KEY] *
+            working_df[LOG_10_OGU_READ_COUNT_KEY] *
             sample_linregress_slope +
             sample_linregress_intercept)
 

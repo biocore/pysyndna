@@ -1,44 +1,5 @@
-# This file is based on 
-# https://github.com/lzaramela/SynDNA/blob/main/data/saliva_linear_models.tsv
-# with the values of the a_intercept and b_intercept columns negated 
-# (because the Zaramela code generates regression models that predict the
-# *negative* log10 of the read weight while the code under test predicts just
-# log10 of the read weight.)
-# All other columns were deleted.
+# The fit in this file is the
+# "sample A regression of log10_syndna_ng from log10_raw_counts" fit in the
+# "zaramela linear reg CPM&counts" sheet of the "absolute_quant_example.xlsx".
 ID	a_intercept	b_slope
-A1_pool1_Fwd	-6.775395054	1.244876524
-A1_pool1_Rev	-6.771631397	1.246759136
-C1_pool1_Fwd	-6.878100856	1.241529167
-C1_pool1_Rev	-6.848393273	1.236655876
-D1_pool1_Fwd	-6.642112139	1.250771588
-D1_pool1_Rev	-6.575257456	1.236368669
-E1_pool1_Fwd	-6.209075909	1.267741008
-E1_pool1_Rev	-6.34471994	1.274278208
-F1_pool1_Fwd	-6.38086082	1.244062976
-F1_pool1_Rev	-6.605655262	1.239447269
-H1_pool1_Fwd	-6.440192081	1.205881471
-H1_pool1_Rev	-6.588296111	1.212090029
-A1_pool2_Fwd	-6.041983871	1.061187469
-A1_pool2_Rev	-6.02539348	1.058027999
-C1_pool2_Fwd	-6.056199167	1.060877447
-C1_pool2_Rev	-6.069492391	1.065961909
-D1_pool2_Fwd	-5.938894948	1.083900408
-D1_pool2_Rev	-5.944595969	1.085696514
-E1_pool2_Fwd	-5.303220104	1.027856635
-E1_pool2_Rev	-5.530968001	1.070901249
-F1_pool2_Fwd	-5.727181515	1.034888555
-F1_pool2_Rev	-5.901821005	1.058843954
-H1_pool2_Fwd	-5.674505663	0.998484653
-H1_pool2_Rev	-5.648429195	0.993954412
-A1_pool3_Fwd	-5.76337605	1.00578283
-A1_pool3_Rev	-5.793669519	1.015138091
-C1_pool3_Fwd	-5.133881506	0.828831285
-C1_pool3_Rev	-5.117345873	0.828171831
-D1_pool3_Fwd	-5.343334407	1.024461683
-D1_pool3_Rev	-5.545901564	1.052359855
-E1_pool3_Fwd	-5.316389176	1.081948957
-E1_pool3_Rev	-5.440241897	1.080885471
-F1_pool3_Fwd	-5.665952742	1.067055184
-F1_pool3_Rev	-5.740173228	1.063047339
-H1_pool3_Fwd	-4.930454427	0.787220436
-H1_pool3_Rev	-4.900925447	0.781458157
+A	-7.40709604550579	1.244876524
