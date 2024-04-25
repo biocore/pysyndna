@@ -36,26 +36,28 @@ class TestCalcCellCountsData:
     # and a lower gdna density value (which leadds to a smaller amount of
     # syndna pool and thus a bunch of interesting calculation knock-ons).
 
-    # The example1 linear model is what we get from running Zaramela's
-    # "A1_pool1_Fwd" sample data through the linear modelling code (see
-    # modelling_input.tsv and test_fit_syndna_models.py.) The slope and
-    # intercept (all that is provided by Zaramela) match those from that
-    # work (see modelling_output.tsv for details).
-    # The example2 linear model is what we get from running the linear
-    # modelling code on the "Sample B" data from test_fit_syndna_models.py;
-    # it does not match any Zaramela results because Sample B is made up.
-    # See FitSyndnaModelsTest.lingress_results comments for details.
+    # The example1 (Sample A) and example2 (Sample B) values are taken from
+    # FitSyndnaModelsTest.lingress_results, which gets them from those
+    # calculated in Excel (see results for full data
+    # on "linear regressions counts" sheet of "absolute_quant_example.xlsx").
+    # Note that these do not and *should* NOT be expected to match any results
+    # in Zaramela's linear models; see FitSyndnaModelsTest.lingress_results
+    # comments for details.
     linregresses_dict = {
         'example1': {
-            "slope": 1.24487652379132, "intercept": -6.77539505390338,
-            "rvalue": 0.9865030975156575, "pvalue": 1.428443560659758e-07,
-            "stderr": 0.07305408550335003,
-            "intercept_stderr": 0.2361976278251443},
+            "slope": 1.24487652379132,
+            "intercept": -7.35593916054843,
+            "rvalue": 0.986503097515657,
+            "pvalue": 1.42844356065977E-07,
+            "stderr": 0.0730540855033502,
+            "intercept_stderr": 0.271274537363401},
         'example2': {
-            "slope": 1.24675913604407, "intercept": -7.155318973708384,
-            "rvalue": 0.9863241797356326, "pvalue": 1.505381146809759e-07,
-            "stderr": 0.07365795255302438,
-            "intercept_stderr": 0.2563956755844754}
+            "slope": 1.24675913604407,
+            "intercept": -7.45004083037736,
+            "rvalue": 0.986324179735633,
+            "pvalue": 1.5053811468097E-07,
+            "stderr": 0.073657952553024,
+            "intercept_stderr": 0.2729411999326}
     }
 
     # Values from "absolute_quant_example.xlsx"
@@ -73,7 +75,7 @@ class TestCalcCellCountsData:
     # the OGU_READ_COUNT_KEY values for each sample
     mass_and_totals_dict = {
         SAMPLE_ID_KEY: ["example1", "example2"],
-        SAMPLE_TOTAL_READS_KEY: [472140, 611913],
+        SAMPLE_TOTAL_READS_KEY: [3216923, 611913],
         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76],
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY: [7.1867431342E-06,
                                              4.7470988923E-06]
@@ -120,8 +122,8 @@ class TestCalcCellCountsData:
         # 26130 counts at position 8 (for N. subflava, bc example 2 has
         # zero counts here), by a factor of 10 at position 10
         # (for F. periodonticum, bc example 2 has 10x the counts of example 1
-        # at this position), and by 12133 at position 12 (for H. influenzae,
-        # bc example 2 has 12 counts here instead of 12145).
+        # at this position), and by 12045 at position 12 (for H. influenzae,
+        # bc example 2 has 100 counts here instead of 12145).
         # All other positions are identical.
         OGU_READ_COUNT_KEY: [79951, 93024, 86188, 45441, 31185, 24929,
                              1975, 0, 22303, 197830, 14478, 100, 14609]
@@ -154,8 +156,9 @@ class TestCalcCellCountsData:
                                0.06528070535624650000],
         # for the arrays below, the 1st, 2nd, and 7th values (those for
         # L. gasseri, R. albus, and L. valderiana) match those worked out in
-        # detail for example1 in the "absolute_quant_example.xlsx" spreadsheet
-        # (in the section using the truncated Avogadro's #, as Zaramela did).
+        # detail for example 1 on the "full_calcs on correct masses" sheet in
+        # the "absolute_quant_example.xlsx" spreadsheet (in the section using
+        # the truncated Avogadro's #, as Zaramela did).
         # The remainder were not worked out individually and come from the code
         # calculations.
         OGU_GENOMES_PER_G_OF_GDNA_KEY: [5.26939603e+13, 2.77101748e+13,
@@ -187,11 +190,29 @@ class TestCalcCellCountsData:
                                         41071667.042116195]
     })
 
-    # This dict contains the results of calculations done on example1
-    # using the full Avogadro's number (6.022e23) instead of the truncated one.
+    # This dict contains the gdna mass from the
+    # "PredictedOguMass" column of the
+    # "Mass results for sample A regression for full data on log10_read_count"
+    # table on the "linear regressions counts" sheet of
+    # "absolute_quant_example.xlsx", and
+    # the results of calculations done on example 1
+    # using the full Avogadro's number instead of the truncated one.
     example1_ogu_full_outputs_full_avogadro_dict = (
         example1_ogu_full_inputs_dict.copy())
     example1_ogu_full_outputs_full_avogadro_dict.update({
+        OGU_GDNA_MASS_NG_KEY: [0.055906776,
+                               0.067506894,
+                               0.061387889,
+                               0.027669949,
+                               0.01731683,
+                               0.01310435,
+                               0.000558001,
+                               0.013894854,
+                               0.011408701,
+                               0.009826844,
+                               0.006662378,
+                               0.005353421,
+                               0.006737505],
         # Note that this is assuming that examples 1 and 2 were run
         TOTAL_OGU_READS_KEY: [x + y for x, y in zip(
             example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
@@ -212,35 +233,64 @@ class TestCalcCellCountsData:
                                    103.533221485547],
         # for the arrays below, the 1st, 2nd, and 7th values (those for
         # L. gasseri, R. albus, and L. valderiana) match those worked out in
-        # detail for example1 in the "absolute_quant_example.xlsx" spreadsheet
-        # (in the section using the FULL Avogadro's #, not matching Zaramela).
+        # detail for example1 in the "full_calcs on correct masses" sheet of
+        # the "absolute_quant_example.xlsx" spreadsheet
+        # (in the section using the FULL Avogadro's #, NOT matching Zaramela).
         # The remainder were not worked out individually and come from the code
         # calculations.
-        OGU_GENOMES_PER_G_OF_GDNA_KEY: [
-            52695192015949.67, 27710822536547.69, 21897704979729.094,
-            12866488251594.062, 12674159207435.06, 11582576292095.531,
-            11223075218306.252, 10879422748260.775, 9289882608698.639,
-            7100063146106.998, 5809957491032.718, 5718752608946.0205,
-            5715054273735.247],
-        OGU_CELLS_PER_G_OF_GDNA_KEY: [
-            52695192015949.67, 27710822536547.69, 21897704979729.094,
-            12866488251594.062, 12674159207435.06, 11582576292095.531,
-            11223075218306.252, 10879422748260.775, 9289882608698.639,
-            7100063146106.998, 5809957491032.718, 5718752608946.0205,
-            5715054273735.247],
-        OGU_CELLS_PER_G_OF_SAMPLE_KEY: [
-            378706809.42597693, 199150563.60756874, 157373180.91780522,
-            92468146.10340859, 91085926.66579163, 83241000.64356525,
-            80657358.76977262, 78187616.74012242, 66764000.05558892,
-            51026330.06767092, 41754672.108673245, 41099206.04853115,
-            41072627.06334715]
+        OGU_GENOMES_PER_G_OF_GDNA_KEY: [5438576851832.26,
+                                        2859984606316.35,
+                                        2260023103719.98,
+                                        1327927321117.10,
+                                        1308077383248.35,
+                                        1195417056032.46,
+                                        1158313590928.33,
+                                        1122845831970.39,
+                                        958792227127.95,
+                                        732784863204.92,
+                                        599635357838.64,
+                                        590222264508.60,
+                                        589840565922.86],
+        OGU_CELLS_PER_G_OF_GDNA_KEY: [5438576851832.26,
+                                      2859984606316.35,
+                                      2260023103719.98,
+                                      1327927321117.10,
+                                      1308077383248.35,
+                                      1195417056032.46,
+                                      1158313590928.33,
+                                      1122845831970.39,
+                                      958792227127.95,
+                                      732784863204.92,
+                                      599635357838.64,
+                                      590222264508.60,
+                                      589840565922.86],
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY: [39085654.85,
+                                        20553974.73,
+                                        16242205.52,
+                                        9543472.56,
+                                        9400816.15,
+                                        8591155.32,
+                                        8324502.25,
+                                        8069604.57,
+                                        6890593.46,
+                                        5266336.58,
+                                        4309425.29,
+                                        4241775.81,
+                                        4239032.64]
     })
 
+    # NB: the reason there is no "example1_ogu_filtered_<etc>" is that the
+    # filtering threshold used in the test does not drop any samples from
+    # example1, so the filtered example1 data is the same as the full.
+
+    # NB: the reason there is no "example2_ogu_full_<etc>" is that
+    # example 2 isn't being used to test generating an unfiltered dataset;
+    # all those tests are being done with example 1.
+
     # This dict contains the results of calculations done on *filtered*
-    # example2 data using the full Avogadro's number (6.022e23) instead of
-    # the truncated one.
-    # The ogu id, ogu length, and ogu read counts are exactly the same as in
-    # the example 2 full data *except* that Neisseria subflava and
+    # example2 data using the full Avogadro's number instead of the truncated
+    # one. The ogu id, ogu length, and ogu read counts are exactly the same as
+    # in the example 2 full data *except* that Neisseria subflava and
     # Haemophilus influenzae have been removed (for falling below the
     # min_coverage = 1 threshold, which is the default min_coverage value in
     # our analysis system).
@@ -289,21 +339,46 @@ class TestCalcCellCountsData:
                                    151.731341482939, 1194.203338,
                                    105.484891342717,
                                    103.533221485547],
-        OGU_GENOMES_PER_G_OF_GDNA_KEY: [
-            17086455403978.045, 8987677125515.266, 7101240813289.261,
-            4167468287030.2075, 4102264162505.8833, 3747369928484.789,
-            3613767901730.258, 3004973286163.8184, 40527863244164.32,
-            1877803149989.8623, 1847161346896.6194],
-        OGU_CELLS_PER_G_OF_GDNA_KEY: [
-            17086455403978.045, 8987677125515.266, 7101240813289.261,
-            4167468287030.2075, 4102264162505.8833, 3747369928484.789,
-            3613767901730.258, 3004973286163.8184, 40527863244164.32,
-            1877803149989.8623, 1847161346896.6194],
-        OGU_CELLS_PER_G_OF_SAMPLE_KEY: [
-            81111093.52155752, 42665392.12688357, 33710292.398721,
-            19783384.089056477, 19473853.661753666, 17789135.636548474,
-            17154913.603333004, 14264905.358139353, 192389774.71365833,
-            8914117.253274327, 8768657.583752317]
+        # for the arrays below, the 1st, 2nd, and 7th values (those for
+        # L. gasseri, R. albus, and L. valderiana) match those worked out in
+        # detail for example 2 in the "full_calcs on correct masses" sheet of
+        # the "absolute_quant_example.xlsx" spreadsheet
+        # (in the section using the FULL Avogadro's #, NOT matching Zaramela).
+        # The remainder were not worked out individually and come from the code
+        # calculations.
+        OGU_GENOMES_PER_G_OF_GDNA_KEY: [4.698763e+12,
+                                        2.471605e+12,
+                                        1.952836e+12,
+                                        1.146051e+12,
+                                        1.128120e+12,
+                                        1.030524e+12,
+                                        9.937836e+11,
+                                        8.263655e+11,
+                                        1.114513e+13,
+                                        5.163945e+11,
+                                        5.079680e+11],
+        OGU_CELLS_PER_G_OF_GDNA_KEY: [4.698763e+12,
+                                      2.471605e+12,
+                                      1.952836e+12,
+                                      1.146051e+12,
+                                      1.128120e+12,
+                                      1.030524e+12,
+                                      9.937836e+11,
+                                      8.263655e+11,
+                                      1.114513e+13,
+                                      5.163945e+11,
+                                      5.079680e+11],
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY: [2.230549e+07,
+                                        1.173295e+07,
+                                        9.270306e+06,
+                                        5.440416e+06,
+                                        5.355296e+06,
+                                        4.891999e+06,
+                                        4.717589e+06,
+                                        3.922839e+06,
+                                        5.290705e+07,
+                                        2.451376e+06,
+                                        2.411375e+06]
     }
 
     # This dict contains the results of calculations done on example1 and
@@ -330,20 +405,50 @@ class TestCalcCellCountsData:
         # The two 0 values are for N. subflava and H. influenzae, which were
         # removed from example2 data due to low coverage.
         OGU_CELLS_PER_G_OF_GDNA_KEY: [
-            [21897704979729.094, 7101240813289.261],
-            [7100063146106.998, 40527863244164.32],
-            [5718752608946.0205, 0],
-            [52695192015949.67, 17086455403978.045],
-            [11223075218306.252, 3613767901730.258],
-            [9289882608698.639, 3004973286163.8184],
-            [10879422748260.775, 0],
-            [12674159207435.06, 4102264162505.8833],
-            [27710822536547.69, 8987677125515.266],
-            [11582576292095.531, 3747369928484.789],
-            [5809957491032.718, 1877803149989.8623],
-            [12866488251594.062, 4167468287030.2075],
-            [5715054273735.247, 1847161346896.6194]],
+            [2260023103719.98, 1952836093054.1],
+            [732784863204.92, 11145133111026.7],
+            [590222264508.6, 0],
+            [5438576851832.26, 4698762891240.72],
+            [1158313590928.33, 993783562051.94],
+            [958792227127.95, 826365482621.33],
+            [1122845831970.39, 0],
+            [1308077383248.35, 1128119680829.86],
+            [2859984606316.35, 2471604715978.24],
+            [1195417056032.46, 1030524022882.84],
+            [599635357838.64, 516394509546.61],
+            [1327927321117.1, 1146050767964.49],
+            [589840565922.86, 507968035834.47]
+        ]
     }
+
+    # NB: The test values for example1 here are *slightly* different than
+    # those in self.example1_ogu_full_outputs_full_avogadro_dict because
+    # the gdna-to-sample mass ratio calculated internally during this
+    # soup-to-nuts function has more digits past the decimal than does the
+    # example1 entry in the manually-populated self.mass_and_totals_dict.
+    # Since we are multiplying/dividing by large numbers like e.g., 10^9
+    # (to change ng to g), this ends up making a slight difference in the
+    # end product: for example, for L.gasseri,
+    # 3908565*5.46* cells instead of 3908565*4.85* cells,
+    # 8324502.*38* instead of 8324502.*25* for L. valderiana,
+    # and 2055397*5.06* instead of 2055397*4.73* for R. albus.
+    # Remember, with reordering, the 4th sub-array is for L. gasseri,
+    # the 5th is for L. valderiana, and the 9th is for R. albus.
+    example1_example4_cells_per_g_sample = [
+            [16242205.78, 6489214.14],
+            [5266336.67, 37034933.76],
+            [4241775.87, 0],
+            [39085655.46, 15613844.24],
+            [8324502.38, 3302312.14],
+            [6890593.56, 2745987.02],
+            [8069604.7, 0],
+            [9400816.3, 3748706.92],
+            [20553975.06, 8213066.28],
+            [8591155.45, 3424399.56],
+            [4309425.36, 1715963.04],
+            [9543472.71, 3808291.37],
+            [4239032.7, 1687962.12]
+    ]
 
     @classmethod
     def combine_inputs(cls):
@@ -362,6 +467,8 @@ class TestCalcCellCountsData:
 
     @classmethod
     def combine_filtered_out(cls, col_name):
+        # NB: it *is* correct to use the "full" example1 and the "filtered"
+        # example2; see comments above in the property definitions for details.
         example1_copy = (
             TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[col_name].copy())
         example2_copy = (
@@ -427,39 +534,8 @@ class TestCalcCellCounts(TestCase):
         # example4 has the same counts as example2
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
-        # NB: The test values for example1 here are *slightly* different than
-        # those in self.example1_ogu_full_outputs_full_avogadro_dict because
-        # the gdna-to-sample mass ratio calculated internally during this
-        # soup-to-nuts function has more digits past the decimal than does the
-        # example1 entry in the manually-populated self.mass_and_totals_dict.
-        # Since we are multiplying/dividing by large numbers like e.g., 10^9
-        # (to change ng to g), this ends up making a slight difference in the
-        # end product: for example, for L.gasseri,
-        # 3787068*15* cells instead of 3787068*09* cells,
-        # 80657360 instead of 80657358 for L. valderiana,
-        # and 199150566 instead of 199150563 for R. albus.
-        # The values for example 4 are about an order of magnitude smaller
-        # than those for example 1 and thus match those from
-        # "absolute_quant_example.xlsx" more closely:
-        # both 56777765 for L. gasseri (with rounding),
-        # 12008439 instead of 12008440 for L. valderiana,
-        # and both 29865774 for R. albus.
-        # Remember, with reordering, the 4th sub-array is for L. gasseri,
-        # the 5th is for L. valderiana, and the 9th is for R. albus.
-        ogu_cell_counts_per_g_sample = np.array([
-            [157373183.3914873, 23597204.3149076],
-            [51026330.8697321, 134672840.2210325],
-            [41099206.6945521, 0],
-            [378706815.3787082, 56777764.5887874],
-            [80657360.0375914, 12008439.3369959],
-            [66764001.1050239, 9985433.5965833],
-            [78187617.9691203, 0],
-            [91085928.0975326, 13631697.3528372],
-            [199150566.7379318, 29865774.0278729],
-            [83241001.9519951, 12452394.7533948],
-            [41754672.7649972, 6239881.9809863],
-            [92468147.5568761, 13848368.6486051],
-            [41072627.7089503, 6138060.2138924]])
+        ogu_cell_counts_per_g_sample = np.array(
+            TestCalcCellCountsData.example1_example4_cells_per_g_sample)
 
         sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
@@ -490,7 +566,8 @@ class TestCalcCellCounts(TestCase):
 
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(
-            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
             "1.0: ['example4;Neisseria subflava', "
@@ -524,39 +601,8 @@ class TestCalcCellCounts(TestCase):
         # example4 has the same counts as example2
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
-        # NB: The test values for example1 here are *slightly* different than
-        # those in self.example1_ogu_full_outputs_full_avogadro_dict because
-        # the gdna-to-sample mass ratio calculated internally during this
-        # soup-to-nuts function has more digits past the decimal than does the
-        # example1 entry in the manually-populated self.mass_and_totals_dict.
-        # Since we are multiplying/dividing by large numbers like e.g., 10^9
-        # (to change ng to g), this ends up making a slight difference in the
-        # end product: for example, for L.gasseri,
-        # 3787068*15* cells instead of 3787068*09* cells,
-        # 80657360 instead of 80657358 for L. valderiana,
-        # and 199150566 instead of 199150563 for R. albus.
-        # The values for example 4 are about an order of magnitude smaller
-        # than those for example 1 and thus match those from
-        # "absolute_quant_example.xlsx" more closely:
-        # both 56777765 for L. gasseri (with rounding),
-        # 12008439 instead of 12008440 for L. valderiana,
-        # and both 29865774 for R. albus.
-        # Remember, with reordering, the 4th sub-array is for L. gasseri,
-        # the 5th is for L. valderiana, and the 9th is for R. albus.
-        ogu_cell_counts_per_g_sample = np.array([
-            [157373183.3914873, 23597204.3149076],
-            [51026330.8697321, 134672840.2210325],
-            [41099206.6945521, 0],
-            [378706815.3787082, 56777764.5887874],
-            [80657360.0375914, 12008439.3369959],
-            [66764001.1050239, 9985433.5965833],
-            [78187617.9691203, 0],
-            [91085928.0975326, 13631697.3528372],
-            [199150566.7379318, 29865774.0278729],
-            [83241001.9519951, 12452394.7533948],
-            [41754672.7649972, 6239881.9809863],
-            [92468147.5568761, 13848368.6486051],
-            [41072627.7089503, 6138060.2138924]])
+        ogu_cell_counts_per_g_sample = np.array(
+            TestCalcCellCountsData.example1_example4_cells_per_g_sample)
 
         sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
@@ -588,7 +634,8 @@ class TestCalcCellCounts(TestCase):
 
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(
-            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
             "1.0: ['example4;Neisseria subflava', "
@@ -624,39 +671,12 @@ class TestCalcCellCounts(TestCase):
         # example4 has the same counts as example2
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
-        # NB: The test values for example1 here are *slightly* different than
-        # those in self.example1_ogu_full_outputs_full_avogadro_dict because
-        # the gdna-to-sample mass ratio calculated internally during this
-        # soup-to-nuts function has more digits past the decimal than does the
-        # example1 entry in the manually-populated self.mass_and_totals_dict.
-        # Since we are multiplying/dividing by large numbers like e.g., 10^9
-        # (to change ng to g), this ends up making a slight difference in the
-        # end product: for example, for L.gasseri,
-        # 3787068*15* cells instead of 3787068*09* cells,
-        # 80657360 instead of 80657358 for L. valderiana,
-        # and 199150566 instead of 199150563 for R. albus.
-        # The values for example 4 are about an order of magnitude smaller
-        # than those for example 1 and thus match those from
-        # "absolute_quant_example.xlsx" more closely:
-        # both 56777765 for L. gasseri (with rounding),
-        # 12008439 instead of 12008440 for L. valderiana,
-        # and both 29865774 for R. albus.
-        # Remember, with reordering, the 4th sub-array is for L. gasseri,
-        # the 5th is for L. valderiana, and the 9th is for R. albus.
-        ogu_cell_counts_per_g_sample = np.array([
-            [157373183.3914873],
-            [51026330.8697321],
-            [41099206.6945521],
-            [378706815.3787082],
-            [80657360.0375914],
-            [66764001.1050239],
-            [78187617.9691203],
-            [91085928.0975326],
-            [199150566.7379318],
-            [83241001.9519951],
-            [41754672.7649972],
-            [92468147.5568761],
-            [41072627.7089503]])
+        # Results are returned only for example 1 because example 4 has a
+        # negative aliquot mass
+        ogu_cell_counts_per_g_sample = np.array(
+            [[x[0]] for x in
+             TestCalcCellCountsData.example1_example4_cells_per_g_sample]
+        )
 
         sample_info_df = pd.DataFrame(sample_info_dict)
         prep_info_df = pd.DataFrame(prep_info_dict)
@@ -687,7 +707,8 @@ class TestCalcCellCounts(TestCase):
 
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(
-            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY])
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
         self.assertEqual(
             "Dropping samples with negative values in necessary "
             "prep/sample column(s): example4",
@@ -830,12 +851,12 @@ class TestCalcCellCounts(TestCase):
             params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
             read_len, min_coverage, min_rsquared, output_metric)
 
-        # NB: only checking results to 2 decimals because Ubuntu and Mac
+        # NB: only checking results to 1 decimal because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
         # portion of values this huge is not very important.
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
-                                          decimal_precision=2)
+                                          decimal_precision=1)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
              "1.0: ['example2;Neisseria subflava', "
@@ -947,12 +968,12 @@ class TestCalcCellCounts(TestCase):
             params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
             read_len, min_coverage, min_rsquared, output_metric)
 
-        # NB: only checking results to 2 decimals because Ubuntu and Mac
+        # NB: only checking results to 1 decimal because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
         # portion of values this huge is not very important.
         a_tester = Testers()
         a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
-                                          decimal_precision=2)
+                                          decimal_precision=1)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
              "1.0: ['example2;Neisseria subflava', "
@@ -969,16 +990,26 @@ class TestCalcCellCounts(TestCase):
         }
 
         ogu_masses = \
-            TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
+            TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[
                 OGU_GDNA_MASS_NG_KEY].copy()
-        # NB: The example2 test values were NOT verified manually.  They
-        # are what the code that produces correct results for all the
-        # values downstream of these values produces for these values.
-        ogu_masses.extend([
-            0.16721225613234225, 0.20196161687112832, 0.1836288899469535,
-            0.08266911949481899, 0.051700594315481685, 0.03910745610301345,
-            0.0016573186101851826, 0.03403997782058165, 0.517402166874799,
-            0.01986227733996378, 0.02008659206780049])
+        # NB: The example 2 gdna mass values come from the "PredictedOguMass"
+        # column of the "Mass results for sample B regression for full data on log10_read_count"
+        # table on the "linear regressions counts" sheet of
+        # "absolute_quant_example.xlsx", but with the 8th and 12th (1-based)
+        # values removed since this is for *filtered* example 2 data.
+        ogu_masses.extend([0.04598325,
+                           0.055539299,
+                           0.050497812,
+                           0.022733948,
+                           0.014217626,
+                           0.010754522,
+                           0.000455761,
+                           # NUM!
+                           0.009360969,
+                           0.142285222,
+                           0.005462112,
+                           # 1.10529E-05,
+                           0.005523798])
 
         # NB: this test is NOT using the truncated version of Avogadro's # that
         # was used in the notebook, so the results are slightly different
@@ -1175,7 +1206,7 @@ class TestCalcCellCounts(TestCase):
         per_sample_info_df = pd.DataFrame(TestCalcCellCountsData.mass_and_totals_dict)
 
         expected_additions_dict = {
-            k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k] for k in
+            k: TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[k] for k in
             (OGU_ID_KEY, OGU_GDNA_MASS_NG_KEY,
              OGU_GENOMES_PER_G_OF_GDNA_KEY,
              OGU_CELLS_PER_G_OF_GDNA_KEY,
@@ -1190,7 +1221,7 @@ class TestCalcCellCounts(TestCase):
 
         output_df, output_msgs = _calc_ogu_cell_counts_df_for_sample(
             sample_id, TestCalcCellCountsData.linregresses_dict, per_sample_info_df, input_df,
-            min_rsquared, is_test=True)
+            min_rsquared, is_test=False)
 
         pd.testing.assert_frame_equal(expected_out_df, output_df)
         self.assertListEqual([], output_msgs)
@@ -1232,7 +1263,7 @@ class TestCalcCellCounts(TestCase):
 
         self.assertIsNone(output_df)
         self.assertListEqual(['R^2 of linear regression for sample example1 '
-                              'is 0.9731883614079868, which is less than the '
+                              'is 0.9731883614079859, which is less than the '
                               'minimum allowed value of 0.99.'],
                              output_msgs)
 
@@ -1255,42 +1286,15 @@ class TestCalcCellCounts(TestCase):
         output_series = _calc_gdna_mass_to_sample_mass_by_sample_df(inputs_df)
         pd.testing.assert_series_equal(expected_series, output_series)
 
-    def test__calc_ogu_gdna_mass_ng_series_for_sample(self):
-        input_dict = {k: TestCalcCellCountsData.example1_ogu_full_inputs_dict[k] for k in
-                      (OGU_ID_KEY, OGU_READ_COUNT_KEY)}
-
-        # Inputs are taken from the values for A1_pool1_Fwd in the
-        # linear models file at https://github.com/lzaramela/SynDNA/blob/main/data/saliva_linear_models.tsv ,
-        # EXCEPT the values of the a_intercept and b_intercept columns are
-        # negated (because the Zaramela code generates regression models that
-        # predict the *negative* log10 of the read weight while the code under
-        # test predicts just log10 of the read weight).
-        slope = 1.24487652379132
-        intercept = -6.77539505390338
-
-        # This number comes from summing all the reads in the input_df.
-        # This matches what was done for the Zaramela calculations.  I
-        # suspect that this should perhaps be the total reads for the
-        # whole sample, but for testing this will do.
-        sample_total_reads = 472140
-
-        input_df = pd.DataFrame(input_dict)
-        expected_series = pd.Series(
-            TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[
-                OGU_GDNA_MASS_NG_KEY],
-            index=TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
-            name=OGU_GDNA_MASS_NG_KEY)
-        expected_series.index.name = OGU_ID_KEY
-
-        output_series = _calc_ogu_gdna_mass_ng_series_for_sample(
-            input_df, slope, intercept, sample_total_reads)
-
-        assert_series_equal(expected_series, output_series)
-
     def test__calc_ogu_genomes_per_g_of_gdna_series_for_sample(self):
         # this is the default value for our experimental system
         total_sample_gdna_mass_ng = 5
 
+        # NOTE: the input mass values here are the originals from the Zaramela
+        # R notebook, which had an issue in the calculation. HOWEVER,
+        # that doesn't matter here because they are inputs, not outputs: IF
+        # you input these values, you get these outputs (regardless of whether
+        # these input values are meaningful).
         input_dict = {k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k]
                       for k in
                       (OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY)}
@@ -1335,6 +1339,11 @@ class TestCalcCellCounts(TestCase):
                                     28574.60346]
         }
 
+        # NOTE: the input mass values here are the originals from the Zaramela
+        # R notebook, which had an issue in the calculation. HOWEVER,
+        # that doesn't matter here because they are inputs, not outputs: IF
+        # you input these values, you get these outputs (regardless of whether
+        # these input values are meaningful).
         input_dict = {k: TestCalcCellCountsData.example1_ogu_full_outputs_short_avogadro_dict[k]
                       for k in
                       (OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY)}
@@ -1348,5 +1357,56 @@ class TestCalcCellCounts(TestCase):
         # the expected results.  It should never be set to True in production.
         output_series = _calc_ogu_genomes_series_for_sample(
             input_df, is_test=True)
+
+        assert_series_equal(expected_series, output_series)
+
+    def test__calc_ogu_gdna_mass_ng_series_for_sample(self):
+        input_dict = \
+            {k: TestCalcCellCountsData.example1_ogu_full_inputs_dict[k]
+             for k in (OGU_ID_KEY, OGU_READ_COUNT_KEY)}
+
+        # The slope and intercept values are taken from
+        # those calculated in Excel (see
+        # "sample A regression of log10_syndna_ng from log10_raw_counts"
+        # for full data on "zaramela linear reg CPM&counts" sheet of
+        # "absolute_quant_example.xlsx").
+        # Note that the intercept does not and *should* NOT be expected to
+        # match the intercept in Zaramela's linear models because we are
+        # fitting log10(raw counts) not log10(CPM), but this comes
+        # out in the wash when one actually *uses* the models to predict mass
+        # (HOWEVER, this is not true for the masses taken directly from the
+        # Zaramela R notebook because it unintentionally used a different total
+        # read value when calculating the OGU CPM than when calculating
+        # the syndna CPM to get the fit.)
+        slope = 1.24487652379132
+        intercept = -7.40709604550579
+
+        # This list contains the gdna mass from the
+        # "Local mass using RawCounts (no TotalReads)" column in the
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx"
+        expected_ogu_masses = \
+            [0.04969441309413190000,
+             0.06000552485579740000,
+             0.05456646428684080000,
+             0.02459526358752070000,
+             0.01539258341742420000,
+             0.01164819449827620000,
+             0.00049599588089929300,
+             0.01235085741392710000,
+             0.01014096594158730000,
+             0.00873488502026095000,
+             0.00592205420878227000,
+             0.00475854893636541000,
+             0.00598883339989535000]
+
+        input_df = pd.DataFrame(input_dict)
+        expected_series = pd.Series(
+            expected_ogu_masses,
+            index=TestCalcCellCountsData.example1_ogu_full_inputs_dict[OGU_ID_KEY],
+            name=OGU_GDNA_MASS_NG_KEY)
+        expected_series.index.name = OGU_ID_KEY
+
+        output_series = _calc_ogu_gdna_mass_ng_series_for_sample(
+            input_df, slope, intercept)
 
         assert_series_equal(expected_series, output_series)

@@ -77,29 +77,37 @@ class FitSyndnaModelsTestData():
     # The slope, intercept, rvalue, stderr (of slope),
     # intercept_stderr, and p-value (of slope) values for these results
     # match those calculated in Excel (see results for full data
-    # on "linear regressions" sheet of "absolute_quant_example.xlsx").
+    # on "linear regressions counts" sheet of "absolute_quant_example.xlsx").
     # Note that these do not and *should* NOT be expected to match any results
-    # in Zaramela's linear models (see modelling_output.tsv) because
-    # (i) sample B is a chimera of realistic data from multiple Zaramela
-    # samples but isn't directly comparable to a single one of them, and
-    # (ii) sample A is directly comparable to Zaramela's sample
+    # in Zaramela's linear models because:
+    # (i) we are fitting log10(raw counts) not log10(CPM).  Note this comes out
+    # in the wash when one actually *uses* the models to predict mass:
+    # you get the same masses using the model fit to log10(raw counts)
+    # as you do using the model fit to log10(CPM) (which makes sense since all
+    # the CPM calculation does is divide the raw counts by a constant
+    # [total reads] and then multiply by another constant [a million]) but
+    # the models themselves are slightly different--same slope but different
+    # intercepts.
+    # (ii) sample A has the same counts as Zaramela's sample
     # "A1_pool1_Fwd" *but* we use a different pool mass than Zaramela,
     # so the same syndna counts are based on different masses.
+    # (iii) sample B is a chimera of realistic data from multiple Zaramela
+    # samples but isn't directly comparable to a single one of them
     lingress_results = {
         'A': {
-            "slope": 1.244876523791319,
-            "intercept": -6.7242381884894655,
-            "rvalue": 0.9865030975156575,
-            "pvalue": 1.428443560659758e-07,
-            "stderr": 0.07305408550335003,
-            "intercept_stderr": 0.2361976278251443},
+            "slope": 1.24487652379132,
+            "intercept": -7.35593916054843,
+            "rvalue": 0.986503097515657,
+            "pvalue": 1.42844356065977E-07,
+            "stderr": 0.0730540855033502,
+            "intercept_stderr": 0.271274537363401},
         'B': {
             "slope": 1.24675913604407,
-            "intercept": -7.155318973708384,
-            "rvalue": 0.9863241797356326,
-            "pvalue": 1.505381146809759e-07,
-            "stderr": 0.07365795255302438,
-            "intercept_stderr": 0.2563956755844754}
+            "intercept": -7.45004083037736,
+            "rvalue": 0.986324179735633,
+            "pvalue": 1.5053811468097E-07,
+            "stderr": 0.073657952553024,
+            "intercept_stderr": 0.2729411999326}
     }
 
     prep_info_dict = copy.deepcopy(
@@ -117,128 +125,6 @@ class FitSyndnaModelsTestData():
 
 
 class FitSyndnaModelsTest(TestCase):
-    # # concentrations taken from table in Fig. 1A of
-    # # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9765022/
-    # syndna_concs_dict = {
-    #     SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-    #                     "p236", "p246", "p256", "p266"],
-    #     SYNDNA_INDIV_NG_UL_KEY: [1, 0.1, 0.01, 0.001, 0.0001, 0.0001,
-    #                              0.001, 0.01, 0.1, 1],
-    # }
-    #
-    # # made-up placeholders :)
-    # sample_ids = ["A", "B"]
-    #
-    # # Total reads come from the "TotalReads" column of
-    # # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
-    # # for the record with "ID" = "A1_pool1_Fwd".
-    # # Syndna pool mass is the default value expected in our experimental
-    # # system.
-    # a_sample_syndna_weights_and_total_reads_dict = {
-    #     SAMPLE_ID_KEY: [sample_ids[0]],
-    #     SAMPLE_TOTAL_READS_KEY: [3216923],
-    #     SYNDNA_POOL_MASS_NG_KEY: [0.25],
-    # }
-    #
-    # # Total reads come from the "TotalReads" column of
-    # # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
-    # # for the record with "ID" of "A1_pool1_Fwd" and "C1_pool1_Fwd".
-    # # Syndna pool masses are plausible values for our experimental system.
-    # a_b_sample_syndna_weights_and_total_reads_dict = {
-    #     SAMPLE_ID_KEY: sample_ids,
-    #     SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
-    #     SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
-    # }
-    #
-    # # Total reads come from the "TotalReads" column of
-    # # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_metadata_updated.tsv
-    # # for the record with "ID" of "A1_pool1_Fwd", "C1_pool1_Fwd", and
-    # # "D1_pool1_Fwd".
-    # # Syndna pool masses are plausible values for our experimental system.
-    # a_b_c_sample_syndna_weights_and_total_reads_dict = {
-    #     SAMPLE_ID_KEY: [sample_ids[0], sample_ids[1], "C"],
-    #     SAMPLE_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
-    #     SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
-    # }
-    #
-    # # The below sample values come from the
-    # # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
-    # # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
-    # # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
-    # # while the syndna ids are inferred from the contents of the "OTUID"
-    # # column and a knowledge of the Zaramela naming scheme.
-    # reads_per_syndna_per_sample_dict = {
-    #     SYNDNA_ID_KEY: ["p126", "p136", "p146", "p156", "p166", "p226",
-    #                     "p236", "p246", "p256", "p266"],
-    #     sample_ids[0]: [93135, 15190, 2447, 308, 77, 149, 1075, 3189, 25347, 237329],
-    #     sample_ids[1]: [90897, 15002, 2421, 296, 77, 148, 1059, 3129, 24856, 230898],
-    # }
-    #
-    # # The slope, intercept, rvalue, stderr (of slope),
-    # # intercept_stderr, and p-value (of slope) values for these results
-    # # match those calculated in Excel (see results for full data
-    # # on "linear regressions" sheet of "absolute_quant_example.xlsx").
-    # # Note that these do not and *should* NOT be expected to match any results
-    # # in Zaramela's linear models (see modelling_output.tsv) because
-    # # (i) sample B is a chimera of realistic data from multiple Zaramela
-    # # samples but isn't directly comparable to a single one of them, and
-    # # (ii) sample A is directly comparable to Zaramela's sample
-    # # "A1_pool1_Fwd" *but* we use a different pool mass than Zaramela,
-    # # so the same syndna counts are based on different masses.
-    # lingress_results = {
-    #     'A': {
-    #         "slope": 1.244876523791319,
-    #         "intercept": -6.7242381884894655,
-    #         "rvalue": 0.9865030975156575,
-    #         "pvalue": 1.428443560659758e-07,
-    #         "stderr": 0.07305408550335003,
-    #         "intercept_stderr": 0.2361976278251443},
-    #     'B': {
-    #         "slope": 1.24675913604407,
-    #         "intercept": -7.155318973708384,
-    #         "rvalue": 0.9863241797356326,
-    #         "pvalue": 1.505381146809759e-07,
-    #         "stderr": 0.07365795255302438,
-    #         "intercept_stderr": 0.2563956755844754}
-    # }
-    #
-    # prep_info_dict = copy.deepcopy(
-    #     a_b_sample_syndna_weights_and_total_reads_dict)
-    # prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
-    # prep_info_dict["syndna_pool_number"] = [1, 1]
-    #
-    # # combine each item in self.reads_per_syndna_per_sample_dict["A"] with
-    # # the analogous item in self.reads_per_syndna_per_sample_dict["B"]
-    # # to make an array of two-item arrays, and turn this into an np.array
-    # reads_per_syndna_per_sample_array = np.array(
-    #     [list(x) for x in zip(
-    #         reads_per_syndna_per_sample_dict["A"],
-    #         reads_per_syndna_per_sample_dict["B"])])
-
-    # def assert_dicts_almost_equal(self, d1, d2):
-    #     """Assert that two dicts are almost equal.
-    #
-    #     Parameters
-    #     ----------
-    #     d1 : dict
-    #         The first dict to compare
-    #     d2 : dict
-    #         The second dict to compare
-    #
-    #     Raises
-    #     ------
-    #     AssertionError
-    #         If the dicts are not almost equal
-    #     """
-    #     self.assertIsInstance(d1, dict)
-    #     self.assertIsInstance(d2, dict)
-    #     self.assertEqual(d1.keys(), d2.keys())
-    #     for k in d1.keys():
-    #         for m in d1[k].keys():
-    #             m1 = d1[k][m]
-    #             m2 = d2[k][m]
-    #             self.assertAlmostEqual(m1, m2)
-
     def setUp(self):
         self.maxDiff = None
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -253,19 +139,19 @@ class FitSyndnaModelsTest(TestCase):
 
         # These are text versions of the linear regression results
         # for the full data (see self.lingress_results and the
-        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.724238188489\n'
-                '  intercept_stderr: 0.236197627825\n'
+                '  intercept: -7.355939160548\n'
+                '  intercept_stderr: 0.271274537363\n'
                 '  pvalue: 1.42844e-07\n'
                 '  rvalue: 0.986503097515\n'
                 '  slope: 1.244876523791\n'
                 '  stderr: 0.073054085503\n'
                 'B:\n'
-                '  intercept: -7.155318973708\n'
-                '  intercept_stderr: 0.256395675584\n'
+                '  intercept: -7.450040830377\n'
+                '  intercept_stderr: 0.272941199932\n'
                 '  pvalue: 1.50538e-07\n'
                 '  rvalue: 0.986324179735\n'
                 '  slope: 1.246759136044\n'
@@ -292,19 +178,19 @@ class FitSyndnaModelsTest(TestCase):
 
         # These are text versions of the linear regression results
         # for the full data (see self.lingress_results and the
-        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.724238188489\n'
-                '  intercept_stderr: 0.236197627825\n'
+                '  intercept: -7.355939160548\n'
+                '  intercept_stderr: 0.271274537363\n'
                 '  pvalue: 1.42844e-07\n'
                 '  rvalue: 0.986503097515\n'
                 '  slope: 1.244876523791\n'
                 '  stderr: 0.073054085503\n'
                 'B:\n'
-                '  intercept: -7.155318973708\n'
-                '  intercept_stderr: 0.256395675584\n'
+                '  intercept: -7.450040830377\n'
+                '  intercept_stderr: 0.272941199932\n'
                 '  pvalue: 1.50538e-07\n'
                 '  rvalue: 0.986324179735\n'
                 '  slope: 1.246759136044\n'
@@ -333,15 +219,15 @@ class FitSyndnaModelsTest(TestCase):
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -8.198448239722\n'
-                '  intercept_stderr: 0.543935662662\n'
+                '  intercept: -9.005671912625\n'
+                '  intercept_stderr: 0.624713705225\n'
                 '  pvalue: 1.287067e-05\n'
                 '  rvalue: 0.958056670088\n'
                 '  slope: 1.590774502959\n'
                 '  stderr: 0.168235061352\n'
                 'B:\n'
-                '  intercept: -8.723558660515\n'
-                '  intercept_stderr: 0.586319521146\n'
+                '  intercept: -9.100255596079\n'
+                '  intercept_stderr: 0.624155431954\n'
                 '  pvalue: 1.2820953e-05\n'
                 '  rvalue: 0.958097757898\n'
                 '  slope: 1.593537551784\n'
@@ -366,13 +252,13 @@ class FitSyndnaModelsTest(TestCase):
         min_counts = 50
 
         # These are text versions of the linear regression results
-        # for the full data (see self.lingress_results and the
-        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        # for the full data (see self.lingress_results and the full data fit on
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'B:\n'
-                '  intercept: -7.155318973708\n'
-                '  intercept_stderr: 0.256395675584\n'
+                '  intercept: -7.450040830377\n'
+                '  intercept_stderr: 0.272941199932\n'
                 '  pvalue: 1.50538e-07\n'
                 '  rvalue: 0.986324179735\n'
                 '  slope: 1.246759136044\n'
@@ -397,19 +283,19 @@ class FitSyndnaModelsTest(TestCase):
 
         # These are text versions of the linear regression results
         # for the data with syndnas with <200 total counts removed (see
-        # "linear regressions" sheet of "absolute_quant_example.xlsx").
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx").
         expected_out = {
             'lin_regress_by_sample_id':
                 'A:\n'
-                '  intercept: -6.767160120684\n'
-                '  intercept_stderr: 0.301479875957\n'
+                '  intercept: -7.404604502655\n'
+                '  intercept_stderr: 0.34490591545\n'
                 '  pvalue: 2.170514e-06\n'
                 '  rvalue: 0.982777689569\n'
                 '  slope: 1.256194910944\n'
                 '  stderr: 0.089276147107\n'
                 'B:\n'
-                '  intercept: -7.196128673001\n'
-                '  intercept_stderr: 0.326579863246\n'
+                '  intercept: -7.49322862874\n'
+                '  intercept_stderr: 0.347041014613\n'
                 '  pvalue: 2.289073e-06\n'
                 '  rvalue: 0.982512701026\n'
                 '  slope: 1.25681918648\n'
@@ -522,23 +408,23 @@ class FitSyndnaModelsTest(TestCase):
         # The slope, intercept, rvalue, stderr (of slope),
         # intercept_stderr, and p-value (of slope) values for these results
         # match those calculated in Excel (see results for data with
-        # syndnas with <200 total counts removed on "linear regressions" sheet
-        # of "absolute_quant_example.xlsx").
+        # syndnas with <200 total counts removed on "linear regressions counts"
+        # sheet of "absolute_quant_example.xlsx").
         expected_out_dict = {
             'A': {
-                "slope": 1.2561949109446753,
-                "intercept": -6.7671601206840855,
+                "slope": 1.25619491094468,
+                "intercept": -7.40460450265582,
                 "rvalue": 0.982777689569875,
-                "pvalue": 2.1705143708536327e-06,
-                "stderr": 0.08927614710714807,
-                "intercept_stderr": 0.30147987595768355},
+                "pvalue": 2.17051437085363E-06,
+                "stderr": 0.0892761471071481,
+                "intercept_stderr": 0.344905915450109},
             'B': {
-                "slope": 1.2568191864801976,
-                "intercept": -7.196128673001381,
-                "rvalue": 0.9825127010266727,
-                "pvalue": 2.2890733334160456e-06,
-                "stderr": 0.09002330756867402,
-                "intercept_stderr": 0.32657986324660143}
+                "slope": 1.2568191864802,
+                "intercept": -7.49322862874098,
+                "rvalue": 0.982512701026673,
+                "pvalue": 2.28907333341599E-06,
+                "stderr": 0.0900233075686737,
+                "intercept_stderr": 0.347041014613366}
         }
         expected_out_msgs = [
             "The following sample ids were in the experiment info but not in "
