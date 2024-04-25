@@ -22,8 +22,7 @@ SYNDNA_FRACTION_OF_POOL_KEY = 'syndna_fraction_of_pool'
 SYNDNA_POOL_MASS_NG_KEY = 'mass_syndna_input_ng'
 SAMPLE_TOTAL_READS_KEY = 'raw_reads_r1r2'
 SYNDNA_COUNTS_KEY = 'read_count'
-COUNTS_PER_MIL_KEY = 'CPM'
-LOG10_COUNTS_PER_MIL_KEY = 'log10_CPM'
+LOG10_SYNDNA_COUNTS_KEY = 'log10_read_count'
 SYNDNA_INDIV_NG_KEY = 'syndna_ng'
 LOG10_SYNDNA_INDIV_NG_KEY = 'log10_syndna_ng'
 LIN_REGRESS_RESULT_KEY = 'lin_regress_by_sample_id'
@@ -206,15 +205,32 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
 
     This function fits a linear regression model for each sample,
     predicting log10(mass of instances of a sequence) within a sample
-    from log10(counts per million for that sequence) within the sample,
+    from log10(read counts for that sequence) within the sample,
     using spike-in data from synDNAs.
+
+    Note that this function originally followed the R notebooks for Zaramela
+    et al. and fit the log10 of the mass of the syndna in the sample to the
+    log10 of the counts per million of the read for that syndna in the sample.
+    However, later work by Oriane Moyne left out the CPMs and demonstrated
+    that one can achieve the same end result (of OGU mass predictions) by
+    fitting the log10 mass of the syndna in the sample to log10 of the read
+    counts themselves.  (The slope of the fits are the same in both cases,
+    while the intercepts differ by a constant factor because the CPM
+    calculation modifies the read count by a constant factor--dividing by
+    total reads in the sample and multiplying by a million.)  When one uses
+    the resulting fits on the raw read counts for OGUs, one gets the same
+    mass predictions as when using the fits on the CPMs on the CPMs for the
+    OGUs. (HOWEVER, since I know it will come up: note that this is not true if
+    one looks at the mass predictions from the original Zaramela R notebooks,
+    which unintentionally used a different total counts value for the CPM
+    calculation in the fit than they used for the CPM calculation in the
+    OGU mass prediction, leading to inconsistent results.)
 
     Parameters
     ----------
     working_df: pd.DataFrame
         Long-form dataframe containing at least SAMPLE_ID_KEY,
-        SYNDNA_COUNTS_KEY, SAMPLE_TOTAL_READS_KEY, and
-        SYNDNA_INDIV_NG_KEY columns.
+        SYNDNA_COUNTS_KEY, and SYNDNA_INDIV_NG_KEY columns.
 
     Returns
     -------
@@ -230,23 +246,16 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
     # drop any rows where the count value is 0--can't take log of 0
     working_df = working_df[working_df[SYNDNA_COUNTS_KEY] > 0].copy()
 
-    # add a column of counts per million (CPM) by dividing the count value
-    # in each read_count by the total number of reads for its sample_id and
-    # then multiplying by a million (1,000,000)
-    working_df.loc[:, COUNTS_PER_MIL_KEY] = \
-        (working_df[SYNDNA_COUNTS_KEY] /
-         working_df[SAMPLE_TOTAL_READS_KEY]) * 1000000
-
-    # add a column of log10(CMP) by taking the log base 10 of the CPM column
-    working_df.loc[:, LOG10_COUNTS_PER_MIL_KEY] = \
-        np.log10(working_df[COUNTS_PER_MIL_KEY])
+    # add a column for the log10 of the syndna read count column
+    working_df.loc[:, LOG10_SYNDNA_COUNTS_KEY] = \
+        np.log10(working_df[SYNDNA_COUNTS_KEY])
 
     # add a column for the log10 of the syndna ng column
     working_df.loc[:, LOG10_SYNDNA_INDIV_NG_KEY] = \
         np.log10(working_df[SYNDNA_INDIV_NG_KEY])
 
     # loop over each sample id and fit a linear regression model predicting
-    # log10(dna ng) from log10(counts per million)
+    # log10(dna ng) from log10(syndna read counts)
     linregress_by_sample_id = {}
     log_msgs_list = []
     for curr_sample_id in working_df[SAMPLE_ID_KEY].unique():
@@ -255,7 +264,7 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
 
         try:
             curr_linregress_result = scipy.stats.linregress(
-                curr_sample_df[LOG10_COUNTS_PER_MIL_KEY],
+                curr_sample_df[LOG10_SYNDNA_COUNTS_KEY],
                 curr_sample_df[LOG10_SYNDNA_INDIV_NG_KEY])
         except Exception:
             # TODO: I need to know what kind of errors this can throw;
