@@ -36,7 +36,6 @@ class FitSyndnaModelsTestData():
     # system.
     a_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0]],
-        SAMPLE_TOTAL_READS_KEY: [3216923],
         SYNDNA_POOL_MASS_NG_KEY: [0.25],
     }
 
@@ -46,7 +45,6 @@ class FitSyndnaModelsTestData():
     # Syndna pool masses are plausible values for our experimental system.
     a_b_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: sample_ids,
-        SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
     }
 
@@ -57,6 +55,10 @@ class FitSyndnaModelsTestData():
     # Syndna pool masses are plausible values for our experimental system.
     a_b_c_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0], sample_ids[1], "C"],
+        # NOTE: total reads are no longer used in the code since we switched
+        # from fitting CPMs to fitting raw counts, but this is left here to
+        # demonstrate that the code is able to ignore extra info in the input
+        # dataframes.
         SAMPLE_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
         SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
     }

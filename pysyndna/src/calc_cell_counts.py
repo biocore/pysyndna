@@ -13,7 +13,7 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     REQUIRED_SAMPLE_INFO_KEYS
 
 from pysyndna.src.fit_syndna_models import SYNDNA_POOL_MASS_NG_KEY, \
-    SLOPE_KEY, INTERCEPT_KEY, SAMPLE_TOTAL_READS_KEY
+    SLOPE_KEY, INTERCEPT_KEY
 
 DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE = 0.05
 DEFAULT_READ_LENGTH = 150
@@ -44,7 +44,7 @@ OGU_CELLS_PER_G_OF_SAMPLE_KEY = 'ogu_cells_per_g_of_sample'
 # SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY)
 GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY = 'gdna_mass_to_sample_mass_ratio'
 REQUIRED_DNA_PREP_INFO_KEYS = [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-                               ELUTE_VOL_UL_KEY, SAMPLE_TOTAL_READS_KEY]
+                               ELUTE_VOL_UL_KEY]
 
 
 def _calc_gdna_mass_to_sample_mass_by_sample_df(
@@ -141,9 +141,8 @@ def _calc_long_format_ogu_cell_counts_df(
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     per_sample_calc_info_df : pd.DataFrame
-        A Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY,
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, and SAMPLE_TOTAL_READS_KEY
-        for each sample.
+        A Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     min_coverage : float
         Minimum allowable coverage of an OGU needed to include that OGU
         in the output.
@@ -297,8 +296,7 @@ def _calc_ogu_cell_counts_df_for_sample(
         representation of the sample's LinregressResult.
     per_sample_info_df : pd.DataFrame
         A Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, and SAMPLE_TOTAL_READS_KEY
-        for each sample.
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     working_df : pd.DataFrame
         Long-format dataframe with columns for OGU_ID_KEY, SAMPLE_ID_KEY,
         OGU_READ_COUNT_KEY, and OGU_LEN_IN_BP_KEY
@@ -562,9 +560,8 @@ def calc_ogu_cell_counts_biom(
     ----------
     absolute_quant_params_per_sample_df:  pd.DataFrame
         A Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY,
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, and SAMPLE_TOTAL_READS_KEY
-        for each sample.
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, and
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
     linregress_by_sample_id : dict[str, dict[str: float]]
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
@@ -632,10 +629,6 @@ def calc_ogu_cell_counts_biom(
         ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]
     working_params_df = cast_cols(working_params_df, float_col_names, True)
 
-    # cast SAMPLE_TOTAL_READS_KEY column of params df to numeric if it isn't
-    working_params_df = \
-        cast_cols(working_params_df, [SAMPLE_TOTAL_READS_KEY])
-
     # Remove from input biom any samples that have bad params
     cols_to_filter_on = required_cols_list.copy()
     cols_to_filter_on.remove(SAMPLE_ID_KEY)  # don't filter on sample id
@@ -656,12 +649,11 @@ def calc_ogu_cell_counts_biom(
         gdna_mass_to_sample_mass_by_sample_series, SAMPLE_ID_KEY,
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)
 
-    # merge the SAMPLE_TOTAL_READS_KEY and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY
-    # columns of working_params_df into gdna_mass_to_sample_mass_df
+    # merge the SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY
+    # column of working_params_df into gdna_mass_to_sample_mass_df
     # by SAMPLE_ID_KEY
     per_sample_calc_info_df = per_sample_calc_info_df.merge(
-        working_params_df[[SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
-                           SAMPLE_TOTAL_READS_KEY]],
+        working_params_df[[SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]],
         on=SAMPLE_ID_KEY, how='left')
 
     # convert input biom table to a dataframe with sparse columns, which
@@ -703,7 +695,6 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         ogu_counts_per_sample_biom: biom.Table,
         ogu_percent_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
-        read_length: int = DEFAULT_READ_LENGTH,
         min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
         min_rsquared: float = DEFAULT_MIN_RSQUARED,
         syndna_mass_fraction_of_sample: float =
@@ -719,8 +710,8 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         including SAMPLE_ID_KEY and SAMPLE_IN_ALIQUOT_MASS_G_KEY
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY, and SAMPLE_TOTAL_READS_KEY.
+        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
+        ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY.
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
         dictionary keyed by sample id, containing for each sample a dictionary
@@ -733,8 +724,6 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         String containing the filepath to a tab-separated, two-column,
         no-header file in which the first column is the OGU id and the
          second is the OGU length in basepairs
-    read_length : int
-        Length of reads in bp (usually but not always 150).
     min_coverage : float
         Minimum allowable % coverage of an OGU in a sample needed to include
         that OGU/sample in the output.

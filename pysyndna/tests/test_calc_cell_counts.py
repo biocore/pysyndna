@@ -8,6 +8,7 @@ import os
 from unittest import TestCase
 from pysyndna import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita
+from pysyndna.src.fit_syndna_models import SAMPLE_TOTAL_READS_KEY
 from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
     OGU_ID_KEY, OGU_READ_COUNT_KEY, \
     OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY, \
@@ -17,7 +18,7 @@ from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
     GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, \
     OGU_CELLS_PER_G_OF_SAMPLE_KEY, \
     OGU_PERCENT_COVERAGE_KEY, \
-    CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY, SAMPLE_TOTAL_READS_KEY, \
+    CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY, \
     _calc_long_format_ogu_cell_counts_df, \
     _prepare_cell_counts_calc_df, \
     _calc_ogu_cell_counts_df_for_sample, \
@@ -83,6 +84,8 @@ class TestCalcCellCountsData:
     # the OGU_READ_COUNT_KEY values for each sample
     mass_and_totals_dict = {
         SAMPLE_ID_KEY: ["example1", "example2"],
+        # Note that total reads aren't actually needed anymore, but they're
+        # here to allow testing that passing in MORE columns is ok.
         SAMPLE_TOTAL_READS_KEY: [3216923, 611913],
         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, 4.76],
         GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY: [7.1867431342E-06,
@@ -111,7 +114,12 @@ class TestCalcCellCountsData:
 
     ogu_percent_coverage_dict = {
         OGU_ID_KEY: ogu_lengths_dict[OGU_ID_KEY],
-        # TODO: explain where these came from
+        # The percent values here are completely made up; I modified the
+        # original coverage values in the tests (which were extracted from the
+        # Zaramela SynDNA_saliva_samples_analysis.ipynb notebook), changing
+        # them to be in the 0 to 100 range and making sure that the
+        # Neisseria subflava and Haemophilus influenzae were lower than all
+        # the rest so they could continue to be the filtering tests.
         OGU_PERCENT_COVERAGE_KEY: [92.597514334489, 91.032039014754,
                                    65.862497316419, 61.537729965377,
                                    19.692890582578, 18.090986293668,
@@ -233,10 +241,6 @@ class TestCalcCellCountsData:
                                0.006662378,
                                0.005353421,
                                0.006737505],
-        # # Note that this is assuming that examples 1 and 2 were run
-        # TOTAL_OGU_READS_KEY: [x + y for x, y in zip(
-        #     example1_ogu_full_inputs_dict[OGU_READ_COUNT_KEY],
-        #     example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY])],
         OGU_PERCENT_COVERAGE_KEY:
             ogu_percent_coverage_dict[OGU_PERCENT_COVERAGE_KEY],
         # for the arrays below, the 1st, 2nd, and 7th values (those for
@@ -287,6 +291,10 @@ class TestCalcCellCountsData:
                                         4239032.64]
     })
 
+    # NB: the reason there is no "example2_ogu_full_<etc>" is that
+    # example 2 isn't being used to test generating an unfiltered dataset;
+    # all those tests are being done with example 1.
+
     example1_ogu_filtered_outputs_full_avogadro_dict = {
         OGU_ID_KEY: _remove_filtered_entries(ogu_lengths_dict[OGU_ID_KEY]),
         OGU_LEN_IN_BP_KEY:
@@ -315,104 +323,13 @@ class TestCalcCellCountsData:
                     OGU_CELLS_PER_G_OF_SAMPLE_KEY])
     }
 
-    # NB: the reason there is no "example2_ogu_full_<etc>" is that
-    # example 2 isn't being used to test generating an unfiltered dataset;
-    # all those tests are being done with example 1.
-
     # This dict contains the results of calculations done on *filtered*
     # example2 data using the full Avogadro's number instead of the truncated
     # one. The ogu id, ogu length, and ogu read counts are exactly the same as
-    # in the example 2 full data *except* that Neisseria subflava and
+    # in the full data *except* that Neisseria subflava and
     # Haemophilus influenzae have been removed (for falling below the
-    # min_coverage = 1 threshold, which is the default min_coverage value in
+    # min_coverage threshold, which is the default min_coverage value in
     # our analysis system).
-    # example2_ogu_filtered_inputs_outputs_full_avogadro_dict = {
-    #     OGU_ID_KEY: ["Lactobacillus gasseri", "Ruminococcus albus",
-    #                  "Escherichia coli", "Tyzzerella nexilis",
-    #                  "Prevotella sp. oral taxon 299",
-    #                  "Streptococcus mitis", "Leptolyngbya valderiana",
-    #                  # "Neisseria subflava",
-    #                  "Neisseria flavescens",
-    #                  "Fusobacterium periodonticum",
-    #                  "Streptococcus pneumoniae",
-    #                  # "Haemophilus influenzae",
-    #                  "Veillonella dispar"],
-    #     OGU_LEN_IN_BP_KEY: [1904788.333, 4373730, 5033120.886, 3861016,
-    #                         2453028, 2031251, 89264,
-    #                         # 2292986,
-    #                         2204851, 2484878.333, 2058778.25,
-    #                         # 1680673.6,
-    #                         2116567],
-    #     OGU_READ_COUNT_KEY: [79951, 93024, 86188, 45441, 31185, 24929,
-    #                          1975,
-    #                          # 0,
-    #                          22303, 197830, 14478,
-    #                          # 12,
-    #                          14609],
-    #     # # These count values are the same as those in
-    #     # # self.example1_ogu_full_outputs_full_avogadro_dict
-    #     # # except that the counts for Neisseria subflava and
-    #     # # Haemophilus influenzae have been removed
-    #     # TOTAL_OGU_READS_KEY: [159901, 186048, 172376, 90882,
-    #     #                       62370, 49858, 3950,
-    #     #                       44606, 217613, 28956,
-    #     #                       29218],
-    #     # These values are the same as those in
-    #     # self.example1_ogu_full_outputs_full_avogadro_dict EXCEPT for the
-    #     # for L. gasseri (first in this list) and F. periodonticum (9th in this
-    #     # list) values, which are different because the example2 counts for
-    #     # these positions are different from the example1 counts (and still
-    #     # large enough to pass the min_coverage = 1 threshold).  These two
-    #     # values have been checked by hand.
-    #     OGU_PERCENT_COVERAGE_KEY: [629.6053893, 319.032039014754,
-    #                                256.862497316419, 176.537729965377,
-    #                                190.692890582578, 184.090986293668,
-    #                                331.880713389496,
-    #                                151.731341482939, 1194.203338,
-    #                                105.484891342717,
-    #                                103.533221485547],
-    #     # for the arrays below, the 1st, 2nd, and 7th values (those for
-    #     # L. gasseri, R. albus, and L. valderiana) match those worked out in
-    #     # detail for example 2 in the "full_calcs on correct masses" sheet of
-    #     # the "absolute_quant_example.xlsx" spreadsheet
-    #     # (in the section using the FULL Avogadro's #, NOT matching Zaramela).
-    #     # The remainder were not worked out individually and come from the code
-    #     # calculations.
-    #     OGU_GENOMES_PER_G_OF_GDNA_KEY: [4.698763e+12,
-    #                                     2.471605e+12,
-    #                                     1.952836e+12,
-    #                                     1.146051e+12,
-    #                                     1.128120e+12,
-    #                                     1.030524e+12,
-    #                                     9.937836e+11,
-    #                                     8.263655e+11,
-    #                                     1.114513e+13,
-    #                                     5.163945e+11,
-    #                                     5.079680e+11],
-    #     OGU_CELLS_PER_G_OF_GDNA_KEY: [4.698763e+12,
-    #                                   2.471605e+12,
-    #                                   1.952836e+12,
-    #                                   1.146051e+12,
-    #                                   1.128120e+12,
-    #                                   1.030524e+12,
-    #                                   9.937836e+11,
-    #                                   8.263655e+11,
-    #                                   1.114513e+13,
-    #                                   5.163945e+11,
-    #                                   5.079680e+11],
-    #     OGU_CELLS_PER_G_OF_SAMPLE_KEY: [2.230549e+07,
-    #                                     1.173295e+07,
-    #                                     9.270306e+06,
-    #                                     5.440416e+06,
-    #                                     5.355296e+06,
-    #                                     4.891999e+06,
-    #                                     4.717589e+06,
-    #                                     3.922839e+06,
-    #                                     5.290705e+07,
-    #                                     2.451376e+06,
-    #                                     2.411375e+06]
-    # }
-
     example2_ogu_filtered_inputs_outputs_full_avogadro_dict = {
         OGU_ID_KEY: _remove_filtered_entries(ogu_lengths_dict[OGU_ID_KEY]),
         OGU_LEN_IN_BP_KEY:
@@ -423,8 +340,10 @@ class TestCalcCellCountsData:
         OGU_READ_COUNT_KEY:
             _remove_filtered_entries(
                 example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
-        # TODO: explain why this isn't here
-        # OGU_GDNA_MASS_NG_KEY:
+        # NB: unlike the analogous example1 dictionary, this one does NOT have
+        # an entry for OGU_GDNA_MASS_NG_KEY; the mass values are intermediate
+        # values, not final deliverables, and the code generates them is
+        # tested with example1 alone.
 
         # for the arrays below, the 1st, 2nd, and 7th values (those for
         # L. gasseri, R. albus, and L. valderiana) match those worked out in
@@ -468,37 +387,41 @@ class TestCalcCellCountsData:
                                         2.411375e+06]
     }
 
-    # This dict contains the results of calculations done on example1 and
-    # filtered example2 data, in the order that they appear in biom outputs,
-    # which are alphabetized by ogu
+    # This dict contains the results of calculations done on *filtered*
+    # example1 and example2 data, in the order that they appear in biom
+    # outputs, which are alphabetized by ogu.  Note that data for N. subflava
+    # and H. influenzae are commented out since they are filtered out by the
+    # min_coverage threshold.
     reordered_results_dict = {
         SAMPLE_ID_KEY: ["example1", "example2"],
         # in a biom table, results are ordered alphabetically
         OGU_ID_KEY: [
             'Escherichia coli', 'Fusobacterium periodonticum',
-            'Haemophilus influenzae', 'Lactobacillus gasseri',
+            #'Haemophilus influenzae',
+            'Lactobacillus gasseri',
             'Leptolyngbya valderiana', 'Neisseria flavescens',
-            'Neisseria subflava', 'Prevotella sp. oral taxon 299',
+            #'Neisseria subflava',
+            'Prevotella sp. oral taxon 299',
             'Ruminococcus albus', 'Streptococcus mitis',
             'Streptococcus pneumoniae', 'Tyzzerella nexilis',
             'Veillonella dispar'],
         # The values in the first position of each sub-array below is that from
-        # that ogu in self.example1_ogu_full_outputs_full_avogadro_dict,
+        # that ogu in self.example1_ogu_filtered_outputs_full_avogadro_dict,
         # while the value in the second position of each sub-array below is
         # that from that ogu in
         # self.example2_ogu_filtered_inputs_outputs_full_avogadro_dict.  Note
         # that with reordering, the 4th sub-array is the one for L. gasseri,
         # the 5th is for L. valderiana, and the 9th is for R. albus.
-        # The two 0 values are for N. subflava and H. influenzae, which were
-        # removed from example2 data due to low coverage.
+        # The commented out values are for N. subflava and H. influenzae,
+        # which are removed due to low coverage.
         OGU_CELLS_PER_G_OF_GDNA_KEY: [
             [2260023103719.98, 1952836093054.1],
             [732784863204.92, 11145133111026.7],
-            [590222264508.6, 0],
+            # [590222264508.6, 0],
             [5438576851832.26, 4698762891240.72],
             [1158313590928.33, 993783562051.94],
             [958792227127.95, 826365482621.33],
-            [1122845831970.39, 0],
+            # [1122845831970.39, 0],
             [1308077383248.35, 1128119680829.86],
             [2859984606316.35, 2471604715978.24],
             [1195417056032.46, 1030524022882.84],
@@ -509,7 +432,7 @@ class TestCalcCellCountsData:
     }
 
     # NB: The test values for example1 here are *slightly* different than
-    # those in self.example1_ogu_full_outputs_full_avogadro_dict because
+    # those in self.example1_ogu_filtered_outputs_full_avogadro_dict because
     # the gdna-to-sample mass ratio calculated internally during this
     # soup-to-nuts function has more digits past the decimal than does the
     # example1 entry in the manually-populated self.mass_and_totals_dict.
@@ -521,14 +444,16 @@ class TestCalcCellCountsData:
     # and 2055397*5.06* instead of 2055397*4.73* for R. albus.
     # Remember, with reordering, the 4th sub-array is for L. gasseri,
     # the 5th is for L. valderiana, and the 9th is for R. albus.
+    # The commented out values are for N. subflava and H. influenzae,
+    # which are removed due to low coverage.
     example1_example4_cells_per_g_sample = [
             [16242205.78, 6489214.14],
             [5266336.67, 37034933.76],
-            [4241775.87, 0],
+            #[4241775.87, 0],
             [39085655.46, 15613844.24],
             [8324502.38, 3302312.14],
             [6890593.56, 2745987.02],
-            [8069604.7, 0],
+            #[8069604.7, 0],
             [9400816.3, 3748706.92],
             [20553975.06, 8213066.28],
             [8591155.45, 3424399.56],
@@ -613,6 +538,10 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for k in
                           [GDNA_CONCENTRATION_NG_UL_KEY,
                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+
+        # NOTE: this column is not needed anymore. It is left in this tests
+        # just to show that the code can deal with extra columns (it just
+        # ignores them).
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
             TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
@@ -630,6 +559,8 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
         # Note that, in the output, the ogu_ids are apparently sorted
@@ -639,13 +570,12 @@ class TestCalcCellCounts(TestCase):
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
 
         output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info_df, prep_info_df, models_fp, counts_biom,
-            lengths_fp, read_len, min_coverage, min_rsquared)
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
 
         self.assertSetEqual(
             set(output_dict.keys()),
@@ -657,8 +587,7 @@ class TestCalcCellCounts(TestCase):
             decimal_precision=1)
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
-            "1.0: ['example4;Neisseria subflava', "
-            "'example4;Haemophilus influenzae']",
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_casts(self):
@@ -680,8 +609,6 @@ class TestCalcCellCounts(TestCase):
             {k: [str(x) for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
               ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
-        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            [str(x) for x in TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
 
@@ -697,6 +624,8 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
         # Note that, in the output, the ogu_ids are apparently sorted
@@ -707,13 +636,12 @@ class TestCalcCellCounts(TestCase):
             sample_ids)
 
         # pass in strings for the numeric values to ensure they get cast
-        read_len = "150"
-        min_coverage = "1"
+        min_coverage = "10"
         min_rsquared = "0.8"
 
         output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info_df, prep_info_df, models_fp, counts_biom,
-            lengths_fp, read_len, min_coverage, min_rsquared)
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
 
         self.assertSetEqual(
             set(output_dict.keys()),
@@ -725,14 +653,13 @@ class TestCalcCellCounts(TestCase):
             decimal_precision=1)
         self.assertEqual(
             "The following items have % coverage lower than the minimum of "
-            "1.0: ['example4;Neisseria subflava', "
-            "'example4;Haemophilus influenzae']",
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_negs(self):
         # inputs are the same as in
         # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
-        # one of the samples has a negative aliquot mass and thus its
+        # the "example4" sample has a negative aliquot mass and thus its
         # results are removed from the output biom table
 
         # example4 is the same as example2 except that the elute volume is 70;
@@ -750,8 +677,6 @@ class TestCalcCellCounts(TestCase):
             {k: [x for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
               ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
-        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            [x for x in TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
 
@@ -771,6 +696,8 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
         # Note that, in the output, the ogu_ids are apparently sorted
@@ -780,13 +707,12 @@ class TestCalcCellCounts(TestCase):
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             [sample_ids[0]])
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
 
         output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info_df, prep_info_df, models_fp, counts_biom,
-            lengths_fp, read_len, min_coverage, min_rsquared)
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
 
         self.assertSetEqual(
             set(output_dict.keys()),
@@ -798,7 +724,9 @@ class TestCalcCellCounts(TestCase):
             decimal_precision=1)
         self.assertEqual(
             "Dropping samples with negative values in necessary "
-            "prep/sample column(s): example4",
+            "prep/sample column(s): example4\nThe following items have % "
+            "coverage lower than the minimum of 10.0: ['Neisseria subflava', "
+            "'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
@@ -817,11 +745,12 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
 
         err_msg = r"sample info is missing required column\(s\): " \
@@ -829,7 +758,7 @@ class TestCalcCellCounts(TestCase):
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
-                lengths_fp, read_len, min_coverage, min_rsquared)
+                coverages_df, lengths_fp, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
         sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
@@ -838,8 +767,6 @@ class TestCalcCellCounts(TestCase):
         # missing required columns
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY]}
-        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -849,10 +776,11 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
 
-        read_len = 150
         min_coverage = 1
         min_rsquared = 0.8
 
@@ -861,7 +789,7 @@ class TestCalcCellCounts(TestCase):
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
-                lengths_fp, read_len, min_coverage, min_rsquared)
+                coverages_df, lengths_fp, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_ids_err(self):
         sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
@@ -870,8 +798,6 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
                            ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
-        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
-            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -886,11 +812,12 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             prep_info_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
 
         err_msg = (r"Found sample ids in prep info that were not in"
@@ -898,15 +825,13 @@ class TestCalcCellCounts(TestCase):
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_per_g_of_sample_for_qiita(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
-                lengths_fp, read_len, min_coverage, min_rsquared)
+                coverages_df, lengths_fp, min_coverage, min_rsquared)
 
     def test_calc_ogu_cell_counts_biom(self):
         params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
                         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
-        params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -915,6 +840,8 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
@@ -923,8 +850,7 @@ class TestCalcCellCounts(TestCase):
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             TestCalcCellCountsData.reordered_results_dict[SAMPLE_ID_KEY])
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
         output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
 
@@ -935,8 +861,9 @@ class TestCalcCellCounts(TestCase):
         # of Avogadro's #, not the truncated version that was used in the
         # notebook, so the results are slightly different (but more realistic)
         output_biom, output_msgs = calc_ogu_cell_counts_biom(
-            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
-            read_len, min_coverage, min_rsquared, output_metric)
+            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom,
+            coverages_df, lengths_df, min_coverage, min_rsquared,
+            output_metric)
 
         # NB: only checking results to 1 decimal because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
@@ -946,8 +873,7 @@ class TestCalcCellCounts(TestCase):
                                           decimal_precision=1)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
-             "1.0: ['example2;Neisseria subflava', "
-             "'example2;Haemophilus influenzae']"],
+             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']"],
             output_msgs)
 
     def test_calc_ogu_cell_counts_biom_w_col_err(self):
@@ -955,8 +881,6 @@ class TestCalcCellCounts(TestCase):
         params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY]}
-        params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -965,10 +889,11 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
         output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
 
@@ -976,16 +901,15 @@ class TestCalcCellCounts(TestCase):
                   r"\['sequenced_sample_gdna_mass_ng'\]"
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_biom(
-                params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
-                read_len, min_coverage, min_rsquared, output_metric)
+                params_df, TestCalcCellCountsData.linregresses_dict,
+                counts_biom, coverages_df, lengths_df,
+                min_coverage, min_rsquared, output_metric)
 
     def test_calc_ogu_cell_counts_biom_w_id_err(self):
         params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                        [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
                         GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
                         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
-        params_dict[SAMPLE_TOTAL_READS_KEY] = \
-            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -999,10 +923,11 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
         output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
 
@@ -1010,8 +935,9 @@ class TestCalcCellCounts(TestCase):
                    r"sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_biom(
-                params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
-                read_len, min_coverage, min_rsquared, output_metric)
+                params_df, TestCalcCellCountsData.linregresses_dict,
+                counts_biom,  coverages_df, lengths_df,
+                min_coverage, min_rsquared, output_metric)
 
     def test_calc_ogu_cell_counts_biom_w_cast(self):
         # these values are the same as those in self.sample_and_prep_input_dict
@@ -1022,7 +948,6 @@ class TestCalcCellCounts(TestCase):
             SAMPLE_IN_ALIQUOT_MASS_G_KEY: [0.027829017, "0.029491697"],
             ELUTE_VOL_UL_KEY: ["100", "70"],
             SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: [5, "4.76"],
-            SAMPLE_TOTAL_READS_KEY: TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
         }
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
@@ -1032,6 +957,8 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             params_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         # Note that, in the output, the ogu_ids are apparently sorted
         # alphabetically--different than the input order
@@ -1040,8 +967,7 @@ class TestCalcCellCounts(TestCase):
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             TestCalcCellCountsData.reordered_results_dict[SAMPLE_ID_KEY])
 
-        read_len = 150
-        min_coverage = 1
+        min_coverage = 10
         min_rsquared = 0.8
         output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
 
@@ -1052,8 +978,9 @@ class TestCalcCellCounts(TestCase):
         # of Avogadro's #, not the truncated version that was used in the
         # notebook, so the results are slightly different (but more realistic)
         output_biom, output_msgs = calc_ogu_cell_counts_biom(
-            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom, lengths_df,
-            read_len, min_coverage, min_rsquared, output_metric)
+            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom,
+            coverages_df, lengths_df, min_coverage, min_rsquared,
+            output_metric)
 
         # NB: only checking results to 1 decimal because Ubuntu and Mac
         # differ past that point. Not that it matters much since the decimal
@@ -1063,8 +990,7 @@ class TestCalcCellCounts(TestCase):
                                           decimal_precision=1)
         self.assertListEqual(
             ["The following items have % coverage lower than the minimum of "
-             "1.0: ['example2;Neisseria subflava', "
-             "'example2;Haemophilus influenzae']"],
+             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']"],
             output_msgs)
 
     def test__calc_long_format_ogu_cell_counts_df(self):
@@ -1076,8 +1002,8 @@ class TestCalcCellCounts(TestCase):
                 TestCalcCellCountsData.example2_ogu_full_inputs_dict[OGU_READ_COUNT_KEY]),
         }
 
-        ogu_masses = _remove_filtered_entries(
-            TestCalcCellCountsData.example1_ogu_full_outputs_full_avogadro_dict[OGU_GDNA_MASS_NG_KEY])
+        ogu_masses = \
+            TestCalcCellCountsData.example1_ogu_filtered_outputs_full_avogadro_dict[OGU_GDNA_MASS_NG_KEY]
         # NB: The example 2 gdna mass values come from the "PredictedOguMass"
         # column of the "Mass results for sample B regression for full data on log10_read_count"
         # table on the "linear regressions counts" sheet of
@@ -1218,7 +1144,7 @@ class TestCalcCellCounts(TestCase):
 
         min_coverage = 20
 
-        # zero-based positions of removed ogus
+        # zero-based positions of removed OGUs
         removed = [4, 5, 7, 8, 9, 10, 11, 12]
         filtered_ogu_ids = _remove_filtered_entries(
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY], removed)
@@ -1227,7 +1153,7 @@ class TestCalcCellCounts(TestCase):
             removed)
         filtered_ogu_coverage = _remove_filtered_entries(
             TestCalcCellCountsData.ogu_percent_coverage_dict[
-                OGU_PERCENT_COVERAGE_KEY],removed)
+                OGU_PERCENT_COVERAGE_KEY], removed)
 
         a_counts = [150, 0, 0, 0, 0, 0, 1975, 26130, 22303, 19783, 14478,
                     12145, 14609]
@@ -1247,12 +1173,7 @@ class TestCalcCellCounts(TestCase):
                 _remove_filtered_entries(b_counts, removed)),
             OGU_PERCENT_COVERAGE_KEY:
                 filtered_ogu_coverage + filtered_ogu_coverage,
-            OGU_LEN_IN_BP_KEY: filtered_ogu_lens + filtered_ogu_lens,
-            # TOTAL_OGU_READS_KEY: SparseArray([3950, 26130, 44606, 217613,
-            #                                   28956, 12157, 29218,
-            #                                   3950, 44606, 217613, 28956,
-            #                                   29218]),
-
+            OGU_LEN_IN_BP_KEY: filtered_ogu_lens + filtered_ogu_lens
         }
 
         counts_df = pd.DataFrame(counts_dict)
@@ -1294,8 +1215,8 @@ class TestCalcCellCounts(TestCase):
         min_rsquared = 0.8
 
         output_df, output_msgs = _calc_ogu_cell_counts_df_for_sample(
-            sample_id, TestCalcCellCountsData.linregresses_dict, per_sample_info_df, input_df,
-            min_rsquared, is_test=False)
+            sample_id, TestCalcCellCountsData.linregresses_dict,
+            per_sample_info_df, input_df, min_rsquared, is_test=False)
 
         pd.testing.assert_frame_equal(expected_out_df, output_df)
         self.assertListEqual([], output_msgs)
@@ -1332,8 +1253,8 @@ class TestCalcCellCounts(TestCase):
         # ridiculously high) so the linear model for sample A will be judged
         # not good enough to use
         output_df, output_msgs = _calc_ogu_cell_counts_df_for_sample(
-            sample_id, TestCalcCellCountsData.linregresses_dict, mass_ratio_df, input_df,
-            high_min_rsquared, is_test=True)
+            sample_id, TestCalcCellCountsData.linregresses_dict, mass_ratio_df,
+            input_df, high_min_rsquared, is_test=True)
 
         self.assertIsNone(output_df)
         self.assertListEqual(['R^2 of linear regression for sample example1 '
