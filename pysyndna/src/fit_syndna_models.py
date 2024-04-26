@@ -119,10 +119,9 @@ def _validate_sample_id_consistency(
     Parameters
     ----------
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
-        A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
-        (the total weight of all syndnas in the sample combined, in ng), and
-        SAMPLE_TOTAL_READS_KEY (the number of total reads--not just aligned
-        reads--for the sample, including both r1 and r2)
+        A Dataframe containing at least SAMPLE_ID_KEY and
+        SYNDNA_POOL_MASS_NG_KEY (the total weight of all syndnas in the sample
+        combined, in ng).
     reads_per_syndna_per_sample_df: pd.DataFrame
         A Dataframe with a column for syndna_id and then one additional column
         for each sample_id, which holds the read counts aligned to that syndna
@@ -383,10 +382,8 @@ def fit_linear_regression_models(
         (e.g. 1, 0.1, 0.01, 0.001, 0.0001) for all syndnas in the syndna pool
         used in this experiment
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
-        A Dataframe containing at least SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY
-        (the total weight of all syndnas in the sample combined, in ng), and
-        SAMPLE_TOTAL_READS_KEY (the number of total reads--not just aligned
-        reads--for the sample, including both r1 and r2)
+        A Dataframe containing at least SAMPLE_ID_KEY, and SYNDNA_POOL_MASS_NG_KEY
+        (the total weight of all syndnas in the sample combined, in ng).
     reads_per_syndna_per_sample_df: pd.DataFrame
         Wide-format dataframe with syndna ids as index and one
         column for each sample id, which holds the read counts
@@ -411,8 +408,7 @@ def fit_linear_regression_models(
     log_messages_list = []
 
     # check sample_syndna_weights_and_total_reads_df has the expected columns
-    expected_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY, SAMPLE_TOTAL_READS_KEY]
+    expected_info_cols = [SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY]
     validate_required_columns_exist(
         sample_syndna_weights_and_total_reads_df, expected_info_cols,
         "sample metadata is missing required column(s)")
@@ -425,9 +421,6 @@ def fit_linear_regression_models(
     sample_syndna_weights_and_total_reads_df = cast_cols(
         sample_syndna_weights_and_total_reads_df,
         [SYNDNA_POOL_MASS_NG_KEY], True)
-    sample_syndna_weights_and_total_reads_df = cast_cols(
-        sample_syndna_weights_and_total_reads_df,
-        [SAMPLE_TOTAL_READS_KEY])
     syndna_concs_df = cast_cols(
         syndna_concs_df, [SYNDNA_INDIV_NG_UL_KEY], True)
 
@@ -523,8 +516,7 @@ def fit_linear_regression_models_for_qiita(
     ----------
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        and SAMPLE_TOTAL_READS_KEY
+        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, and SYNDNA_POOL_MASS_NG_KEY.
     reads_per_syndna_per_sample_biom: biom.Table
         Biom table holding read counts aligned to each synDNA in each sample.
         Note: should already have combined forward and reverse counts.
@@ -548,8 +540,7 @@ def fit_linear_regression_models_for_qiita(
 
     # check that the prep_info_df has the expected columns
     expected_prep_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY,
-        SAMPLE_TOTAL_READS_KEY]
+        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY]
     validate_required_columns_exist(
         prep_info_df, expected_prep_info_cols,
         "prep info is missing required column(s)")
