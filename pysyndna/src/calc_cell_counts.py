@@ -428,86 +428,6 @@ def _calc_ogu_cell_counts_df_for_sample(
         per_sample_info_df[SAMPLE_ID_KEY] == sample_id,
         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY].values[0]
 
-    # TODO: break out calculation of genomes of each OGU in the sequenced sample
-
-    # Then calculate each of the different potential output metrics based
-    # on which inputs are in the sample_df and per_sample_info_df
-
-    # could be genomes of each OGU per sq cm of surface swabbed to get the sample
-    # (note that probably not all of the sample went through to sequencing ...)
-    # This would require having a column for the surface area for the sample--in
-    # known units--in the per_sample_info_df.
-
-    # could be genomes of each OGU per gram of gDNA in the sample
-    # This requires sequenced_sample_gdna_mass_ng, which will always be in the
-    # per_sample_info_df, right?  Because right now we are getting it from the
-    # SYNDNA_POOL_MASS_NG_KEY and the syndna_mass_fraction_of_sample ... we
-    # always have to have the former bc it is used in the linear regression but
-    # i guess we don't always have to have the latter as it is only used to
-    # get the sequenced_sample_gdna_mass_ng, which is only used to be able to
-    # normalize the genomes of each OGU to the grams of gDNA in the sample.
-    # Also, we should probably get sequenced_sample_gdna_mass_ng *explicitly*,
-    # not by assuming it is the same fixed fraction of the syndna pool mass
-    # for every sample.
-
-    # could be genomes of each OGU per gram of actual sample material
-    # This one requires GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, which is calculated
-    # from GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY, and
-    # SAMPLE_IN_ALIQUOT_MASS_G_KEY.  The ELUTE_VOL_UL_KEY is used for only this
-    # in calc_cell_counts but is also used in quant_orfs (again for normalization).
-    # The SAMPLE_IN_ALIQUOT_MASS_G_KEY is used for only to get the mass ratio
-    # in calc_cell_counts, but is also used in quant_orfs (again for normalization).
-    # GDNA_CONCENTRATION_NG_UL_KEY is used only for this.
-
-    # could be genomes of each OGU per volume of sample
-    # (note that probably not all the sample volume went through to sequencing ...)
-    # I *think* this one would require a NEW volume key, not ELUTE_VOL_UL_KEY,
-    # because presumably you care about the volume of the sample going INTO the
-    # extraction, not the volume of elute that comes OUT.
-
-    # for every one of these, should also have a "cell counts of each OGU per ..."
-    # that is the same as the "genomes of each OGU per ..." because we are assuming
-    # that the number of genomes is the same as the number of cells
-
-    # so, cols and their potentials:
-    # SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: can calc genomes of each OGU per gram of gDNA from the sample.
-    #   Use that genomes of OGU per g of gDNA for all the below calculations ?
-    # NB: below, note that GDNA_FROM_ALIQUOT_MASS_G_KEY is calculated from
-    # GDNA_CONCENTRATION_NG_UL_KEY and ELUTE_VOL_UL_KEY.
-    # SAMPLE_SURFACE_AREA_CM2_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per sq cm of surface swabbed to get input sample
-    #   g of gdna from extraction/cm_sq swabbed for sample going into extraction =
-    #   how much gdna you get for each sq cm swabbed. We also know how much gdna
-    #   actually went into the *sequencing* (likely less than came out of the extraction).
-    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
-    #   getting genomes per g of gdna, and then multiply that by the g of gdna per sq cm
-    #   to get genomes per sq cm swabbed to get sample.
-    # SAMPLE_VOLUME_UL_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per volume of input sample
-    #   g of gdna from extraction/ul of *sample* (not post-extraction elute) for sample going into extraction =
-    #   how much gdna you get for each ul of *sample*. We also know how much gdna
-    #   actually went into the *sequencing* (likely less than came out of the extraction).
-    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
-    #   getting genomes per g of gdna, and then multiply that by the g of gdna per ul of *sample*
-    #   to get genomes per ul of *sample*
-    # SAMPLE_IN_ALIQUOT_MASS_G_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per gram of input sample
-    #   g of gdna from extraction/g of *sample* for sample going into extraction =
-    #   how much gdna you get for each g of *sample*. We also know how much gdna
-    #   actually went into the *sequencing* (likely less than came out of the extraction).
-    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
-    #   getting genomes per g of gdna, and then multiply that by the g of gdna per g of *sample*
-    #   to get genomes per g of *sample*.
-
-    # Let's not worry about whether the metric's ratio columns are in the df at this
-    # point; earlier on, let's put them in as NaN if not there so all these
-    # calculations can be done in one place and just be NaN if not relevant.
-    # so upstream, need GDNA_FROM_ALIQUOT_MASS_G_KEY (calc from conc and vol),
-    # SAMPLE_SURFACE_AREA_CM2_KEY, SAMPLE_VOLUME_UL_KEY, and
-    # SAMPLE_IN_ALIQUOT_MASS_G_KEY.
-
-    # So, per_sample_info_df should contain
-    # SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY with non-NA values
-    # It should also contain GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY,
-    # GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY, and GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY
-
     # calc the # of genomes of each OGU per gram of gDNA in the sample
     # (normalized by the grams of gDNA in the *sequenced* sample)
     ogu_genomes_per_gdnas = _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
@@ -525,11 +445,13 @@ def _calc_ogu_cell_counts_df_for_sample(
         sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY]
 
     # for each potential output metric:
-    # 1. multiply the ratio by the genomes of each OGU per g of gDNA in the sample
-    #    to get the genomes of each OGU per metric for the sample
-    # 2. set the # of cells of the microbe represented by each OGU
-    #    per gram of gDNA in this sample to be the same as the number of genomes
-
+    # 1. multiply the ratio by the genomes of each OGU per g of gDNA in the
+    #    sample to get the genomes of each OGU per metric for the sample
+    # 2. set the # of cells of the microbe represented by each OGU per gram
+    #    of gDNA in this sample to be the same as the number of genomes
+    # Don't worry about whether the ratio columns are in the df at this
+    # point; earlier on, we put them in as NaN if not there so all these
+    # calculations can be done in one place and just be NaN if not relevant.
     for cell_metric_key, metric_info in SAMPLE_LEVEL_METRICS_DICT.items():
         ratio_key = metric_info[RATIO_NAME_KEY]
         ratio_for_sample = per_sample_info_df.loc[
@@ -898,4 +820,29 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
+
+
+def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
+        sample_info_df: pd.DataFrame,
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
+
+    # check if the inputs all have the required columns
+    validate_required_columns_exist(
+        sample_info_df, [SAMPLE_ID_KEY, SAMPLE_VOLUME_UL_KEY],
+        "sample info is missing required column(s)")
+
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+        sample_info_df, prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
