@@ -6,9 +6,9 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     validate_required_columns_exist, \
     validate_metadata_vs_reads_id_consistency, cast_cols, \
     validate_metadata_vs_prep_id_consistency, SAMPLE_ID_KEY, \
-    SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, RNA_BASE_G_PER_MOLE, \
-    REQUIRED_SAMPLE_INFO_KEYS
+    SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, RNA_BASE_G_PER_MOLE
 
+REQUIRED_SAMPLE_INFO_KEYS = [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]
 OGU_ORF_ID_KEY = "ogu_orf_id"
 OGU_ORF_START_KEY = "ogu_orf_start"
 OGU_ORF_END_KEY = "ogu_orf_end"

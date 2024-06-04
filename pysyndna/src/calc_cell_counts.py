@@ -9,8 +9,7 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     validate_metadata_vs_reads_id_consistency, filter_data_by_sample_info, \
     validate_metadata_vs_prep_id_consistency, cast_cols, \
     DNA_BASEPAIR_G_PER_MOLE, NANOGRAMS_PER_GRAM, \
-    SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, \
-    REQUIRED_SAMPLE_INFO_KEYS
+    SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY
 
 from pysyndna.src.fit_syndna_models import SYNDNA_POOL_MASS_NG_KEY, \
     SLOPE_KEY, INTERCEPT_KEY
@@ -25,8 +24,10 @@ CELL_COUNT_LOG_KEY = 'calc_cell_counts_log'
 
 GDNA_CONCENTRATION_NG_UL_KEY = 'extracted_gdna_concentration_ng_ul'
 GDNA_FROM_ALIQUOT_MASS_G_KEY = 'extracted_gdna_concentration_g'
-# NB: below is NOT the full mass of gDNA extracted from the sample, but
-# ONLY the mass of gDNA that was put into sequencing. This mass should
+# NB: below is NOT the full mass of gDNA extracted from the sample (which can
+# be calculated from GDNA_CONCENTRATION_NG_UL_KEY and ELUTE_VOL_UL_KEY
+# and then stored in GDNA_FROM_ALIQUOT_MASS_G_KEY) but
+# ONLY the mass of gDNA that was put into sequencing . This mass should
 # NOT include the additional mass of the syndna pool added to sequencing.
 SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY = 'sequenced_sample_gdna_mass_ng'
 OGU_ID_KEY = 'ogu_id'
@@ -43,76 +44,138 @@ OGU_CELLS_PER_G_OF_SAMPLE_KEY = 'ogu_cells_per_g_of_sample'
 # (NOT limited to the amount of gDNA that was put into sequencing, unlike
 # SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY)
 GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY = 'gdna_mass_to_sample_mass_ratio'
+SAMPLE_VOLUME_UL_KEY = "sample_volume_ul"
+OGU_CELLS_PER_UL_OF_SAMPLE_KEY = "ogu_cells_per_ul_of_sample"
+GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY = "gdna_mass_to_sample_vol_ratio"
+SAMPLE_SURFACE_AREA_CM2_KEY = "sample_surface_area_cm2"
+OGU_CELLS_PER_CM2_OF_SAMPLE_KEY = "ogu_cells_per_cm2_of_sample"
+GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY = "gdna_mass_to_sample_surface_area_ratio"
 REQUIRED_DNA_PREP_INFO_KEYS = [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
                                ELUTE_VOL_UL_KEY]
+RATIO_NAME_KEY = "ratio_key"
+DENOMINATOR_KEY = "denom_key"
+SAMPLE_LEVEL_METRICS_DICT = {
+    OGU_CELLS_PER_G_OF_SAMPLE_KEY: {
+        DENOMINATOR_KEY: SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+        RATIO_NAME_KEY: GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY},
+    OGU_CELLS_PER_UL_OF_SAMPLE_KEY: {
+        DENOMINATOR_KEY: SAMPLE_VOLUME_UL_KEY,
+        RATIO_NAME_KEY: GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY},
+    OGU_CELLS_PER_CM2_OF_SAMPLE_KEY: {
+        DENOMINATOR_KEY: SAMPLE_SURFACE_AREA_CM2_KEY,
+        RATIO_NAME_KEY: GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY}
+}
 
 
-def _calc_gdna_mass_to_sample_mass_by_sample_df(
-        absolute_quant_params_per_sample_df: pd.DataFrame) -> pd.Series:
+def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+        sample_info_df: pd.DataFrame,
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        output_cell_counts_metric: str,
+        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
 
-    """Calculates ratio of extracted gDNA mass to sample mass for each sample.
-
-    Note that the sample mass is the mass of the sample material (only, not
-    buffer, tube, etc) that went into the extraction, which may be different
-    from the total mass of sample that was collected.
-
-    Parameters
-    ----------
-    absolute_quant_params_per_sample_df:  pd.DataFrame
-        A Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY, and ELUTE_VOL_UL_KEY for
-        each sample.
-
-    Returns
-    -------
-    gdna_mass_to_sample_mass_by_sample_series : pd.Series
-        A Series with index of sample id and values of the ratio of gDNA mass
-        units extracted from each mass unit of input sample (only) mass.
-    """
-
-    # get the total grams of gDNA that are in the elute after extraction;
-    # this is sample-specific
-    working_df = calc_gs_genomic_element_in_aliquot(
-        absolute_quant_params_per_sample_df, GDNA_CONCENTRATION_NG_UL_KEY,
-        GDNA_FROM_ALIQUOT_MASS_G_KEY)
-
-    # determine how many mass units of gDNA are produced from the extraction of
-    # each mass unit of sample material; this is sample-specific:
-    # grams of gDNA after extraction divided grams of sample material.
-    gdna_mass_to_sample_mass_ratio = \
-        working_df[GDNA_FROM_ALIQUOT_MASS_G_KEY] / \
-        working_df[SAMPLE_IN_ALIQUOT_MASS_G_KEY]
-
-    gdna_mass_to_sample_mass_ratio.name = GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY
-    gdna_mass_to_sample_mass_ratio.index = working_df[SAMPLE_ID_KEY]
-    gdna_mass_to_sample_mass_ratio.index.name = SAMPLE_ID_KEY
-
-    return gdna_mass_to_sample_mass_ratio
-
-
-def _series_to_df(a_series, index_col_name, val_col_name):
-    """Converts a pd.Series to two-column pd.DataFrame (from index and value)
+    """Gets # of cells of each OGU/g of sample for samples from Qiita.
 
     Parameters
     ----------
-    a_series : pd.Series
-        A Series to be converted to a dataframe.
-    index_col_name : str
-        Name of the index-derived in the resulting dataframe.
-    val_col_name : str
-        Name of the values-derived column in the resulting dataframe.
+    sample_info_df: pd.DataFrame
+        A Dataframe containing sample info for all samples in the prep,
+        including SAMPLE_ID_KEY and SAMPLE_IN_ALIQUOT_MASS_G_KEY
+    prep_info_df: pd.DataFrame
+        A Dataframe containing prep info for all samples in the prep,
+        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
+        ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY.
+    linregress_by_sample_id_fp: str
+        String containing the filepath to the yaml file holding the
+        dictionary keyed by sample id, containing for each sample a dictionary
+        representation of the sample's LinregressResult.
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_percent_coverage_df : pd.DataFrame
+        A Dataframe of OGU_ID_KEY and OGU_PERCENT_COVERAGE_KEY for each OGU.
+    ogu_lengths_fp : str
+        String containing the filepath to a tab-separated, two-column,
+        no-header file in which the first column is the OGU id and the
+         second is the OGU length in basepairs
+    min_coverage : float
+        Minimum allowable % coverage of an OGU in a sample needed to include
+        that OGU/sample in the output.
+    min_rsquared: float
+        Minimum allowable R^2 value for the linear regression model for a
+        sample; any sample with an R^2 value less than this will be excluded
+        from the output.
+    syndna_mass_fraction_of_sample: float
+        Fraction of the mass of the sample that is added as syndna (usually
+        0.05, which is to say 5%).
 
     Returns
     -------
-    a_df : pd.DataFrame
-        A Dataframe with two columns, one from the index and one containing the
-        values from the input series.
+    output_by_out_type : dict of str or biom.Table
+        Dictionary of outputs keyed by their type Currently, the following keys
+        are defined:
+        CELL_COUNT_RESULT_KEY: biom.Table holding the calculated number of
+        cells per gram of sample material for each OGU in each sample.
+        CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
     """
 
-    a_df = a_series.to_frame().reset_index()
-    a_df.columns = [index_col_name, val_col_name]
+    required_prep_cols = list(
+        {SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
+    validate_required_columns_exist(
+        prep_info_df, required_prep_cols,
+        "prep info is missing required column(s)")
 
-    return a_df
+    # Check if any samples in the prep are missing from the sample info;
+    # Not bothering to report samples that are in sample info but not the prep
+    # --maybe those just weren't included in this prep.
+    _ = validate_metadata_vs_prep_id_consistency(
+        sample_info_df, prep_info_df)
+
+    # cast in case the input comes in as string or something
+    syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
+
+    # make sure the SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
+    # then calculate the mass of gDNA sequenced for each sample.  We have the
+    # mass of syndna pool that was added to each sample, and we know that the
+    # syndna pool mass is calculated to be a certain percentage of the mass of
+    # the sample (added into the library prep in addition to the sample mass).
+    # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
+    # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
+    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY], True)
+    prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
+        prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
+        (1 / syndna_mass_fraction_of_sample)
+
+    # merge the sample info and prep info dataframes
+    absolute_quant_params_per_sample_df = \
+        sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
+
+    # read in the linregress_by_sample_id yaml file
+    with open(linregress_by_sample_id_fp) as f:
+        linregress_by_sample_id = yaml.load(f, Loader=yaml.FullLoader)
+
+    # read in the ogu_lengths file
+    ogu_lengths_df = pd.read_csv(ogu_lengths_fp, sep='\t', header=None,
+                                 names=[OGU_ID_KEY, OGU_LEN_IN_BP_KEY])
+
+    # calculate # cells per x (g, uL, or cm2) of sample material of each OGU
+    # in each sample
+    output_biom, log_msgs_list = calc_ogu_cell_counts_biom(
+        absolute_quant_params_per_sample_df, linregress_by_sample_id,
+        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_df,
+        min_coverage, min_rsquared, output_cell_counts_metric)
+
+    out_txt_by_out_type = {
+        CELL_COUNT_RESULT_KEY: output_biom,
+        CELL_COUNT_LOG_KEY: '\n'.join(log_msgs_list)}
+
+    return out_txt_by_out_type
 
 
 def _calc_long_format_ogu_cell_counts_df(
@@ -141,8 +204,10 @@ def _calc_long_format_ogu_cell_counts_df(
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     per_sample_calc_info_df : pd.DataFrame
-        A Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
+        A Dataframe of SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+        GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY,
+        and GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY for each sample. Any or
+        all of the ratio columns may be NaN for a given sample.
     min_coverage : float
         Minimum allowable coverage of an OGU needed to include that OGU
         in the output.
@@ -295,8 +360,10 @@ def _calc_ogu_cell_counts_df_for_sample(
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
         representation of the sample's LinregressResult.
     per_sample_info_df : pd.DataFrame
-        A Dataframe of SAMPLE_ID_KEY, GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, and
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
+        A Dataframe of SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+        GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY,
+        and GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY for each sample. Any or
+        all of the ratio columns may be NaN for a given sample.
     working_df : pd.DataFrame
         Long-format dataframe with columns for OGU_ID_KEY, SAMPLE_ID_KEY,
         OGU_READ_COUNT_KEY, and OGU_LEN_IN_BP_KEY
@@ -316,9 +383,10 @@ def _calc_ogu_cell_counts_df_for_sample(
         None if the specified sample id has no linear model or has a model with
         R^2 < min_rsquared.  Otherwise, a long-format dataframe with columns
         for at least OGU_ID_KEY, SAMPLE_ID_KEY, OGU_READ_COUNT_KEY,
-        OGU_LEN_IN_BP_KEY, OGU_CELLS_PER_G_OF_GDNA_KEY,
+        OGU_LEN_IN_BP_KEY,
         OGU_GENOMES_PER_G_OF_GDNA_KEY, OGU_CELLS_PER_G_OF_GDNA_KEY,
-        and OGU_CELLS_PER_G_OF_SAMPLE_KEY
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY, OGU_CELLS_PER_UL_OF_SAMPLE_KEY, and
+        OGU_CELLS_PER_CM2_OF_SAMPLE_KEY
     log_messages_list : list[str]
         List of strings containing log messages generated by this function.
     """
@@ -360,7 +428,88 @@ def _calc_ogu_cell_counts_df_for_sample(
         per_sample_info_df[SAMPLE_ID_KEY] == sample_id,
         SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY].values[0]
 
-    # calc the # of genomes of each OGU per gram of gDNA in this sample
+    # TODO: break out calculation of genomes of each OGU in the sequenced sample
+
+    # Then calculate each of the different potential output metrics based
+    # on which inputs are in the sample_df and per_sample_info_df
+
+    # could be genomes of each OGU per sq cm of surface swabbed to get the sample
+    # (note that probably not all of the sample went through to sequencing ...)
+    # This would require having a column for the surface area for the sample--in
+    # known units--in the per_sample_info_df.
+
+    # could be genomes of each OGU per gram of gDNA in the sample
+    # This requires sequenced_sample_gdna_mass_ng, which will always be in the
+    # per_sample_info_df, right?  Because right now we are getting it from the
+    # SYNDNA_POOL_MASS_NG_KEY and the syndna_mass_fraction_of_sample ... we
+    # always have to have the former bc it is used in the linear regression but
+    # i guess we don't always have to have the latter as it is only used to
+    # get the sequenced_sample_gdna_mass_ng, which is only used to be able to
+    # normalize the genomes of each OGU to the grams of gDNA in the sample.
+    # Also, we should probably get sequenced_sample_gdna_mass_ng *explicitly*,
+    # not by assuming it is the same fixed fraction of the syndna pool mass
+    # for every sample.
+
+    # could be genomes of each OGU per gram of actual sample material
+    # This one requires GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, which is calculated
+    # from GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY, and
+    # SAMPLE_IN_ALIQUOT_MASS_G_KEY.  The ELUTE_VOL_UL_KEY is used for only this
+    # in calc_cell_counts but is also used in quant_orfs (again for normalization).
+    # The SAMPLE_IN_ALIQUOT_MASS_G_KEY is used for only to get the mass ratio
+    # in calc_cell_counts, but is also used in quant_orfs (again for normalization).
+    # GDNA_CONCENTRATION_NG_UL_KEY is used only for this.
+
+    # could be genomes of each OGU per volume of sample
+    # (note that probably not all the sample volume went through to sequencing ...)
+    # I *think* this one would require a NEW volume key, not ELUTE_VOL_UL_KEY,
+    # because presumably you care about the volume of the sample going INTO the
+    # extraction, not the volume of elute that comes OUT.
+
+    # for every one of these, should also have a "cell counts of each OGU per ..."
+    # that is the same as the "genomes of each OGU per ..." because we are assuming
+    # that the number of genomes is the same as the number of cells
+
+    # so, cols and their potentials:
+    # SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY: can calc genomes of each OGU per gram of gDNA from the sample.
+    #   Use that genomes of OGU per g of gDNA for all the below calculations ?
+    # NB: below, note that GDNA_FROM_ALIQUOT_MASS_G_KEY is calculated from
+    # GDNA_CONCENTRATION_NG_UL_KEY and ELUTE_VOL_UL_KEY.
+    # SAMPLE_SURFACE_AREA_CM2_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per sq cm of surface swabbed to get input sample
+    #   g of gdna from extraction/cm_sq swabbed for sample going into extraction =
+    #   how much gdna you get for each sq cm swabbed. We also know how much gdna
+    #   actually went into the *sequencing* (likely less than came out of the extraction).
+    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
+    #   getting genomes per g of gdna, and then multiply that by the g of gdna per sq cm
+    #   to get genomes per sq cm swabbed to get sample.
+    # SAMPLE_VOLUME_UL_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per volume of input sample
+    #   g of gdna from extraction/ul of *sample* (not post-extraction elute) for sample going into extraction =
+    #   how much gdna you get for each ul of *sample*. We also know how much gdna
+    #   actually went into the *sequencing* (likely less than came out of the extraction).
+    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
+    #   getting genomes per g of gdna, and then multiply that by the g of gdna per ul of *sample*
+    #   to get genomes per ul of *sample*
+    # SAMPLE_IN_ALIQUOT_MASS_G_KEY and GDNA_FROM_ALIQUOT_MASS_G_KEY: can calc genomes of each OGU per gram of input sample
+    #   g of gdna from extraction/g of *sample* for sample going into extraction =
+    #   how much gdna you get for each g of *sample*. We also know how much gdna
+    #   actually went into the *sequencing* (likely less than came out of the extraction).
+    #   So we could divide the genomes of each OGU by the g of gdna in the sequenced sample,
+    #   getting genomes per g of gdna, and then multiply that by the g of gdna per g of *sample*
+    #   to get genomes per g of *sample*.
+
+    # Let's not worry about whether the metric's ratio columns are in the df at this
+    # point; earlier on, let's put them in as NaN if not there so all these
+    # calculations can be done in one place and just be NaN if not relevant.
+    # so upstream, need GDNA_FROM_ALIQUOT_MASS_G_KEY (calc from conc and vol),
+    # SAMPLE_SURFACE_AREA_CM2_KEY, SAMPLE_VOLUME_UL_KEY, and
+    # SAMPLE_IN_ALIQUOT_MASS_G_KEY.
+
+    # So, per_sample_info_df should contain
+    # SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY with non-NA values
+    # It should also contain GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY,
+    # GDNA_MASS_TO_SAMPLE_VOL_RATIO_KEY, and GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY
+
+    # calc the # of genomes of each OGU per gram of gDNA in the sample
+    # (normalized by the grams of gDNA in the *sequenced* sample)
     ogu_genomes_per_gdnas = _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
         sample_df, sequenced_sample_gdna_mass_ng, is_test=is_test)
     sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY] = \
@@ -375,14 +524,22 @@ def _calc_ogu_cell_counts_df_for_sample(
     sample_df[OGU_CELLS_PER_G_OF_GDNA_KEY] = \
         sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY]
 
-    # calc the # of cells of each OGU per gram of actual sample material
-    # (e.g., per gram of stool if these are fecal samples) for this sample
-    mass_ratio_for_sample = per_sample_info_df.loc[
-        per_sample_info_df[SAMPLE_ID_KEY] == sample_id,
-        GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY].values[0]
-    sample_df[OGU_CELLS_PER_G_OF_SAMPLE_KEY] = \
-        sample_df[OGU_CELLS_PER_G_OF_GDNA_KEY] * \
-        mass_ratio_for_sample
+    # for each potential output metric:
+    # 1. multiply the ratio by the genomes of each OGU per g of gDNA in the sample
+    #    to get the genomes of each OGU per metric for the sample
+    # 2. set the # of cells of the microbe represented by each OGU
+    #    per gram of gDNA in this sample to be the same as the number of genomes
+
+    for cell_metric_key, metric_info in SAMPLE_LEVEL_METRICS_DICT.items():
+        ratio_key = metric_info[RATIO_NAME_KEY]
+        ratio_for_sample = per_sample_info_df.loc[
+            per_sample_info_df[SAMPLE_ID_KEY] == sample_id,
+            ratio_key].values[0]
+
+        # calculate # of cells (i.e., genomes) of each OGU per metric
+        # for this sample
+        sample_df[cell_metric_key] = (
+                sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY] * ratio_for_sample)
 
     return sample_df, log_messages_list
 
@@ -560,8 +717,9 @@ def calc_ogu_cell_counts_biom(
     ----------
     absolute_quant_params_per_sample_df:  pd.DataFrame
         A Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-        SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY, and
-        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each sample.
+        ELUTE_VOL_UL_KEY, and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each
+        sample. It should also have at least one of SAMPLE_VOLUME_UL_KEY,
+        SAMPLE_SURFACE_AREA_CM2_KEY, and/or SAMPLE_IN_ALIQUOT_MASS_G_KEY.
     linregress_by_sample_id : dict[str, dict[str: float]]
         Dictionary keyed by sample id, containing for each sample either None
         (if no model could be trained for that SAMPLE_ID_KEY) or a dictionary
@@ -580,8 +738,9 @@ def calc_ogu_cell_counts_biom(
         sample; any sample with an R^2 value less than this will be excluded
         from the output.
     output_cell_counts_metric : str
-        Name of the desired output cell count metric; options are
-        OGU_CELLS_PER_G_OF_GDNA_KEY and OGU_CELLS_PER_G_OF_SAMPLE_KEY.
+        Name of the desired output cell count metric; options are:
+        OGU_CELLS_PER_G_OF_GDNA_KEY, OGU_CELLS_PER_G_OF_SAMPLE_KEY,
+        OGU_CELLS_PER_UL_OF_SAMPLE_KEY, or OGU_CELLS_PER_CM2_OF_SAMPLE_KEY.
 
     Returns
     -------
@@ -594,10 +753,13 @@ def calc_ogu_cell_counts_biom(
     """
 
     # check if the inputs all have the required columns
+    extra_required = set()
+    if output_cell_counts_metric in SAMPLE_LEVEL_METRICS_DICT:
+        extra_required = {SAMPLE_LEVEL_METRICS_DICT[
+                              output_cell_counts_metric][DENOMINATOR_KEY]}
     required_cols_list = list(
-        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
-         SAMPLE_IN_ALIQUOT_MASS_G_KEY} |
-        set(REQUIRED_DNA_PREP_INFO_KEYS))
+        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY} |
+        set(REQUIRED_DNA_PREP_INFO_KEYS) | extra_required)
     validate_required_columns_exist(
         absolute_quant_params_per_sample_df, required_cols_list,
         "sample info is missing required column(s)")
@@ -641,20 +803,21 @@ def calc_ogu_cell_counts_biom(
         filter_data_by_sample_info(
             filter_params_df, ogu_counts_per_sample_biom, cols_to_filter_on)
 
-    # calculate the ratio of extracted gDNA mass to sample mass put into
-    # extraction for each sample
-    gdna_mass_to_sample_mass_by_sample_series = \
-        _calc_gdna_mass_to_sample_mass_by_sample_df(working_params_df)
-    per_sample_calc_info_df = _series_to_df(
-        gdna_mass_to_sample_mass_by_sample_series, SAMPLE_ID_KEY,
-        GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY)
+    # calc GDNA_FROM_ALIQUOT_MASS_G_KEY, the total grams of gDNA that are in
+    # the elute after extraction; this is sample-specific
+    per_sample_calc_info_df = calc_gs_genomic_element_in_aliquot(
+        working_params_df, GDNA_CONCENTRATION_NG_UL_KEY,
+        GDNA_FROM_ALIQUOT_MASS_G_KEY)
 
-    # merge the SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY
-    # column of working_params_df into gdna_mass_to_sample_mass_df
-    # by SAMPLE_ID_KEY
-    per_sample_calc_info_df = per_sample_calc_info_df.merge(
-        working_params_df[[SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]],
-        on=SAMPLE_ID_KEY, how='left')
+    for curr_metric_key, curr_metric_dict in SAMPLE_LEVEL_METRICS_DICT.items():
+        metric_ratio_col_name = curr_metric_dict[RATIO_NAME_KEY]
+        metric_ratio_denom_key = curr_metric_dict[DENOMINATOR_KEY]
+        if metric_ratio_denom_key not in per_sample_calc_info_df.columns:
+            per_sample_calc_info_df[metric_ratio_denom_key] = np.nan
+
+        per_sample_calc_info_df[metric_ratio_col_name] = \
+            per_sample_calc_info_df[GDNA_FROM_ALIQUOT_MASS_G_KEY] / \
+            per_sample_calc_info_df[metric_ratio_denom_key]
 
     # convert input biom table to a dataframe with sparse columns, which
     # should act basically the same as a dense dataframe but use less memory
@@ -701,102 +864,38 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
         -> Dict[str, Union[str, biom.Table]]:
 
-    """Gets # of cells of each OGU/g of sample for samples from Qiita.
+    # check if the inputs all have the required columns
+    validate_required_columns_exist(
+        sample_info_df, [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY],
+        "sample info is missing required column(s)")
 
-    Parameters
-    ----------
-    sample_info_df: pd.DataFrame
-        A Dataframe containing sample info for all samples in the prep,
-        including SAMPLE_ID_KEY and SAMPLE_IN_ALIQUOT_MASS_G_KEY
-    prep_info_df: pd.DataFrame
-        A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
-        ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY.
-    linregress_by_sample_id_fp: str
-        String containing the filepath to the yaml file holding the
-        dictionary keyed by sample id, containing for each sample a dictionary
-        representation of the sample's LinregressResult.
-    ogu_counts_per_sample_biom: biom.Table
-        Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_df : pd.DataFrame
-        A Dataframe of OGU_ID_KEY and OGU_PERCENT_COVERAGE_KEY for each OGU.
-    ogu_lengths_fp : str
-        String containing the filepath to a tab-separated, two-column,
-        no-header file in which the first column is the OGU id and the
-         second is the OGU length in basepairs
-    min_coverage : float
-        Minimum allowable % coverage of an OGU in a sample needed to include
-        that OGU/sample in the output.
-    min_rsquared: float
-        Minimum allowable R^2 value for the linear regression model for a
-        sample; any sample with an R^2 value less than this will be excluded
-        from the output.
-    syndna_mass_fraction_of_sample: float
-        Fraction of the mass of the sample that is added as syndna (usually
-        0.05, which is to say 5%).
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+        sample_info_df, prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
 
-    Returns
-    -------
-    output_by_out_type : dict of str or biom.Table
-        Dictionary of outputs keyed by their type Currently, the following keys
-        are defined:
-        CELL_COUNT_RESULT_KEY: biom.Table holding the calculated number of
-        cells per gram of sample material for each OGU in each sample.
-        CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
-    """
+
+def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
+        sample_info_df: pd.DataFrame,
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
 
     # check if the inputs all have the required columns
     validate_required_columns_exist(
-        sample_info_df, REQUIRED_SAMPLE_INFO_KEYS,
+        sample_info_df, [SAMPLE_ID_KEY, SAMPLE_SURFACE_AREA_CM2_KEY],
         "sample info is missing required column(s)")
 
-    required_prep_cols = list(
-        {SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
-    validate_required_columns_exist(
-        prep_info_df, required_prep_cols,
-        "prep info is missing required column(s)")
-
-    # Check if any samples in the prep are missing from the sample info;
-    # Not bothering to report samples that are in sample info but not the prep
-    # --maybe those just weren't included in this prep.
-    _ = validate_metadata_vs_prep_id_consistency(
-        sample_info_df, prep_info_df)
-
-    # cast in case the input comes in as string or something
-    syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
-
-    # make sure the SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
-    # then calculate the mass of gDNA sequenced for each sample.  We have the
-    # mass of syndna pool that was added to each sample, and we know that the
-    # syndna pool mass is calculated to be a certain percentage of the mass of
-    # the sample (added into the library prep in addition to the sample mass).
-    # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
-    # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
-    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY], True)
-    prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
-        prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
-        (1 / syndna_mass_fraction_of_sample)
-
-    # merge the sample info and prep info dataframes
-    absolute_quant_params_per_sample_df = \
-        sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
-
-    # read in the linregress_by_sample_id yaml file
-    with open(linregress_by_sample_id_fp) as f:
-        linregress_by_sample_id = yaml.load(f, Loader=yaml.FullLoader)
-
-    # read in the ogu_lengths file
-    ogu_lengths_df = pd.read_csv(ogu_lengths_fp, sep='\t', header=None,
-                                 names=[OGU_ID_KEY, OGU_LEN_IN_BP_KEY])
-
-    # calculate # cells per gram of sample material of each OGU in each sample
-    output_biom, log_msgs_list = calc_ogu_cell_counts_biom(
-        absolute_quant_params_per_sample_df, linregress_by_sample_id,
-        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_df,
-        min_coverage, min_rsquared, OGU_CELLS_PER_G_OF_SAMPLE_KEY)
-
-    out_txt_by_out_type = {
-        CELL_COUNT_RESULT_KEY: output_biom,
-        CELL_COUNT_LOG_KEY: '\n'.join(log_msgs_list)}
-
-    return out_txt_by_out_type
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+        sample_info_df, prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
