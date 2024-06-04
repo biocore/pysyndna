@@ -13,7 +13,6 @@ NANOGRAMS_PER_GRAM = 1e9
 SAMPLE_ID_KEY = 'sample_name'
 SAMPLE_IN_ALIQUOT_MASS_G_KEY = 'calc_mass_sample_aliquot_input_g'
 ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
-REQUIRED_SAMPLE_INFO_KEYS = [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]
 
 
 def _validate_sample_id_consistency(
