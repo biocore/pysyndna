@@ -5,6 +5,8 @@ from pysyndna.src.calc_cell_counts import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_cm2_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_ul_of_sample_for_qiita, \
+    SAMPLE_IN_ALIQUOT_MASS_G_KEY, SAMPLE_SURFACE_AREA_CM2_KEY, \
+    SAMPLE_VOLUME_UL_KEY, OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY, \
     OGU_CELLS_PER_G_OF_GDNA_KEY, OGU_CELLS_PER_G_OF_SAMPLE_KEY, \
     OGU_CELLS_PER_UL_OF_SAMPLE_KEY, OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, \
     OGU_ID_KEY, OGU_LEN_IN_BP_KEY, OGU_PERCENT_COVERAGE_KEY, \
@@ -27,6 +29,8 @@ __all__ = ['fit_linear_regression_models',
            'calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs',
            'calc_copies_of_ogu_orf_ssrna_per_g_sample',
            'calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita',
+           'SAMPLE_IN_ALIQUOT_MASS_G_KEY', 'SAMPLE_SURFACE_AREA_CM2_KEY',
+           'SAMPLE_VOLUME_UL_KEY', 'OGU_ID_KEY', 'OGU_PERCENT_COVERAGE_KEY',
            'OGU_CELLS_PER_G_OF_GDNA_KEY',
            'OGU_CELLS_PER_G_OF_SAMPLE_KEY',
            'OGU_CELLS_PER_UL_OF_SAMPLE_KEY',

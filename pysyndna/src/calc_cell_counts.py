@@ -710,6 +710,7 @@ def calc_ogu_cell_counts_biom(
     # params df to float if they aren't already
     float_col_names = [
         GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+        SAMPLE_SURFACE_AREA_CM2_KEY, SAMPLE_VOLUME_UL_KEY,
         ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]
     working_params_df = cast_cols(working_params_df, float_col_names, True)
 
