@@ -125,7 +125,8 @@ def validate_metadata_vs_reads_id_consistency(
 
     sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
     if isinstance(reads_df, biom.Table):
-        sample_ids_in_reads = set(reads_df.ids(axis='sample'))
+        sample_ids_in_reads = \
+            set([str(x) for x in reads_df.ids(axis='sample')])
     else:
         sample_ids_in_reads = set(reads_df.columns)
     missing_reads_ids = _validate_sample_id_consistency(
