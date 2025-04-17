@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
 import os
-from scipy.stats._stats_mstats_common import LinregressResult
+from collections import namedtuple
 from unittest import TestCase
 from pysyndna import fit_linear_regression_models, \
     fit_linear_regression_models_for_qiita
@@ -714,7 +714,14 @@ class FitSyndnaModelsTest(TestCase):
         expected_df = pd.read_csv(expected_fp, sep="\t", comment="#")
 
         for k, v in output.items():
-            self.assertIsInstance(v, LinregressResult)
+            # the LingressResult object isn't really exposed via the scipy
+            # api, so resorting to duck testing
+            self.assertTrue(hasattr(v, "slope"))
+            self.assertTrue(hasattr(v, "intercept"))
+            self.assertTrue(hasattr(v, "rvalue"))
+            self.assertTrue(hasattr(v, "pvalue"))
+            self.assertTrue(hasattr(v, "stderr"))
+            self.assertTrue(hasattr(v, "intercept_stderr"))
 
             item_mask = expected_df["ID"] == k
             expected_slope = expected_df.loc[item_mask, "b_slope"].iloc[0]
@@ -727,7 +734,12 @@ class FitSyndnaModelsTest(TestCase):
         self.assertEqual([], out_msgs_list)
 
     def test__convert_linregressresults_to_dict(self):
-        a_result = LinregressResult(
+        linregress_mock = namedtuple(
+            "linregress_mock",
+            ["slope", "intercept", "rvalue", "pvalue",
+             "stderr", "intercept_stderr"])
+
+        a_result = linregress_mock(
             slope=np.float64(1.6609640474436806), intercept=-8.316627866835997,
             rvalue=0.9999999999999998, pvalue=0.0, stderr=0.0,
             intercept_stderr=0.0)
