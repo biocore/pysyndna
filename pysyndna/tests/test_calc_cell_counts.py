@@ -463,10 +463,10 @@ class TestCalcCellCountsData:
         # in a biom table, results are ordered alphabetically
         OGU_ID_KEY: [
             'Escherichia coli', 'Fusobacterium periodonticum',
-            #'Haemophilus influenzae',
+            # 'Haemophilus influenzae',
             'Lactobacillus gasseri',
             'Leptolyngbya valderiana', 'Neisseria flavescens',
-            #'Neisseria subflava',
+            # 'Neisseria subflava',
             'Prevotella sp. oral taxon 299',
             'Ruminococcus albus', 'Streptococcus mitis',
             'Streptococcus pneumoniae', 'Tyzzerella nexilis',
@@ -559,7 +559,6 @@ class TestCalcCellCountsData:
             [1327.927321, 748.753168],
             [589.840566, 331.87245]
         ]}
-
 
     @classmethod
     def combine_inputs(cls):
@@ -1526,7 +1525,6 @@ class TestCalcCellCounts(TestCase):
                               'is 0.9731883614079859, which is less than the '
                               'minimum allowed value of 0.99.'],
                              output_msgs)
-
 
     def test__calc_ogu_genomes_per_g_of_gdna_series_for_sample(self):
         # this is the default value for our experimental system
