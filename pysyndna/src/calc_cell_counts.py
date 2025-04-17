@@ -558,7 +558,7 @@ def _calc_ogu_genomes_per_g_of_gdna_series_for_sample(
         _calc_ogu_genomes_series_for_sample(sample_df, is_test=is_test)
 
     # the above is the number of genomes of each OGU that were found in all
-    # the sequnced sample gDNA; we want the number of genomes of each OGU
+    # the sequenced sample gDNA; we want the number of genomes of each OGU
     # per gram of gDNA in the sample, so we divide by the total gDNA mass
     # in the sample (across all OGUs).  Note that both measurements are in ng.
     ogu_genomes_per_ng_of_gdna_series = \
