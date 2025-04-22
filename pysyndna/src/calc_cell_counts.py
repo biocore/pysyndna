@@ -23,7 +23,7 @@ CELL_COUNT_RESULT_KEY = 'cell_count_biom'
 CELL_COUNT_LOG_KEY = 'calc_cell_counts_log'
 
 GDNA_CONCENTRATION_NG_UL_KEY = 'extracted_gdna_concentration_ng_ul'
-GDNA_FROM_ALIQUOT_MASS_G_KEY = 'extracted_gdna_concentration_g'
+GDNA_FROM_ALIQUOT_MASS_G_KEY = 'extracted_gdna_mass_g'
 # NB: below is NOT the full mass of gDNA extracted from the sample (which can
 # be calculated from GDNA_CONCENTRATION_NG_UL_KEY and ELUTE_VOL_UL_KEY
 # and then stored in GDNA_FROM_ALIQUOT_MASS_G_KEY) but
