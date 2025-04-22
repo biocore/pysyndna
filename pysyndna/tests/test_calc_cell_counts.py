@@ -15,7 +15,7 @@ from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
     OGU_ID_KEY, OGU_READ_COUNT_KEY, \
     OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY, \
     SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, OGU_GENOMES_PER_G_OF_GDNA_KEY, \
-    OGU_CELLS_PER_G_OF_GDNA_KEY, SYNDNA_POOL_MASS_NG_KEY, \
+    OGU_CELLS_PER_G_OF_GDNA_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY, \
     GDNA_CONCENTRATION_NG_UL_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, \
     GDNA_MASS_TO_SAMPLE_MASS_RATIO_KEY, OGU_CELLS_PER_G_OF_SAMPLE_KEY, \
     SAMPLE_VOLUME_UL_KEY, \
@@ -82,7 +82,7 @@ class TestCalcCellCountsData:
         SAMPLE_SURFACE_AREA_CM2_KEY: [4, 6],
         GDNA_CONCENTRATION_NG_UL_KEY: [2, 1.4],
         ELUTE_VOL_UL_KEY: [100, 100],
-        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238],
+        INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.238],
     }
 
     # Values from "absolute_quant_example.xlsx" EXCEPT for the
@@ -635,7 +635,7 @@ class TestCalcCellCounts(TestCase):
 
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for k in
                           [GDNA_CONCENTRATION_NG_UL_KEY,
-                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+                           ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
 
         # NOTE: this column is not needed anymore. It is left in this test
         # just to show that the code can deal with extra columns (it just
@@ -704,7 +704,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = \
             {k: [str(x) for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
-              ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+              ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
 
@@ -770,7 +770,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = \
             {k: [x for x in TestCalcCellCountsData.sample_and_prep_input_dict[k]] for k in
              [GDNA_CONCENTRATION_NG_UL_KEY,
-              ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+              ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
 
@@ -831,7 +831,7 @@ class TestCalcCellCounts(TestCase):
 
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+                           ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
         sample_info_df = pd.DataFrame(sample_info_dict)
@@ -892,7 +892,7 @@ class TestCalcCellCounts(TestCase):
 
         prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                           [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-                           ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+                           ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -935,7 +935,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = {
             k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for k in
             [GDNA_CONCENTRATION_NG_UL_KEY,
-             ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
 
         # NOTE: this column is not needed anymore. It is left in this test
         # just to show that the code can deal with extra columns (it just
@@ -999,7 +999,7 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict = {
             k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy() for k in
             [GDNA_CONCENTRATION_NG_UL_KEY,
-             ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY]}
+             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]}
 
         # NOTE: this column is not needed anymore. It is left in this test
         # just to show that the code can deal with extra columns (it just

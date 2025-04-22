@@ -9,6 +9,7 @@ from unittest import TestCase
 from pysyndna import fit_linear_regression_models, \
     fit_linear_regression_models_for_qiita
 from pysyndna.src.fit_syndna_models import SAMPLE_ID_KEY, SYNDNA_ID_KEY, \
+    INPUT_SYNDNA_POOL_MASS_NG_KEY, \
     SYNDNA_POOL_MASS_NG_KEY, SYNDNA_INDIV_NG_UL_KEY, \
     SYNDNA_FRACTION_OF_POOL_KEY,  SYNDNA_INDIV_NG_KEY, \
     SAMPLE_TOTAL_READS_KEY, SYNDNA_POOL_NUM_KEY, \
@@ -36,7 +37,7 @@ class FitSyndnaModelsTestData():
     # system.
     a_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: [sample_ids[0]],
-        SYNDNA_POOL_MASS_NG_KEY: [0.25],
+        INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.25],
     }
 
     # Total reads come from the "TotalReads" column of
@@ -45,7 +46,16 @@ class FitSyndnaModelsTestData():
     # Syndna pool masses are plausible values for our experimental system.
     a_b_sample_syndna_weights_and_total_reads_dict = {
         SAMPLE_ID_KEY: sample_ids,
-        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+        INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+    }
+
+    # same as a_b_sample_syndna_weights_and_total_reads_dict, but
+    # the INPUT_SYNDNA_POOL_MASS_NG_KEY values are scaled up by 2.5 so that,
+    # when multiplied by a syndna_contributing_fraction of 0.4, they
+    # give the same masses as in a_b_sample_syndna_weights_and_total_reads_dict
+    scaled_a_b_sample_syndna_weights_and_total_reads_dict = {
+        SAMPLE_ID_KEY: sample_ids,
+        INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.625, 0.5],
     }
 
     # Total reads come from the "TotalReads" column of
@@ -60,7 +70,7 @@ class FitSyndnaModelsTestData():
         # demonstrate that the code is able to ignore extra info in the input
         # dataframes.
         SAMPLE_TOTAL_READS_KEY: [3216923, 1723417, 2606004],
-        SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
+        INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2, 0.3],
     }
 
     # The below sample values come from the
@@ -117,6 +127,11 @@ class FitSyndnaModelsTestData():
     prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
     prep_info_dict["syndna_pool_number"] = [1, 1]
 
+    scaled_prep_info_dict = copy.deepcopy(
+        scaled_a_b_sample_syndna_weights_and_total_reads_dict)
+    scaled_prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
+    scaled_prep_info_dict["syndna_pool_number"] = [1, 1]
+
     # combine each item in self.reads_per_syndna_per_sample_dict["A"] with
     # the analogous item in self.reads_per_syndna_per_sample_dict["B"]
     # to make an array of two-item arrays, and turn this into an np.array
@@ -166,12 +181,8 @@ class FitSyndnaModelsTest(TestCase):
 
         self.assertDictEqual(expected_out, output_dict)
 
-    def test_fit_linear_regression_models_for_qiita_w_casts(self):
-        # same as test_fit_linear_regression_models_for_qiita, but with
-        # all param values passed in as strings
-        prep_info_dict = {k: [str(x) for x in FitSyndnaModelsTestData.prep_info_dict[k]]
-                          for k in FitSyndnaModelsTestData.prep_info_dict}
-        prep_info_df = pd.DataFrame(prep_info_dict)
+    def test_fit_linear_regression_models_for_qiita_w_scaling(self):
+        scaled_prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.scaled_prep_info_dict)
         input_biom = biom.table.Table(
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
@@ -201,7 +212,49 @@ class FitSyndnaModelsTest(TestCase):
         }
 
         output_dict = fit_linear_regression_models_for_qiita(
-            prep_info_df, input_biom, min_counts)
+            scaled_prep_info_df, input_biom, min_counts,
+            syndna_contributing_fraction=0.4)
+
+        self.assertDictEqual(expected_out, output_dict)
+
+    def test_fit_linear_regression_models_for_qiita_w_casts(self):
+        # same as test_fit_linear_regression_models_for_qiita, but with
+        # all param values passed in as strings
+        prep_info_dict = {k: [str(x) for x in FitSyndnaModelsTestData.scaled_prep_info_dict[k]]
+                          for k in FitSyndnaModelsTestData.prep_info_dict}
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        input_biom = biom.table.Table(
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            FitSyndnaModelsTestData.sample_ids)
+        min_counts = "50"
+        syndna_contributing_factor = "0.4"
+
+        # These are text versions of the linear regression results
+        # for the full data (see self.lingress_results and the
+        # "linear regressions counts" sheet of "absolute_quant_example.xlsx").
+        expected_out = {
+            'lin_regress_by_sample_id':
+                'A:\n'
+                '  intercept: -7.355939160548\n'
+                '  intercept_stderr: 0.271274537363\n'
+                '  pvalue: 1.42844e-07\n'
+                '  rvalue: 0.986503097515\n'
+                '  slope: 1.244876523791\n'
+                '  stderr: 0.073054085503\n'
+                'B:\n'
+                '  intercept: -7.450040830377\n'
+                '  intercept_stderr: 0.272941199932\n'
+                '  pvalue: 1.50538e-07\n'
+                '  rvalue: 0.986324179735\n'
+                '  slope: 1.246759136044\n'
+                '  stderr: 0.073657952553\n',
+            'fit_syndna_models_log': ''
+        }
+
+        output_dict = fit_linear_regression_models_for_qiita(
+            prep_info_df, input_biom, min_counts,
+            syndna_contributing_fraction=syndna_contributing_factor)
 
         self.assertDictEqual(expected_out, output_dict)
 
@@ -244,8 +297,8 @@ class FitSyndnaModelsTest(TestCase):
 
     def test_fit_linear_regression_models_for_qiita_w_negs(self):
         prep_info_dict = copy.deepcopy(FitSyndnaModelsTestData.prep_info_dict)
-        prep_info_dict[SYNDNA_POOL_MASS_NG_KEY][0] = \
-            -1 * prep_info_dict[SYNDNA_POOL_MASS_NG_KEY][0]
+        prep_info_dict[INPUT_SYNDNA_POOL_MASS_NG_KEY][0] = \
+            -1 * prep_info_dict[INPUT_SYNDNA_POOL_MASS_NG_KEY][0]
         prep_info_df = pd.DataFrame(prep_info_dict)
         input_biom = biom.table.Table(
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
@@ -336,7 +389,7 @@ class FitSyndnaModelsTest(TestCase):
             SAMPLE_ID_KEY: ["A", "B"],
             "sequencing_type": ["shotgun", "shotgun"],
             SAMPLE_TOTAL_READS_KEY: [3216923, 1723417],
-            SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
+            INPUT_SYNDNA_POOL_MASS_NG_KEY: [0.25, 0.2],
             # missing the SYNDNA_POOL_NUM_KEY column
         }
         prep_info_df = pd.DataFrame(prep_info_dict)
@@ -355,8 +408,38 @@ class FitSyndnaModelsTest(TestCase):
             fit_linear_regression_models_for_qiita(
                 prep_info_df, input_biom, min_counts)
 
+    def test_fit_linear_regression_models_for_qiita_w_min_counts_err(self):
+        prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.prep_info_dict)
+        input_biom = biom.table.Table(
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            FitSyndnaModelsTestData.sample_ids)
+
+        min_counts = 0
+        err_msg = "min_sample_counts must be a positive integer but received 0"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            fit_linear_regression_models_for_qiita(
+                prep_info_df, input_biom, min_counts)
+
+    def test_fit_linear_regression_models_for_qiita_w_syndna_contrib_frac_err(self):
+        prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.prep_info_dict)
+        input_biom = biom.table.Table(
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
+            FitSyndnaModelsTestData.sample_ids)
+        min_counts = 50
+
+        syndna_contributing_fraction = 2
+        err_msg = ("syndna_contributing_fraction must be a float >0 and <= 1 "
+                   "but received 2.0")
+        with self.assertRaisesRegex(ValueError, err_msg):
+            fit_linear_regression_models_for_qiita(
+                prep_info_df, input_biom, min_counts,
+                syndna_contributing_fraction=syndna_contributing_fraction)
+
     def test_fit_linear_regression_models(self):
         min_count = 50
+        syndna_contributing_fraction = 1
 
         syndna_concs_df = pd.DataFrame(FitSyndnaModelsTestData.syndna_concs_dict)
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
@@ -368,7 +451,30 @@ class FitSyndnaModelsTest(TestCase):
         out_linregress_dict, out_msgs = fit_linear_regression_models(
             syndna_concs_df,
             sample_syndna_weights_and_total_reads_df,
-            reads_per_syndna_per_sample_df, min_count)
+            reads_per_syndna_per_sample_df, min_count,
+            syndna_contributing_fraction)
+
+        a_tester = Testers()
+        a_tester.assert_dicts_almost_equal(
+            FitSyndnaModelsTestData.lingress_results, out_linregress_dict)
+        a_tester.assertEqual([], out_msgs)
+
+    def test_fit_linear_regression_models_scaled(self):
+        min_count = 50
+        syndna_contributing_fraction = 0.4
+
+        syndna_concs_df = pd.DataFrame(FitSyndnaModelsTestData.syndna_concs_dict)
+        sample_syndna_weights_and_total_reads_df = pd.DataFrame(
+            FitSyndnaModelsTestData.scaled_a_b_sample_syndna_weights_and_total_reads_dict)
+        reads_per_syndna_per_sample_df = pd.DataFrame(
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict)
+        reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
+
+        out_linregress_dict, out_msgs = fit_linear_regression_models(
+            syndna_concs_df,
+            sample_syndna_weights_and_total_reads_df,
+            reads_per_syndna_per_sample_df, min_count,
+            syndna_contributing_fraction)
 
         a_tester = Testers()
         a_tester.assert_dicts_almost_equal(
@@ -376,7 +482,8 @@ class FitSyndnaModelsTest(TestCase):
         a_tester.assertEqual([], out_msgs)
 
     def test_fit_linear_regression_models_w_casts(self):
-        min_count = 50
+        min_count = "50"
+        syndna_contributing_fraction = "1"
 
         # same as test_fit_linear_regression_models, but with
         # all param values passed in as strings
@@ -397,7 +504,8 @@ class FitSyndnaModelsTest(TestCase):
         out_linregress_dict, out_msgs = fit_linear_regression_models(
             syndna_concs_df,
             sample_syndna_weights_and_total_reads_df,
-            reads_per_syndna_per_sample_df, min_count)
+            reads_per_syndna_per_sample_df, min_count,
+            syndna_contributing_fraction)
 
         a_tester = Testers()
         a_tester.assert_dicts_almost_equal(
@@ -406,6 +514,7 @@ class FitSyndnaModelsTest(TestCase):
 
     def test_fit_linear_regression_models_w_log_msgs(self):
         min_count = 200
+        syndna_contributing_fraction = 1
 
         # The slope, intercept, rvalue, stderr (of slope),
         # intercept_stderr, and p-value (of slope) values for these results
@@ -445,7 +554,8 @@ class FitSyndnaModelsTest(TestCase):
         out_linregress_dict, out_msgs = fit_linear_regression_models(
             syndna_concs_df,
             sample_syndna_weights_and_total_reads_df,
-            reads_per_syndna_per_sample_df, min_count)
+            reads_per_syndna_per_sample_df, min_count,
+            syndna_contributing_fraction)
 
         a_tester = Testers()
         a_tester.assert_dicts_almost_equal(
@@ -454,6 +564,7 @@ class FitSyndnaModelsTest(TestCase):
 
     def test_fit_linear_regression_models_w_sample_error(self):
         min_count = 200
+        syndna_contributing_fraction = 1
 
         # use self.a_sample_syndna_weights_and_total_reads_dict,
         # which includes only info for sample A, not for sample B,
@@ -474,7 +585,8 @@ class FitSyndnaModelsTest(TestCase):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
-                reads_per_syndna_per_sample_df, min_count)
+                reads_per_syndna_per_sample_df, min_count,
+                syndna_contributing_fraction)
 
     def test_fit_linear_regression_models_w_syndna_config_error(self):
         # syndnas in the data that aren't in the config
@@ -490,6 +602,7 @@ class FitSyndnaModelsTest(TestCase):
         }
 
         min_count = 200
+        syndna_contributing_fraction = 1
 
         expected_err_msg = \
             r"Detected 1 syndna feature\(s\) in the read data that " \
@@ -506,7 +619,8 @@ class FitSyndnaModelsTest(TestCase):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
-                reads_per_syndna_per_sample_df, min_count)
+                reads_per_syndna_per_sample_df, min_count,
+                syndna_contributing_fraction)
 
     def test_fit_linear_regression_models_w_syndna_data_error(self):
         # syndnas in the config that aren't in the data
@@ -522,6 +636,7 @@ class FitSyndnaModelsTest(TestCase):
         }
 
         min_count = 200
+        syndna_contributing_fraction = 1
 
         expected_err_msg = \
             r"Missing the following 1 required syndna feature\(s\) in the " \
@@ -538,7 +653,8 @@ class FitSyndnaModelsTest(TestCase):
             fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
-                reads_per_syndna_per_sample_df, min_count)
+                reads_per_syndna_per_sample_df, min_count,
+                syndna_contributing_fraction)
 
     def test__validate_syndna_id_consistency(self):
         syndna_concs_df = pd.DataFrame(FitSyndnaModelsTestData.syndna_concs_dict)

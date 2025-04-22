@@ -11,7 +11,7 @@ from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
     DNA_BASEPAIR_G_PER_MOLE, NANOGRAMS_PER_GRAM, \
     SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY, ELUTE_VOL_UL_KEY
 
-from pysyndna.src.fit_syndna_models import SYNDNA_POOL_MASS_NG_KEY, \
+from pysyndna.src.fit_syndna_models import INPUT_SYNDNA_POOL_MASS_NG_KEY, \
     SLOPE_KEY, INTERCEPT_KEY
 
 DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE = 0.05
@@ -91,7 +91,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
         including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
-        ELUTE_VOL_UL_KEY, SYNDNA_POOL_MASS_NG_KEY.
+        ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY.
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
         dictionary keyed by sample id, containing for each sample a dictionary
@@ -126,7 +126,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     """
 
     required_prep_cols = list(
-        {SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
+        {INPUT_SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
     validate_required_columns_exist(
         prep_info_df, required_prep_cols,
         "prep info is missing required column(s)")
@@ -140,16 +140,18 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     # cast in case the input comes in as string or something
     syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
 
-    # make sure the SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
+    # TODO: replace this with just taking in the measured sample gdna mass
+    # ensure INPUT_SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
     # then calculate the mass of gDNA sequenced for each sample.  We have the
     # mass of syndna pool that was added to each sample, and we know that the
     # syndna pool mass is calculated to be a certain percentage of the mass of
     # the sample (added into the library prep in addition to the sample mass).
     # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
     # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
-    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_MASS_NG_KEY], True)
+    prep_info_df = cast_cols(
+        prep_info_df, [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
     prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
-        prep_info_df[SYNDNA_POOL_MASS_NG_KEY] * \
+        prep_info_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
         (1 / syndna_mass_fraction_of_sample)
 
     # merge the sample info and prep info dataframes
