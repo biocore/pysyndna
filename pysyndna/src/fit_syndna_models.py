@@ -558,7 +558,7 @@ def fit_linear_regression_models_for_qiita(
     ----------
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, and
+        including SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, and
         INPUT_SYNDNA_POOL_MASS_NG_KEY.
     reads_per_syndna_per_sample_biom: biom.Table
         Biom table holding read counts aligned to each synDNA in each sample.

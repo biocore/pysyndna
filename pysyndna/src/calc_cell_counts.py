@@ -788,6 +788,49 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
         -> Dict[str, Union[str, biom.Table]]:
+    """Calculates the number of cells per gram of sample material.
+
+    Parameters
+    ----------
+    sample_info_df: pd.DataFrame
+        A Dataframe containing sample info for all samples in the prep,
+        including SAMPLE_ID_KEY and SAMPLE_IN_ALIQUOT_MASS_G_KEY
+    prep_info_df: pd.DataFrame
+        A Dataframe containing prep info for all samples in the prep,
+        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
+        ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY.
+    linregress_by_sample_id_fp: str
+        String containing the filepath to the yaml file holding the
+        dictionary keyed by sample id, containing for each sample a dictionary
+        representation of the sample's LinregressResult.
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_percent_coverage_df : pd.DataFrame
+        A Dataframe of OGU_ID_KEY and OGU_PERCENT_COVERAGE_KEY for each OGU.
+    ogu_lengths_fp : str
+        String containing the filepath to a tab-separated, two-column,
+        no-header file in which the first column is the OGU id and the
+         second is the OGU length in basepairs
+    min_coverage : float
+        Minimum allowable % coverage of an OGU in a sample needed to include
+        that OGU/sample in the output.
+    min_rsquared: float
+        Minimum allowable R^2 value for the linear regression model for a
+        sample; any sample with an R^2 value less than this will be excluded
+        from the output.
+    syndna_mass_fraction_of_sample: float
+        Fraction of the mass of the sample that is added as syndna (usually
+        0.05, which is to say 5%).
+
+    Returns
+    -------
+    output_by_out_type : dict of str or biom.Table
+        Dictionary of outputs keyed by their type Currently, the following keys
+        are defined:
+        CELL_COUNT_RESULT_KEY: biom.Table holding the calculated number of
+        cells per gram of sample material for each OGU in each sample.
+        CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
+    """
 
     # check if the inputs all have the required columns
     validate_required_columns_exist(
