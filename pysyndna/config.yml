@@ -23,3 +23,14 @@
         "synDNA_16SrRNA_seq_2_gc=0.46": 0.01
         "synDNA_16SrRNA_seq_2_gc=0.56": 0.01
         "synDNA_16SrRNA_seq_2_gc=0.66": 1
+    "pool2000":
+        "synDNA_16SrRNA_seq_1_gc=0.26": 10
+        "synDNA_16SrRNA_seq_1_gc=0.36": 1
+        "synDNA_16SrRNA_seq_1_gc=0.46": 0.1
+        "synDNA_16SrRNA_seq_1_gc=0.56": 0.01
+        "synDNA_16SrRNA_seq_1_gc=0.66": 0.001
+        "synDNA_16SrRNA_seq_2_gc=0.26": 0.001
+        "synDNA_16SrRNA_seq_2_gc=0.36": 0.01
+        "synDNA_16SrRNA_seq_2_gc=0.46": 0.1
+        "synDNA_16SrRNA_seq_2_gc=0.56": 1
+        "synDNA_16SrRNA_seq_2_gc=0.66": 10
