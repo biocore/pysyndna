@@ -4,11 +4,12 @@ import numpy.testing as npt
 import pandas
 from pandas.testing import assert_series_equal, assert_frame_equal
 from unittest import TestCase
-from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
-    calc_gs_genomic_element_in_aliquot, \
-    validate_metadata_vs_prep_id_consistency, filter_data_by_sample_info, \
-    validate_metadata_vs_reads_id_consistency, cast_cols, \
-    validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY
+from pysyndna.src.util import (calc_copies_genomic_element_per_g_series, \
+    calc_gs_genomic_element_in_aliquot, get_ids_from_df_or_biom, \
+    filter_data_by_sample_info, cast_cols, \
+    validate_id_consistency_between_datasets, \
+    validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
+    OGU_ID_KEY)
 
 
 class Testers(TestCase):
@@ -66,6 +67,82 @@ class Testers(TestCase):
 
 
 class TestUtils(TestCase):
+    def test_get_ids_from_df_or_biom_biom_sample_ids(self):
+        input_biom = biom.table.Table(
+            np.array([[1, 2], [3, 4]]),
+            ['ogu01', 'ogu02'],
+            ['sample1', 'sample2'])
+
+        obs_ids = get_ids_from_df_or_biom(input_biom, True)
+        expected_ids = ['sample1', 'sample2']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_biom_ogu_ids(self):
+        input_biom = biom.table.Table(
+            np.array([[1, 2], [3, 4]]),
+            ['ogu01', 'ogu02'],
+            ['sample1', 'sample2'])
+
+        obs_ids = get_ids_from_df_or_biom(input_biom, False)
+        expected_ids = ['ogu01', 'ogu02']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_df_sample_ids_explicit(self):
+        input_dict = {
+            SAMPLE_ID_KEY: ['sample1', 'sample2'],
+            'prep_id': ['prep1', 'prep2'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        obs_ids = get_ids_from_df_or_biom(input_df, True)
+        expected_ids = ['sample1', 'sample2']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_df_sample_ids_implicit(self):
+        input_dict = {
+            'sample1': [1, 2],
+            'sample2': [3, 4],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        obs_ids = get_ids_from_df_or_biom(input_df, True)
+        expected_ids = ['sample1', 'sample2']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_df_sample_ids_implicit_w_ogu_id_col(self):
+        input_dict = {
+            OGU_ID_KEY: ['ogu01', 'ogu02'],
+            'sample1': [1, 2],
+            'sample2': [3, 4],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        obs_ids = get_ids_from_df_or_biom(input_df, True)
+        expected_ids = ['sample1', 'sample2']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_df_ogu_ids_explicit(self):
+        input_dict = {
+            'ogu_id': ['ogu01', 'ogu02'],
+            'prep_id': ['prep1', 'prep2'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        obs_ids = get_ids_from_df_or_biom(input_df, False)
+        expected_ids = ['ogu01', 'ogu02']
+        self.assertListEqual(obs_ids, expected_ids)
+
+    def test_get_ids_from_df_or_biom_df_ogu_ids_err(self):
+        input_dict = {
+            'sample_id': ['sample1', 'sample2'],
+            'prep_id': ['prep1', 'prep2'],
+        }
+        input_df = pandas.DataFrame(input_dict)
+
+        expected_err = "DataFrame does not have a column named 'ogu_id'"
+        with self.assertRaisesRegex(ValueError, expected_err):
+            _ = get_ids_from_df_or_biom(input_df, False)
+
     def test_validate_required_columns_exist_true(self):
         input_dict = {
             'sample_id': ['sample1'],
@@ -105,7 +182,8 @@ class TestUtils(TestCase):
         }
         prep_df = pandas.DataFrame(prep_dict)
 
-        _ = validate_metadata_vs_prep_id_consistency(input_df, prep_df)
+        _ = validate_id_consistency_between_datasets(
+                input_df, prep_df, "sample info", "prep info", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)
@@ -123,8 +201,8 @@ class TestUtils(TestCase):
         }
         prep_df = pandas.DataFrame(prep_dict)
 
-        not_in_prep_ids = validate_metadata_vs_prep_id_consistency(
-            input_df, prep_df)
+        not_in_prep_ids = validate_id_consistency_between_datasets(
+            input_df, prep_df, "sample info", "prep info", True)
 
         expected_not_in_prep_ids = ['sample2']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
@@ -145,8 +223,72 @@ class TestUtils(TestCase):
         expected_err = (r"Found sample ids in prep info that were not in "
                         r"sample info: \{'sample2'\}")
         with self.assertRaisesRegex(ValueError, expected_err):
-            _ = validate_metadata_vs_prep_id_consistency(
-                input_df, prep_df)
+            _ = validate_id_consistency_between_datasets(
+                input_df, prep_df, "sample info", "prep info", True)
+
+    def test_validate_coverage_vs_reads_id_consistency_df_true(self):
+        coverages_dict = {
+            'ogu_id': ['ogu01', 'ogu02'],
+            'sample1': [0.1, 2.0],
+            'sample2': [3.3, 0.04],
+        }
+        coverages_df = pandas.DataFrame(coverages_dict)
+
+        reads_dict = {
+            'ogu_id': ['ogu01', 'ogu02'],
+            'sample1': [1, 2],
+            'sample2': [3, 4],
+        }
+        reads_df = pandas.DataFrame(reads_dict)
+
+        _ = validate_id_consistency_between_datasets(coverages_df, reads_df, "coverage data", "reads data", True)
+
+        # Pass test if we made it this far
+        self.assertTrue(True)
+
+    def test_validate_coverage_vs_reads_id_consistency_df_true_w_msg(self):
+        coverages_dict = {
+            'ogu_id': ['ogu01', 'ogu02'],
+            'sample1': [0.1, 2.0],
+            'sample2': [3.3, 0.04],
+            'sample3': [0.5, 0.6],
+        }
+        coverages_df = pandas.DataFrame(coverages_dict)
+
+        reads_dict = {
+            'ogu_id': ['ogu01', 'ogu02'],
+            'sample1': [1, 2],
+            'sample2': [3, 4],
+        }
+        reads_df = pandas.DataFrame(reads_dict)
+
+        not_in_read_ids = validate_id_consistency_between_datasets(
+            coverages_df, reads_df, "coverage data", "reads data", True)
+
+        expected_not_in_read_ids = ['sample3']
+        self.assertEqual(not_in_read_ids, expected_not_in_read_ids)
+
+    # def test_validate_coverage_vs_reads_id_consistency_df_err(self):
+    #     coverages_dict = {
+    #         OGU_ID_KEY: ['ogu01'],
+    #         'sample1': [0.1],
+    #         'sample2': [3.3],
+    #     }
+    #
+    #     coverages_df = pandas.DataFrame(coverages_dict)
+    #
+    #     reads_dict = {
+    #         OGU_ID_KEY: ['ogu01', 'ogu02'],
+    #         'sample1': [1, 2],
+    #         'sample2': [3, 4],
+    #     }
+    #
+    #     reads_df = pandas.DataFrame(reads_dict)
+    #     expected_err = (r"Found sample ids in reads data that were not in "
+    #                     r"coverage data: \{'sample2'\}")
+    #     with self.assertRaisesRegex(ValueError, expected_err):
+    #         _ = validate_id_consistency_between_datasets(
+    #             coverages_df, reads_df, "coverage data", "reads data", True)
 
     def test_validate_metadata_vs_reads_id_consistency_df_true(self):
         input_dict = {
@@ -161,7 +303,8 @@ class TestUtils(TestCase):
         }
         reads_df = pandas.DataFrame(reads_dict)
 
-        _ = validate_metadata_vs_reads_id_consistency(input_df, reads_df)
+        _ = validate_id_consistency_between_datasets(
+                input_df, reads_df, "sample info", "reads data", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)
@@ -179,8 +322,8 @@ class TestUtils(TestCase):
         }
         reads_df = pandas.DataFrame(reads_dict)
 
-        not_in_prep_ids = validate_metadata_vs_reads_id_consistency(
-            input_df, reads_df)
+        not_in_prep_ids = validate_id_consistency_between_datasets(
+            input_df, reads_df, "sample info", "reads data", True)
 
         expected_not_in_prep_ids = ['sample3']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
@@ -201,8 +344,8 @@ class TestUtils(TestCase):
         expected_err = (r"Found sample ids in reads data that were not in "
                         r"sample info: \{'sample2'\}")
         with self.assertRaisesRegex(ValueError, expected_err):
-            _ = validate_metadata_vs_reads_id_consistency(
-                input_df, reads_df)
+            _ = validate_id_consistency_between_datasets(
+                    input_df, reads_df, "sample info", "reads data", True)
 
     def test_validate_metadata_vs_reads_id_consistency_biom_true(self):
         input_dict = {
@@ -216,7 +359,8 @@ class TestUtils(TestCase):
             ['obs1', 'obs2'],
             ['sample1', 'sample2'])
 
-        _ = validate_metadata_vs_reads_id_consistency(input_df, reads_biom)
+        _ = validate_id_consistency_between_datasets(
+                input_df, reads_biom, "sample info", "reads data", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)
@@ -233,8 +377,8 @@ class TestUtils(TestCase):
             ['obs1', 'obs2'],
             ['sample1', 'sample2'])
 
-        not_in_prep_ids = validate_metadata_vs_reads_id_consistency(
-            input_df, reads_biom)
+        not_in_prep_ids = validate_id_consistency_between_datasets(
+            input_df, reads_biom, "sample info", "reads data", True)
 
         expected_not_in_prep_ids = ['sample3']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
@@ -254,8 +398,8 @@ class TestUtils(TestCase):
         expected_err = (r"Found sample ids in reads data that were not in "
                         r"sample info: \{'sample2'\}")
         with self.assertRaisesRegex(ValueError, expected_err):
-            _ = validate_metadata_vs_reads_id_consistency(
-                input_df, reads_biom)
+            _ = validate_id_consistency_between_datasets(
+                    input_df, reads_biom, "sample info", "reads data", True)
 
     def test_cast_cols(self):
         # all inputs are strings

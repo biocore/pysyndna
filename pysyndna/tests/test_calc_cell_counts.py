@@ -10,9 +10,10 @@ from pysyndna import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_cm2_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_ul_of_sample_for_qiita
+from pysyndna.src.util import OGU_ID_KEY
 from pysyndna.src.fit_syndna_models import SAMPLE_TOTAL_READS_KEY
 from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
-    OGU_ID_KEY, OGU_READ_COUNT_KEY, \
+    OGU_READ_COUNT_KEY, \
     OGU_LEN_IN_BP_KEY, OGU_GDNA_MASS_NG_KEY, \
     SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, OGU_GENOMES_PER_G_OF_GDNA_KEY, \
     OGU_CELLS_PER_G_OF_GDNA_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY, \
@@ -1280,6 +1281,9 @@ class TestCalcCellCounts(TestCase):
         per_sample_calc_info_df = pd.DataFrame(TestCalcCellCountsData.mass_and_totals_dict)
         coverages_df = pd.DataFrame(
             TestCalcCellCountsData.ogu_percent_coverage_dict)
+        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_df = pd.DataFrame(expected_dict)
 
@@ -1318,6 +1322,9 @@ class TestCalcCellCounts(TestCase):
         mass_ratio_df = pd.DataFrame(mass_ratio_dict)
         coverages_df = pd.DataFrame(
             TestCalcCellCountsData.ogu_percent_coverage_dict)
+        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         min_coverage = 10
@@ -1352,6 +1359,9 @@ class TestCalcCellCounts(TestCase):
         counts_df.set_index(OGU_ID_KEY, inplace=True)
         coverages_df = pd.DataFrame(
             TestCalcCellCountsData.ogu_percent_coverage_dict)
+        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_out_df = pd.DataFrame(expected_out_dict)
 
@@ -1408,7 +1418,11 @@ class TestCalcCellCounts(TestCase):
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        coverages_df = pd.DataFrame(TestCalcCellCountsData.ogu_percent_coverage_dict)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        coverages_df['A'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df['B'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
+        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_out_df = pd.DataFrame(expected_out_dict)
 

@@ -10,7 +10,7 @@ import yaml
 
 from typing import Optional, List, Dict, Union
 from pysyndna.src.util import validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, cast_cols, \
+    validate_id_consistency_between_datasets, cast_cols, \
     filter_data_by_sample_info, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
@@ -150,8 +150,9 @@ def _validate_sample_id_consistency(
     simplified_reads_df = reads_per_syndna_per_sample_df.copy()
     simplified_reads_df.drop(columns=[SYNDNA_ID_KEY], inplace=True)
 
-    missing_sample_ids = validate_metadata_vs_reads_id_consistency(
-        sample_syndna_weights_and_total_reads_df, simplified_reads_df)
+    missing_sample_ids = validate_id_consistency_between_datasets(
+        sample_syndna_weights_and_total_reads_df, simplified_reads_df,
+        "sample info", "reads data", True)
 
     return missing_sample_ids
 
