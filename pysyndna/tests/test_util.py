@@ -169,7 +169,7 @@ class TestUtils(TestCase):
             validate_required_columns_exist(
                 input_df, required_columns, "missing")
 
-    def test_validate_metadata_vs_prep_id_consistency_true(self):
+    def test_validate_id_consistency_between_datasets_long_v_long_true(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1'],
             'color': ['blue'],
@@ -188,7 +188,7 @@ class TestUtils(TestCase):
         # Pass test if we made it this far
         self.assertTrue(True)
 
-    def test_validate_metadata_vs_prep_id_consistency_true_w_msg(self):
+    def test_validate_id_consistency_between_datasets_long_v_long_true_w_msg(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1', 'sample2'],
             'color': ['blue', 'aqua'],
@@ -207,7 +207,7 @@ class TestUtils(TestCase):
         expected_not_in_prep_ids = ['sample2']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
 
-    def test_validate_metadata_vs_prep_id_consistency_err(self):
+    def test_validate_id_consistency_between_datasets_long_v_long_err(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1'],
             'color': ['blue'],
@@ -290,7 +290,7 @@ class TestUtils(TestCase):
     #         _ = validate_id_consistency_between_datasets(
     #             coverages_df, reads_df, "coverage data", "reads data", True)
 
-    def test_validate_metadata_vs_reads_id_consistency_df_true(self):
+    def test_validate_id_consistency_between_datasets_wide_v_wide_true(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1', 'sample2'],
             'color': ['blue', 'aqua'],
@@ -309,7 +309,7 @@ class TestUtils(TestCase):
         # Pass test if we made it this far
         self.assertTrue(True)
 
-    def test_validate_metadata_vs_reads_id_consistency_df_true_w_msg(self):
+    def test_validate_id_consistency_between_datasets_wide_v_wide_true_w_msg(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1', 'sample2', 'sample3'],
             'color': ['blue', 'aqua', 'cerulean'],
@@ -328,7 +328,7 @@ class TestUtils(TestCase):
         expected_not_in_prep_ids = ['sample3']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
 
-    def test_validate_metadata_vs_reads_id_consistency_df_err(self):
+    def test_validate_id_consistency_between_datasets_wide_v_wide_err(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1'],
             'color': ['blue'],
@@ -347,7 +347,7 @@ class TestUtils(TestCase):
             _ = validate_id_consistency_between_datasets(
                     input_df, reads_df, "sample info", "reads data", True)
 
-    def test_validate_metadata_vs_reads_id_consistency_biom_true(self):
+    def test_validate_id_consistency_between_datasets_wide_v_biom_true(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1', 'sample2'],
             'color': ['blue', 'aqua'],
@@ -365,7 +365,7 @@ class TestUtils(TestCase):
         # Pass test if we made it this far
         self.assertTrue(True)
 
-    def test_validate_metadata_vs_reads_id_consistency_biom_true_w_msg(self):
+    def test_validate_id_consistency_between_datasets_wide_v_biom_true_w_msg(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1', 'sample2', 'sample3'],
             'color': ['blue', 'aqua', 'cerulean'],
@@ -383,7 +383,7 @@ class TestUtils(TestCase):
         expected_not_in_prep_ids = ['sample3']
         self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
 
-    def test_validate_metadata_vs_reads_id_consistency_biom_err(self):
+    def test_validate_id_consistency_between_datasets_wide_v_biom_err(self):
         input_dict = {
             SAMPLE_ID_KEY: ['sample1'],
             'color': ['blue'],
