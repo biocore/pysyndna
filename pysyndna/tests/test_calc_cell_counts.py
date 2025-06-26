@@ -140,6 +140,15 @@ class TestCalcCellCountsData:
                                    10.533221485547]
     }
 
+    ogu_percent_coverage_per_sample_df = \
+        pd.DataFrame(ogu_percent_coverage_dict)
+    ogu_percent_coverage_per_sample_df["example1"] = \
+        ogu_percent_coverage_per_sample_df[OGU_PERCENT_COVERAGE_KEY]
+    ogu_percent_coverage_per_sample_df["example2"] = \
+        ogu_percent_coverage_per_sample_df[OGU_PERCENT_COVERAGE_KEY]
+    ogu_percent_coverage_per_sample_df.drop(
+        columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
+
     # This dict contains counts (from Zaramela, see above) for example 1
     example1_ogu_full_inputs_dict = ogu_lengths_dict.copy()
     # These values are taken from cell directly under the
@@ -1101,6 +1110,56 @@ class TestCalcCellCounts(TestCase):
              "10.0: ['Neisseria subflava', 'Haemophilus influenzae']"],
             output_msgs)
 
+    def test_calc_ogu_cell_counts_biom_w_per_sample_coverages(self):
+        params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
+                       [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                        SAMPLE_VOLUME_UL_KEY, SAMPLE_SURFACE_AREA_CM2_KEY,
+                        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+                        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
+
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        params_df = pd.DataFrame(params_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            params_dict[SAMPLE_ID_KEY])
+        coverages_per_sample_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(TestCalcCellCountsData.reordered_results_dict[OGU_CELLS_PER_G_OF_GDNA_KEY]),
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            TestCalcCellCountsData.reordered_results_dict[SAMPLE_ID_KEY])
+
+        min_coverage = 10
+        min_rsquared = 0.8
+        output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
+
+        # Note: 1) this is outputting the ogu_cell_counts_per_g_gdna, not the
+        # ogu_cell_counts_per_g_sample (which is what is output by the qiita
+        # version of this function) because I want to check that I really can
+        # choose to get something else, and 2) this is using the full version
+        # of Avogadro's #, not the truncated version that was used in the
+        # notebook, so the results are slightly different (but more realistic)
+        output_biom, output_msgs = calc_ogu_cell_counts_biom(
+            params_df, TestCalcCellCountsData.linregresses_dict, counts_biom,
+            coverages_per_sample_df, lengths_df, min_coverage, min_rsquared,
+            output_metric)
+
+        # NB: only checking results to 1 decimal because Ubuntu and Mac
+        # differ past that point. Not that it matters much since the decimal
+        # portion of values this huge is not very important.
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(expected_out_biom, output_biom,
+                                          decimal_precision=1)
+        self.assertListEqual(
+            ["The following items have % coverage lower than the minimum of "
+             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']"],
+            output_msgs)
+
     def test_calc_ogu_cell_counts_biom_w_col_err(self):
         # missing SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY col
         params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
@@ -1130,39 +1189,96 @@ class TestCalcCellCounts(TestCase):
                 counts_biom, coverages_df, lengths_df,
                 min_coverage, min_rsquared, output_metric)
 
-    def test_calc_ogu_cell_counts_biom_w_id_err(self):
-        params_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
-                       [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
-                        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
-                        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
+    def _help_test_calc_ogu_cell_counts_biom_w_id_err(
+            self, err_msg, params_dict=None, params_df=None,
+            count_ogu_ids=None, count_sample_ids=None, coverages_df=None,
+            lengths_df=None):
+        if params_dict is None:
+            params_dict = {
+                k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for
+                k in [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                      GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+                      SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
 
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
-
-        # remove one of the sample ids from the params info; this will cause
-        # an error (whereas the reverse--sample id in params info but not in
-        # reads data--will NOT)
-        params_df = pd.DataFrame(params_dict)
-        params_df.drop(index=0, axis=0, inplace=True)
+        if count_ogu_ids is None:
+            count_ogu_ids = TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY]
+        if count_sample_ids is None:
+            count_sample_ids = params_dict[SAMPLE_ID_KEY]
 
         counts_biom = biom.table.Table(
-            counts_vals,
-            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
-            params_dict[SAMPLE_ID_KEY])
-        coverages_df = pd.DataFrame(
-            TestCalcCellCountsData.ogu_percent_coverage_dict)
-        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
+            counts_vals, count_ogu_ids, count_sample_ids)
+
+        if params_df is None:
+            params_df = pd.DataFrame(params_dict)
+        if coverages_df is None:
+            coverages_df = pd.DataFrame(
+                TestCalcCellCountsData.ogu_percent_coverage_dict)
+        if lengths_df is None:
+            lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         min_coverage = 10
         min_rsquared = 0.8
         output_metric = OGU_CELLS_PER_G_OF_GDNA_KEY
 
-        err_msg = (r"Found sample ids in reads data that were not in "
-                   r"sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
             calc_ogu_cell_counts_biom(
                 params_df, TestCalcCellCountsData.linregresses_dict,
-                counts_biom,  coverages_df, lengths_df,
+                counts_biom, coverages_df, lengths_df,
                 min_coverage, min_rsquared, output_metric)
+
+    def test_calc_ogu_cell_counts_biom_w_sample_info_missing_sample_id_err(self):
+        # removes one of the sample ids from the params info; this will cause
+        # an error (whereas the reverse--sample id in params info but not in
+        # reads data--will NOT)
+        params_dict = {
+            k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for
+            k in [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+                  GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+                  SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY]}
+
+        # drop one sample from the params_df (don't care which one)
+        params_df = pd.DataFrame(params_dict)
+        params_df.drop(index=0, axis=0, inplace=True)
+
+        err_msg = (r"Found sample ids in OGU counts data that were not in "
+                   r"sample info: \{'example1'\}")
+        self._help_test_calc_ogu_cell_counts_biom_w_id_err(
+            err_msg, params_dict=params_dict,
+            params_df=params_df)
+
+    def test_calc_ogu_cell_counts_biom_w_coverages_missing_sample_id_err(self):
+        # removes one of the sample ids from the coverages per sample df
+        coverages_per_sample_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
+        coverages_per_sample_df.drop(
+            coverages_per_sample_df.columns[-1], axis=1, inplace=True)
+
+        err_msg = ("Found sample ids in OGU counts data that were not in"
+                   " OGU percent coverage data: {'example2'}")
+        self._help_test_calc_ogu_cell_counts_biom_w_id_err(
+            err_msg, coverages_df=coverages_per_sample_df)
+
+    def test_calc_ogu_cell_counts_biom_w_coverages_missing_ogu_id_err(self):
+        # removes one of the ogu ids from the coverages per sample df
+        coverages_per_sample_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
+        coverages_per_sample_df.drop(index=0, axis=0, inplace=True)
+
+        err_msg = ("Found OGU ids in OGU counts data that were not in "
+                   "OGU percent coverage data: {'Lactobacillus gasseri'}")
+        self._help_test_calc_ogu_cell_counts_biom_w_id_err(
+            err_msg, coverages_df=coverages_per_sample_df)
+
+    def test_calc_ogu_cell_counts_biom_w_lengths_missing_ogu_id_err(self):
+        # removes one of the ogu ids from the ogu lengths df
+        lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
+        lengths_df.drop(index=0, axis=0, inplace=True)
+
+        err_msg = ("Found OGU ids in OGU counts data that were not in "
+                   "OGU lengths info: {'Lactobacillus gasseri'}")
+        self._help_test_calc_ogu_cell_counts_biom_w_id_err(
+            err_msg, lengths_df=lengths_df)
 
     def test_calc_ogu_cell_counts_biom_w_cast(self):
         # these values are the same as those in self.sample_and_prep_input_dict
@@ -1279,11 +1395,8 @@ class TestCalcCellCounts(TestCase):
         counts_df.set_index(OGU_ID_KEY, inplace=True)
 
         per_sample_calc_info_df = pd.DataFrame(TestCalcCellCountsData.mass_and_totals_dict)
-        coverages_df = pd.DataFrame(
-            TestCalcCellCountsData.ogu_percent_coverage_dict)
-        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
+        coverages_per_sample_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_df = pd.DataFrame(expected_dict)
 
@@ -1291,8 +1404,9 @@ class TestCalcCellCounts(TestCase):
         min_rsquared = 0.8
 
         output_df, output_msgs = _calc_long_format_ogu_cell_counts_df(
-            TestCalcCellCountsData.linregresses_dict, counts_df, coverages_df,
-            lengths_df, per_sample_calc_info_df, min_coverage, min_rsquared)
+            TestCalcCellCountsData.linregresses_dict, counts_df,
+            coverages_per_sample_df, lengths_df, per_sample_calc_info_df,
+            min_coverage, min_rsquared)
 
         pd.testing.assert_frame_equal(expected_df, output_df)
         self.assertListEqual(
@@ -1320,11 +1434,8 @@ class TestCalcCellCounts(TestCase):
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
         mass_ratio_df = pd.DataFrame(mass_ratio_dict)
-        coverages_df = pd.DataFrame(
-            TestCalcCellCountsData.ogu_percent_coverage_dict)
-        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
+        coverages_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
 
         min_coverage = 10
@@ -1357,11 +1468,8 @@ class TestCalcCellCounts(TestCase):
 
         counts_df = pd.DataFrame(counts_dict)
         counts_df.set_index(OGU_ID_KEY, inplace=True)
-        coverages_df = pd.DataFrame(
-            TestCalcCellCountsData.ogu_percent_coverage_dict)
-        coverages_df['example1'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df['example2'] = coverages_df[OGU_PERCENT_COVERAGE_KEY]
-        coverages_df.drop(columns=[OGU_PERCENT_COVERAGE_KEY], inplace=True)
+        coverages_df = \
+            TestCalcCellCountsData.ogu_percent_coverage_per_sample_df.copy()
         lengths_df = pd.DataFrame(TestCalcCellCountsData.ogu_lengths_dict)
         expected_out_df = pd.DataFrame(expected_out_dict)
 

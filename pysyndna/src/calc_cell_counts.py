@@ -65,6 +65,11 @@ SAMPLE_LEVEL_METRICS_DICT = {
         RATIO_NAME_KEY: GDNA_MASS_TO_SAMPLE_SURFACE_AREA_RATIO_KEY}
 }
 
+_METATDATA_NAME = "sample info"
+_COUNTS_DATA_NAME = "OGU counts data"
+_COVERAGE_DATA_NAME = "OGU percent coverage data"
+_LENGTHS_DATA_NAME = "OGU lengths info"
+
 
 def _generate_ogu_coverages_per_sample_df(
         ogu_percent_coverage_df: pd.DataFrame,
@@ -97,6 +102,7 @@ def _generate_ogu_coverages_per_sample_df(
         sample_ids = get_ids_from_df_or_biom(ogu_counts_per_sample_biom)
         for curr_sample_id in sample_ids:
             if curr_sample_id in ogu_percent_coverage_df.columns:
+                # this is an unrecognized format; don't know how to parse it
                 raise ValueError(f"OGU percent coverage data contains both"
                                  f"{OGU_PERCENT_COVERAGE_KEY} and a column "
                                  f"with a sample name: '{curr_sample_id}'.")
@@ -106,7 +112,7 @@ def _generate_ogu_coverages_per_sample_df(
                 ogu_percent_coverage_df[OGU_PERCENT_COVERAGE_KEY]
         # next sample_id
 
-        # extract only the columns of sample ids
+        # extract only the ogu id column and the columns of sample ids
         desired_cols = [OGU_ID_KEY] + sample_ids
         ogu_percent_coverage_per_sample_df = \
             ogu_percent_coverage_per_sample_df.loc[:, desired_cols]
@@ -114,6 +120,94 @@ def _generate_ogu_coverages_per_sample_df(
 
     return ogu_percent_coverage_per_sample_df
 
+
+def _validate_sample_ids_in_inputs(
+        absolute_quant_params_per_sample_df: pd.DataFrame,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_per_sample_df: pd.DataFrame) -> None:
+
+    """Validates that the sample ids in the inputs are consistent.
+
+    Parameters
+    ----------
+    absolute_quant_params_per_sample_df: pd.DataFrame
+        A Dataframe of metadata parameters for each sample, including a
+        SAMPLE_ID_KEY column.
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_percent_coverage_per_sample_df : pd.DataFrame
+        A DataFrame containing a column for OGU_ID_KEY and a column for each
+        sample id, which holds the percent coverage of that OGU in that sample.
+
+    Raises
+    ------
+    ValueError
+        If the sample ids in the absolute quant params per sample,
+        ogu counts per sample, and/or ogu percent coverages by sample
+        are not consistent.
+    """
+
+    # Check if any samples in the reads data are missing from the metadata;
+    # Not bothering to report samples that are in metadata but not the reads--
+    # maybe those failed the sequencing run.
+    _ = validate_id_consistency_between_datasets(
+        absolute_quant_params_per_sample_df, ogu_counts_per_sample_biom,
+        _METATDATA_NAME, _COUNTS_DATA_NAME,  check_sample_ids=True)
+
+    # Check that every sample in the reads data is also in the ogu coverages.
+    # Not worrying about samples that are in coverages but not the reads.
+    _ = validate_id_consistency_between_datasets(
+        ogu_percent_coverage_per_sample_df, ogu_counts_per_sample_biom,
+        _COVERAGE_DATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=True)
+
+    # Not checking that all the samples in the coverages data are in the
+    # metadata or vice versa because we don't really care about any of them
+    # that aren't *also* in the reads data, and we've already checked those for
+    # consistency.
+
+
+def _validate_ogu_ids_in_inputs(
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_percent_coverage_per_sample_df: pd.DataFrame,
+        ogu_lengths_df: pd.DataFrame) -> None:
+    """Validates that the OGU ids in the inputs are consistent.
+
+    Parameters
+    ----------
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_percent_coverage_per_sample_df : pd.DataFrame
+        A DataFrame containing a column for OGU_ID_KEY and a column for each
+        sample id, which holds the percent coverage of that OGU in that sample.
+    ogu_lengths_df : pd.DataFrame
+        A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
+
+    Raises
+    ------
+    ValueError
+        If the OGU ids in the ogu counts per sample, ogu percent coverages per
+        sample, and/or ogu lengths are not consistent.
+    """
+
+    # Check that every ogu in the reads data is also in the ogu lengths;
+    # Not bothering to report ogus that are in lengths but not the reads--
+    # maybe those just don't exist in these samples.
+    _ = validate_id_consistency_between_datasets(
+        ogu_lengths_df, ogu_counts_per_sample_biom,
+        _LENGTHS_DATA_NAME, _COUNTS_DATA_NAME,  check_sample_ids=False)
+
+    # Check that every ogu in the reads data is also in the ogu coverages;
+    # Not bothering to report ogus that are in coverages but not the reads--
+    # can imagine having zero-coverage OGUs included there (but not verifying
+    # that any OGUs in the coverages data that are missing from the
+    # reads data actually have zero coverage, bc one has to stop somewhere :)
+    _ = validate_id_consistency_between_datasets(
+        ogu_percent_coverage_per_sample_df, ogu_counts_per_sample_biom,
+        _COVERAGE_DATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=False)
+
+    # Not checking that all the ogus in the coverages data are in the
+    # lengths because we don't really care about any of them that aren't *also*
+    # in the reads data, and we've already checked those for consistency.
 
 def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df: pd.DataFrame,
@@ -372,8 +466,8 @@ def _prepare_cell_counts_calc_df(
         id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY,
         value_name=OGU_READ_COUNT_KEY)
 
-    # reformat the ogu percent coverage info into a "long format" table with
-    # columns for OGU_ID_KEY, SAMPLE_ID_KEY, OGU_PERCENT_COVERAGE_KEY
+    # reformat the ogu percent coverage per sample info into a "long format"
+    # table w columns for OGU_ID_KEY, SAMPLE_ID_KEY, OGU_PERCENT_COVERAGE_KEY
     working_coverage_df = \
         ogu_percent_coverage_per_sample_df.melt(
             id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY,
@@ -757,37 +851,22 @@ def calc_ogu_cell_counts_biom(
 
     validate_required_columns_exist(
         ogu_percent_coverage_df, [OGU_ID_KEY],
-        "OGU percent coverage is missing required column(s)")
+        f"{_COVERAGE_DATA_NAME} is missing required column(s)")
 
     # handle either original case where OGU percent coverage is the same for
     # all samples, or the later case where it is different for each sample;
-    # from now on, deal only with per-sample OGU percent coverages
+    # from here on in, deal only with per-sample OGU percent coverages
     ogu_percent_coverage_per_sample_df = \
         _generate_ogu_coverages_per_sample_df(
             ogu_percent_coverage_df, ogu_counts_per_sample_biom)
 
-    # Check that every sample in the reads data is also in the ogu coverages.
-    # Also, there probably shouldn't be any samples in the coverage data that
-    # aren't in the counts data, because how did they get coverage
-    # info without having any reads aligned to them?
-    samples_missing_in_counts = validate_id_consistency_between_datasets(
-        ogu_percent_coverage_per_sample_df, ogu_counts_per_sample_biom,
-        "OGU percent coverage data", "OGU counts data", True)
-    if samples_missing_in_counts:
-        raise ValueError(
-            f"The following samples in the OGU percent coverage data are "
-            f"missing from the OGU counts data: {samples_missing_in_counts}.")
-    # endif
+    _validate_sample_ids_in_inputs(absolute_quant_params_per_sample_df,
+                                   ogu_counts_per_sample_biom,
+                                   ogu_percent_coverage_per_sample_df)
 
-    # Check if any samples in the reads data are missing from the metadata;
-    # Not bothering to report samples that are in metadata but not the reads--
-    # maybe those failed the sequencing run.
-    _ = validate_id_consistency_between_datasets(
-        absolute_quant_params_per_sample_df, ogu_counts_per_sample_biom,
-        "sample info", "reads data", True)
-
-    # TODO: Check if there are any OGUs in the read data that are missing
-    #  from the OGU lengths data; if so, throw an error
+    _validate_ogu_ids_in_inputs(ogu_counts_per_sample_biom,
+                                ogu_percent_coverage_per_sample_df,
+                                ogu_lengths_df)
 
     working_params_df = absolute_quant_params_per_sample_df.copy()
 
