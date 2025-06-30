@@ -17,16 +17,26 @@ DEFAULT_MIN_SAMPLE_COUNTS = 1
 
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
+# The below is the fraction (range 0-1) of the total mass of the syndna pool
+# that is capable of contributing to counted reads. The only reads used are
+# those that hit the synDNA insert, not the (shared) backbone of the plasmid,
+# so only the fraction of the overall synDNA plasmid that is insert can
+# contribute to the counts; for example, if the insert is 2000 bases long and
+# the overall plasmid including the insert is 5000 bases long, then only
+# 2000/5000 = 2/5ths of the mass of the synDNA pool can contribute to
+# the counted reads. Other factors that affect the amount of synDNA mass
+# contributing to reads (such as shearing fraction for long plasmids) can also
+# be incorporated into this fraction.
 SYNDNA_CONTRIBUTING_FRACTION_KEY = 'syndna_contributing_fraction'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
 SYNDNA_FRACTION_OF_POOL_KEY = 'syndna_fraction_of_pool'
-# this is not a great name, but it is what was agreed on for the API early on;
+# the below is not a great name, but it is what was agreed on for the API early on;
 # it is the total mass of syndna pool that was added to a sample during prep
 INPUT_SYNDNA_POOL_MASS_NG_KEY = 'mass_syndna_input_ng'
-# this is the portion of the syndna pool mass that could actually contribute to
-# syndna reads for the sample, and thus can be used in the reads vs mass fit.
-# Since only inserts (and not the rest of the syndna plasmid) contribute to the
-# reads, this will generally be less than 1.
+# the below is the portion of the syndna pool mass (in ng) that could actually
+# contribute to syndna reads for the sample, and thus can be used in the reads
+# vs mass fit (since only inserts, and not the rest of the syndna plasmid,
+# contribute to the reads).
 SYNDNA_POOL_MASS_NG_KEY = "mass_syndna_pool_ng"
 SAMPLE_TOTAL_READS_KEY = 'raw_reads_r1r2'
 SYNDNA_COUNTS_KEY = 'read_count'
