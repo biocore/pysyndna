@@ -125,11 +125,13 @@ class FitSyndnaModelsTestData():
     prep_info_dict = copy.deepcopy(
         a_b_sample_syndna_weights_and_total_reads_dict)
     prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
-    prep_info_dict["syndna_pool_number"] = [1, 1]
+    prep_info_dict["syndna_pool_number"] = [0, 0]
 
     scaled_prep_info_dict = copy.deepcopy(
         scaled_a_b_sample_syndna_weights_and_total_reads_dict)
     scaled_prep_info_dict["sequencing_type"] = ["shotgun", "shotgun"]
+    # NB: in the alt config, syndna pool number 1 has
+    # syndna_contributing_fraction of 0.4
     scaled_prep_info_dict["syndna_pool_number"] = [1, 1]
 
     # combine each item in self.reads_per_syndna_per_sample_dict["A"] with
@@ -145,6 +147,7 @@ class FitSyndnaModelsTest(TestCase):
     def setUp(self):
         self.maxDiff = None
         self.data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        self.alt_config_fp = os.path.join(self.data_dir, 'alt_config.yml')
 
     def test_fit_linear_regression_models_for_qiita(self):
         prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.prep_info_dict)
@@ -211,9 +214,11 @@ class FitSyndnaModelsTest(TestCase):
             'fit_syndna_models_log': ''
         }
 
+        # NB: these test data require a different syndna_contributing_fraction
+        # than that in the real config, so must pass in the alt config file
         output_dict = fit_linear_regression_models_for_qiita(
             scaled_prep_info_df, input_biom, min_counts,
-            syndna_contributing_fraction=0.4)
+            syndna_pool_config_fp=self.alt_config_fp)
 
         self.assertDictEqual(expected_out, output_dict)
 
@@ -228,7 +233,6 @@ class FitSyndnaModelsTest(TestCase):
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
             FitSyndnaModelsTestData.sample_ids)
         min_counts = "50"
-        syndna_contributing_factor = "0.4"
 
         # These are text versions of the linear regression results
         # for the full data (see self.lingress_results and the
@@ -252,9 +256,11 @@ class FitSyndnaModelsTest(TestCase):
             'fit_syndna_models_log': ''
         }
 
+        # NB: these test data require a different syndna_contributing_fraction
+        # than that in the real config, so must pass in the alt config file
         output_dict = fit_linear_regression_models_for_qiita(
             prep_info_df, input_biom, min_counts,
-            syndna_contributing_fraction=syndna_contributing_factor)
+            syndna_pool_config_fp=self.alt_config_fp)
 
         self.assertDictEqual(expected_out, output_dict)
 
@@ -265,7 +271,6 @@ class FitSyndnaModelsTest(TestCase):
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
             FitSyndnaModelsTestData.sample_ids)
         min_counts = 50
-        alt_config_fp = os.path.join(self.data_dir, 'alt_config.yml')
 
         # these are the linear regression results for running the code
         # using completely different (and spurious) syndna concentrations
@@ -291,7 +296,7 @@ class FitSyndnaModelsTest(TestCase):
         }
 
         output_dict = fit_linear_regression_models_for_qiita(
-            prep_info_df, input_biom, min_counts, alt_config_fp)
+            prep_info_df, input_biom, min_counts, self.alt_config_fp)
 
         self.assertDictEqual(expected_out, output_dict)
 
@@ -420,22 +425,6 @@ class FitSyndnaModelsTest(TestCase):
         with self.assertRaisesRegex(ValueError, err_msg):
             fit_linear_regression_models_for_qiita(
                 prep_info_df, input_biom, min_counts)
-
-    def test_fit_linear_regression_models_for_qiita_w_syndna_contrib_frac_err(self):
-        prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.prep_info_dict)
-        input_biom = biom.table.Table(
-            FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
-            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
-            FitSyndnaModelsTestData.sample_ids)
-        min_counts = 50
-
-        syndna_contributing_fraction = 2
-        err_msg = ("syndna_contributing_fraction must be a float >0 and <= 1 "
-                   "but received 2.0")
-        with self.assertRaisesRegex(ValueError, err_msg):
-            fit_linear_regression_models_for_qiita(
-                prep_info_df, input_biom, min_counts,
-                syndna_contributing_fraction=syndna_contributing_fraction)
 
     def test_fit_linear_regression_models(self):
         min_count = 50
@@ -651,6 +640,26 @@ class FitSyndnaModelsTest(TestCase):
 
         with self.assertRaisesRegex(ValueError, expected_err_msg):
             fit_linear_regression_models(
+                syndna_concs_df,
+                sample_syndna_weights_and_total_reads_df,
+                reads_per_syndna_per_sample_df, min_count,
+                syndna_contributing_fraction)
+
+    def test_fit_linear_regression_models_w_syndna_contrib_frac_err(self):
+        min_count = 50
+
+        syndna_concs_df = pd.DataFrame(FitSyndnaModelsTestData.syndna_concs_dict)
+        sample_syndna_weights_and_total_reads_df = pd.DataFrame(
+            FitSyndnaModelsTestData.a_b_sample_syndna_weights_and_total_reads_dict)
+        reads_per_syndna_per_sample_df = pd.DataFrame(
+            FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict)
+        reads_per_syndna_per_sample_df.set_index(SYNDNA_ID_KEY, inplace=True)
+
+        syndna_contributing_fraction = 2
+        err_msg = ("syndna_contributing_fraction must be a float >0 and <= 1 "
+                   "but received 2.0")
+        with self.assertRaisesRegex(ValueError, err_msg):
+            _ = fit_linear_regression_models(
                 syndna_concs_df,
                 sample_syndna_weights_and_total_reads_df,
                 reads_per_syndna_per_sample_df, min_count,

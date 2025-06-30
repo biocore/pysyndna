@@ -17,6 +17,7 @@ DEFAULT_MIN_SAMPLE_COUNTS = 1
 
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
+SYNDNA_CONTRIBUTING_FRACTION_KEY = 'syndna_contributing_fraction'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
 SYNDNA_FRACTION_OF_POOL_KEY = 'syndna_fraction_of_pool'
 # this is not a great name, but it is what was agreed on for the API early on;
@@ -550,8 +551,7 @@ def fit_linear_regression_models_for_qiita(
         prep_info_df: pd.DataFrame,
         reads_per_syndna_per_sample_biom: biom.Table,
         min_sample_counts: int = DEFAULT_MIN_SAMPLE_COUNTS,
-        syndna_pool_config_fp: Optional[str] = None,
-        syndna_contributing_fraction: float = 1) -> dict[str: str]:
+        syndna_pool_config_fp: Optional[str] = None) -> dict[str: str]:
 
     """Fits linear regressions predicting mass from counts using Qiita inputs.
 
@@ -572,18 +572,6 @@ def fit_linear_regression_models_for_qiita(
         Path to the yaml file holding the concentrations of each syndna
         in the syndna pool used in this experiment.  If not provided, will
         look for the config.yml file in the parent directory of this file.
-    syndna_contributing_fraction: float
-        Fraction of the total mass of the syndna pool that is capable of
-        contributing to reads. The only reads used are those that hit the
-        synDNA insert, not the (shared) backbone of the plasmid, so only the
-        fraction of the overall synDNA plasmid that is insert can contribute
-        to the counts; for example, if the insert is 2000 bases long and the
-        overall plasmid including the insert is 5000 bases long, then only
-        2000/5000 = 2/5ths of the mass of the synDNA pool can contribute to
-        the counted reads. Other factors that affect the amount of synDNA
-        mass contributing to reads (such as shearing fraction for long
-        plasmids) can also be incorporated into this fraction.
-        Range is (0, 1]. If not provided, defaults to 1.
 
     Returns
     -------
@@ -603,26 +591,32 @@ def fit_linear_regression_models_for_qiita(
         "prep info is missing required column(s)")
 
     # cast SYNDNA_POOL_NUM_KEY column of params df to numeric if it isn't
-    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_NUM_KEY])
+    cast_prep_df = cast_cols(prep_info_df, [SYNDNA_POOL_NUM_KEY])
 
     # pull the syndna pool number from the prep info, ensure it is the same for
     # all samples, and convert to the pool name
-    syndna_pool_number = prep_info_df[SYNDNA_POOL_NUM_KEY].unique()
+    syndna_pool_number = cast_prep_df[SYNDNA_POOL_NUM_KEY].unique()
     if len(syndna_pool_number) > 1:
         raise ValueError(
             f"Multiple syndna_pool_numbers found in prep info: "
             f"{syndna_pool_number}")
     syndna_pool_name = f"pool{syndna_pool_number[0]}"
 
-    # look in the SYNDNA_INDIV_NG_UL_KEY section of the config file to find the
+    config_dict = _extract_config_dict(syndna_pool_config_fp)
+    pool_dict = config_dict[syndna_pool_name]
+
+    # look in the SYNDNA_INDIV_NG_UL_KEY section of the pool entry to find the
     # individual syndna concentrations associated with the relevant syndna
     # pool name and turn the resulting dictionary into a dataframe
-    config_dict = _extract_config_dict(syndna_pool_config_fp)
-    conc_ng_ul_per_indiv_syndna = \
-        config_dict[SYNDNA_INDIV_NG_UL_KEY][syndna_pool_name]
+    conc_ng_ul_per_indiv_syndna = pool_dict[SYNDNA_INDIV_NG_UL_KEY]
     syndna_concs_df = pd.DataFrame(
         conc_ng_ul_per_indiv_syndna.items(),
         columns=[SYNDNA_ID_KEY, SYNDNA_INDIV_NG_UL_KEY])
+
+    # look in the SYNDNA_CONTRIBUTING_FRACTION_KEY section of the pool
+    # entry to find the fraction of the syndna plasmid that contributes to
+    # reads that are counted in reads_per_syndna_per_sample_biom
+    syndna_contributing_fraction = pool_dict[SYNDNA_CONTRIBUTING_FRACTION_KEY]
 
     # convert input biom table to a pd.SparseDataFrame, which is should act
     # basically like a pd.DataFrame but take up less memory
