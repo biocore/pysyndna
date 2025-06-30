@@ -226,7 +226,7 @@ class TestUtils(TestCase):
             _ = validate_id_consistency_between_datasets(
                 input_df, prep_df, "sample info", "prep info", True)
 
-    def test_validate_coverage_vs_reads_id_consistency_df_true(self):
+    def test_validate_id_consistency_between_datasets_wide_v_wide_true(self):
         coverages_dict = {
             'ogu_id': ['ogu01', 'ogu02'],
             'sample1': [0.1, 2.0],
@@ -246,7 +246,7 @@ class TestUtils(TestCase):
         # Pass test if we made it this far
         self.assertTrue(True)
 
-    def test_validate_coverage_vs_reads_id_consistency_df_true_w_msg(self):
+    def test_validate_id_consistency_between_datasets_wide_v_wide_true_w_msg(self):
         coverages_dict = {
             'ogu_id': ['ogu01', 'ogu02'],
             'sample1': [0.1, 2.0],
@@ -268,84 +268,26 @@ class TestUtils(TestCase):
         expected_not_in_read_ids = ['sample3']
         self.assertEqual(not_in_read_ids, expected_not_in_read_ids)
 
-    # def test_validate_coverage_vs_reads_id_consistency_df_err(self):
-    #     coverages_dict = {
-    #         OGU_ID_KEY: ['ogu01'],
-    #         'sample1': [0.1],
-    #         'sample2': [3.3],
-    #     }
-    #
-    #     coverages_df = pandas.DataFrame(coverages_dict)
-    #
-    #     reads_dict = {
-    #         OGU_ID_KEY: ['ogu01', 'ogu02'],
-    #         'sample1': [1, 2],
-    #         'sample2': [3, 4],
-    #     }
-    #
-    #     reads_df = pandas.DataFrame(reads_dict)
-    #     expected_err = (r"Found sample ids in reads data that were not in "
-    #                     r"coverage data: \{'sample2'\}")
-    #     with self.assertRaisesRegex(ValueError, expected_err):
-    #         _ = validate_id_consistency_between_datasets(
-    #             coverages_df, reads_df, "coverage data", "reads data", True)
-
-    def test_validate_id_consistency_between_datasets_wide_v_wide_true(self):
-        input_dict = {
-            SAMPLE_ID_KEY: ['sample1', 'sample2'],
-            'color': ['blue', 'aqua'],
+    def test_validate_coverage_vs_reads_id_consistency_df_err(self):
+        coverages_dict = {
+            OGU_ID_KEY: ['ogu01'],
+            'sample1': [0.1]
         }
-        input_df = pandas.DataFrame(input_dict)
+
+        coverages_df = pandas.DataFrame(coverages_dict)
 
         reads_dict = {
+            OGU_ID_KEY: ['ogu01', 'ogu02'],
             'sample1': [1, 2],
             'sample2': [3, 4],
         }
+
         reads_df = pandas.DataFrame(reads_dict)
-
-        _ = validate_id_consistency_between_datasets(
-                input_df, reads_df, "sample info", "reads data", True)
-
-        # Pass test if we made it this far
-        self.assertTrue(True)
-
-    def test_validate_id_consistency_between_datasets_wide_v_wide_true_w_msg(self):
-        input_dict = {
-            SAMPLE_ID_KEY: ['sample1', 'sample2', 'sample3'],
-            'color': ['blue', 'aqua', 'cerulean'],
-        }
-        input_df = pandas.DataFrame(input_dict)
-
-        reads_dict = {
-            'sample1': [1, 2],
-            'sample2': [3, 4],
-        }
-        reads_df = pandas.DataFrame(reads_dict)
-
-        not_in_prep_ids = validate_id_consistency_between_datasets(
-            input_df, reads_df, "sample info", "reads data", True)
-
-        expected_not_in_prep_ids = ['sample3']
-        self.assertEqual(not_in_prep_ids, expected_not_in_prep_ids)
-
-    def test_validate_id_consistency_between_datasets_wide_v_wide_err(self):
-        input_dict = {
-            SAMPLE_ID_KEY: ['sample1'],
-            'color': ['blue'],
-        }
-        input_df = pandas.DataFrame(input_dict)
-
-        reads_dict = {
-            'sample1': [1, 2],
-            'sample2': [3, 4],
-        }
-        reads_df = pandas.DataFrame(reads_dict)
-
         expected_err = (r"Found sample ids in reads data that were not in "
-                        r"sample info: \{'sample2'\}")
+                        r"coverage data: \{'sample2'\}")
         with self.assertRaisesRegex(ValueError, expected_err):
             _ = validate_id_consistency_between_datasets(
-                    input_df, reads_df, "sample info", "reads data", True)
+                coverages_df, reads_df, "coverage data", "reads data", True)
 
     def test_validate_id_consistency_between_datasets_wide_v_biom_true(self):
         input_dict = {
