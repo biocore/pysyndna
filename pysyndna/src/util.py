@@ -11,65 +11,122 @@ NANOGRAMS_PER_GRAM = 1e9
 
 # NB: sample_name instead of sample_id bc that's what qiita uses
 SAMPLE_ID_KEY = 'sample_name'
+OGU_ID_KEY = 'ogu_id'
 SAMPLE_IN_ALIQUOT_MASS_G_KEY = 'calc_mass_sample_aliquot_input_g'
 ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
 
 
-def _validate_sample_id_consistency(
-        sample_ids_in_metadata: set,
-        sample_ids_in_data: set,
-        metadata_name: str,
-        data_set_name: str) \
-        -> Union[List[str], None]:
+def get_ids_from_df_or_biom(
+        df_or_biom: Union[pd.DataFrame, biom.Table],
+        get_sample_ids=True) -> list[str]:
     """
-    Checks that the sample ids in the metadata and data are consistent.
+    Gets sample or OGU ids from a dataframe or a biom table.
 
     Parameters
     ----------
-    sample_ids_in_metadata: set
-        A set of the sample ids in the metadata
-    sample_ids_in_data: set
-        A set of the sample ids in the data
-    metadata_name: str
-        A string identifying the metadata being checked, for use in error
-        messages.
-    data_set_name: str
-        A string identifying the data set being checked, for use in error
+    df_or_biom: pd.DataFrame | biom.Table
+        For sample ids, a DataFrame with a SAMPLE_ID_KEY column or a column for
+        each sample id, or a biom.Table with sample ids on the sample axis.
+        For OGU ids, a DataFrame with an OGU_ID_KEY column or a biom.Table
+        with OGU ids on the observation axis.
+    get_sample_ids: bool
+        If True, gets sample ids; if False, gets OGU ids. Default is True.
+
+    Returns
+    -------
+    found_ids : list[str]
+        A list of ids of the specified type in the dataframe or biom table.
+    """
+
+    if isinstance(df_or_biom, biom.Table):
+        axis = 'sample' if get_sample_ids else 'observation'
+        ids = [x for x in df_or_biom.ids(axis=axis)]
+    else:
+        col_name = SAMPLE_ID_KEY if get_sample_ids else OGU_ID_KEY
+        col_name_present = col_name in df_or_biom.columns
+        if col_name_present:
+            # if the column is present, we just get the ids from that column
+            ids = df_or_biom[col_name].tolist()
+        else:
+            if get_sample_ids:
+                # if there isn't a sample id column, we assume that the
+                # DataFrame has one column per sample id in addition to a
+                # column for OGU ids, so we get the sample ids from the
+                # DataFrame's columns
+                ids = df_or_biom.columns.tolist()
+                if OGU_ID_KEY in ids:
+                    ids.remove(OGU_ID_KEY)
+            else:
+                # in a dataframe, OGU ids are always in a column named
+                # OGU_ID_KEY, so if there isn't one, this is an error
+                raise ValueError(
+                    f"DataFrame does not have a column named '{col_name}'")
+            # endif we are/aren't getting sample ids
+        # endif there is/isn't an explicit column for the desired ids
+    # endif df_or_biom is biom.Table or pd.DataFrame
+
+    # convert to string in case the ids are integers or other types
+    found_ids = [str(x) for x in ids]
+    return found_ids
+
+
+def _validate_id_consistency(
+        superset_ids: set,
+        subset_ids: set,
+        superset_name: str,
+        subset_name: str,
+        id_type: str) \
+        -> Union[List[str], None]:
+    """
+    Checks that the ids in the superset and subset are consistent.
+
+    Parameters
+    ----------
+    superset_ids: set
+        A set of the superset of required ids
+    subset_ids: set
+        A set of the subset of required ids
+    superset_name: str
+        A string identifying the superset dataset, for use in error messages.
+    subset_name: str
+        A string identifying the subset dataset, for use in error messages.
+    id_type: str
+        A string identifying the type of id being checked, for use in error
         messages.
 
     Raises
     ------
     ValueError
-        If there are sample ids in the data that aren't in the metadata
+        If there are ids in the subset that aren't in the superset
 
     Returns
     -------
-    missing_sample_ids : set
-        A set of sample ids that are in the metadata but not in the
-        data.  Empty if all sample ids in the metadata were in the data.
+    missing_ids : set
+        A set of ids that are in the superset but not in the
+        subset.  Empty if all supersets ids are also in the subset.
 
     """
 
-    # if there are sample ids in the data that are not in the metadata, raise
+    # if there are ids in the subset that are not in the superset, raise
     # an error, since we don't know how to process that
-    data_only_samples = sample_ids_in_data - sample_ids_in_metadata
-    if len(data_only_samples) > 0:
+    subset_only_ids = subset_ids - superset_ids
+    if len(subset_only_ids) > 0:
         raise ValueError(
-            f"Found sample ids in {data_set_name} that were "
-            f"not in {metadata_name}: {data_only_samples}")
+            f"Found {id_type} ids in {subset_name} that were "
+            f"not in {superset_name}: {subset_only_ids}")
 
-    # check if there are sample ids in the metadata that are not in the data
-    # and if so, capture a list of them. Sometimes a sample just fails
-    # sequencing and that shouldn't preclude processing the others that did
-    # work, but we want to know about it.
-    missing_sample_ids_set = sample_ids_in_metadata - sample_ids_in_data
+    # check if there are ids in the superset that are not in the subset
+    # and if so, capture a list of them. For example, sometimes a sample just
+    # fails sequencing and that shouldn't preclude processing the others that
+    # did work, but we want to know about it.
+    missing_superset_set = superset_ids - subset_ids
 
-    if len(missing_sample_ids_set) > 0:
-        missing_sample_ids = list(missing_sample_ids_set)
+    if len(missing_superset_set) > 0:
+        missing_ids = list(missing_superset_set)
     else:
-        missing_sample_ids = None
+        missing_ids = None
 
-    return missing_sample_ids
+    return missing_ids
 
 
 def validate_required_columns_exist(
@@ -96,79 +153,54 @@ def validate_required_columns_exist(
             f"{error_msg}: {missing_cols}")
 
 
-def validate_metadata_vs_reads_id_consistency(
-        metadata_df: pd.DataFrame,
-        reads_df: Union[pd.DataFrame, biom.Table]) \
+def validate_id_consistency_between_datasets(
+        superset_df_or_biom: Union[pd.DataFrame, biom.Table],
+        subset_df_or_biom: Union[pd.DataFrame, biom.Table],
+        superset_name: str,
+        subset_name: str,
+        check_sample_ids=True) \
         -> Union[List[str], None]:
     """
-    Checks that the sample ids in the sample metadata and data are consistent.
+    Checks sample or OGU ids are consistent in the superset and subset datasets
 
     Parameters
     ----------
-    metadata_df: pd.DataFrame
-        A Dataframe containing at least SAMPLE_ID_KEY column
-    reads_df: pd.DataFrame | biom.Table
-        Either a Dataframe with a column for each SAMPLE_ID_KEY or a biom.Table
-        with a column for each SAMPLE_ID_KEY
+    superset_df_or_biom: Union[pd.DataFrame, biom.Table]
+        A Dataframe or biom.Table containing the superset of required ids of
+        specified type (sample or OGU) either in a column or as column names.
+    subset_df_or_biom: Union[pd.DataFrame, biom.Table]
+        A Dataframe or biom.Table containing the subset of required ids of
+        specified type (sample or OGU) either in a column or as column names.
+    superset_name: str
+        A string identifying the superset dataset, for use in error messages.
+    subset_name: str
+        A string identifying the subset dataset, for use in error messages.
+    check_sample_ids: bool
+        If True, checks sample ids; if False, checks OGU ids. Default is True.
 
     Raises
     ------
     ValueError
-        If there are sample ids in the data that aren't in the metadata df
+        If there are ids of the specified type in the subset that aren't in
+        the superset.
 
     Returns
     -------
-    missing_sample_ids : List[str] | None
-        List of sample ids that are in the sample info but not in the
-        data.  None if all sample ids in the experiment info were in the data.
+    missing_ids : List[str] | None
+        List of ids of the specified type that are in the superset but not in
+        the subset.  None if all superset ids are also in the subset.
     """
 
-    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
-    if isinstance(reads_df, biom.Table):
-        sample_ids_in_reads = \
-            set([str(x) for x in reads_df.ids(axis='sample')])
-    else:
-        sample_ids_in_reads = set(reads_df.columns)
-    missing_reads_ids = _validate_sample_id_consistency(
-        sample_ids_in_metadata, sample_ids_in_reads, "sample info",
-        "reads data")
+    ids_in_superset = set(
+        get_ids_from_df_or_biom(superset_df_or_biom, check_sample_ids))
+    ids_in_subset = set(
+        get_ids_from_df_or_biom(subset_df_or_biom, check_sample_ids))
 
-    return missing_reads_ids
+    id_type = "sample" if check_sample_ids else "OGU"
+    missing_ids = _validate_id_consistency(
+        ids_in_superset, ids_in_subset, superset_name, subset_name, id_type)
 
-
-def validate_metadata_vs_prep_id_consistency(
-        metadata_df: pd.DataFrame,
-        prep_df: pd.DataFrame) \
-        -> Union[List[str], None]:
-    """
-    Checks that sample ids in the sample metadata and prep info are consistent.
-
-    Parameters
-    ----------
-    metadata_df: pd.DataFrame
-        A Dataframe of sample metadata containing at least SAMPLE_ID_KEY column
-    prep_df: pd.DataFrame
-        A Dataframe of prep info with a column for SAMPLE_ID_KEY
-
-    Raises
-    ------
-    ValueError
-        If there are sample ids in prep info that aren't in sample metadata
-
-    Returns
-    -------
-    missing_sample_ids : List[str] | None
-        List of sample ids that are in the sample metadata but not in the
-        prep info.  None if all sample ids in the sample metadata were in the
-        prep info.
-    """
-
-    sample_ids_in_metadata = set(metadata_df[SAMPLE_ID_KEY])
-    sample_ids_in_prep = set(prep_df[SAMPLE_ID_KEY])
-    missing_prep_ids = _validate_sample_id_consistency(
-        sample_ids_in_metadata, sample_ids_in_prep,
-        "sample info",  "prep info")
-    return missing_prep_ids
+    return missing_ids
 
 
 def cast_cols(params_df, numeric_col_names, force_float=False):

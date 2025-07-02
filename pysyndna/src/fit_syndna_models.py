@@ -10,16 +10,34 @@ import yaml
 
 from typing import Optional, List, Dict, Union
 from pysyndna.src.util import validate_required_columns_exist, \
-    validate_metadata_vs_reads_id_consistency, cast_cols, \
+    validate_id_consistency_between_datasets, cast_cols, \
     filter_data_by_sample_info, SAMPLE_ID_KEY
 
 DEFAULT_MIN_SAMPLE_COUNTS = 1
 
 SYNDNA_ID_KEY = 'syndna_id'
 SYNDNA_POOL_NUM_KEY = 'syndna_pool_number'
+# The below is the fraction (range 0-1) of the total mass of the syndna pool
+# that is capable of contributing to counted reads. The only reads used are
+# those that hit the synDNA insert, not the (shared) backbone of the plasmid,
+# so only the fraction of the overall synDNA plasmid that is insert can
+# contribute to the counts; for example, if the insert is 2000 bases long and
+# the overall plasmid including the insert is 5000 bases long, then only
+# 2000/5000 = 2/5ths of the mass of the synDNA pool can contribute to
+# the counted reads. Other factors that affect the amount of synDNA mass
+# contributing to reads (such as shearing fraction for long plasmids) can also
+# be incorporated into this fraction.
+SYNDNA_CONTRIBUTING_FRACTION_KEY = 'syndna_contributing_fraction'
 SYNDNA_INDIV_NG_UL_KEY = 'syndna_indiv_ng_ul'
 SYNDNA_FRACTION_OF_POOL_KEY = 'syndna_fraction_of_pool'
-SYNDNA_POOL_MASS_NG_KEY = 'mass_syndna_input_ng'
+# the below is not a great name, but it is what was agreed on for the API early on;
+# it is the total mass of syndna pool that was added to a sample during prep
+INPUT_SYNDNA_POOL_MASS_NG_KEY = 'mass_syndna_input_ng'
+# the below is the portion of the syndna pool mass (in ng) that could actually
+# contribute to syndna reads for the sample, and thus can be used in the reads
+# vs mass fit (since only inserts, and not the rest of the syndna plasmid,
+# contribute to the reads).
+SYNDNA_POOL_MASS_NG_KEY = "mass_syndna_pool_ng"
 SAMPLE_TOTAL_READS_KEY = 'raw_reads_r1r2'
 SYNDNA_COUNTS_KEY = 'read_count'
 LOG10_SYNDNA_COUNTS_KEY = 'log10_read_count'
@@ -143,8 +161,9 @@ def _validate_sample_id_consistency(
     simplified_reads_df = reads_per_syndna_per_sample_df.copy()
     simplified_reads_df.drop(columns=[SYNDNA_ID_KEY], inplace=True)
 
-    missing_sample_ids = validate_metadata_vs_reads_id_consistency(
-        sample_syndna_weights_and_total_reads_df, simplified_reads_df)
+    missing_sample_ids = validate_id_consistency_between_datasets(
+        sample_syndna_weights_and_total_reads_df, simplified_reads_df,
+        "sample info", "reads data", True)
 
     return missing_sample_ids
 
@@ -188,7 +207,7 @@ def _calc_indiv_syndna_weights(
         syndna_concs_df, on=SYNDNA_ID_KEY, how='left')
 
     # calculate the weight in ng of *each* syndna in each sample by multiplying
-    # the total weight of all syndna input added to the sample by the fraction
+    # the weight of the syndna pool in that sample by the fraction
     # of the syndna pool represented by each syndna
     working_df[SYNDNA_INDIV_NG_KEY] = (
             working_df[SYNDNA_POOL_MASS_NG_KEY] *
@@ -365,7 +384,8 @@ def fit_linear_regression_models(
         syndna_concs_df: pd.DataFrame,
         sample_syndna_weights_and_total_reads_df: pd.DataFrame,
         reads_per_syndna_per_sample_df: pd.DataFrame,
-        min_sample_counts: int) -> \
+        min_sample_counts: int,
+        syndna_contributing_fraction) -> \
         (Dict[str, Union[Dict[str, float], None]], List[str]):
 
     """Fits per-sample linear regression models predicting mass from counts.
@@ -382,8 +402,9 @@ def fit_linear_regression_models(
         (e.g. 1, 0.1, 0.01, 0.001, 0.0001) for all syndnas in the syndna pool
         used in this experiment
     sample_syndna_weights_and_total_reads_df: pd.DataFrame
-        A Dataframe containing at least SAMPLE_ID_KEY, and SYNDNA_POOL_MASS_NG_KEY
-        (the total weight of all syndnas in the sample combined, in ng).
+        A Dataframe containing at least SAMPLE_ID_KEY, and
+        INPUT_SYNDNA_POOL_MASS_NG_KEY (the total weight of the pool of syndnas
+        added to the sample, in ng).
     reads_per_syndna_per_sample_df: pd.DataFrame
         Wide-format dataframe with syndna ids as index and one
         column for each sample id, which holds the read counts
@@ -392,6 +413,19 @@ def fit_linear_regression_models(
     min_sample_counts : int
         Minimum number of counts required for a sample to be included in
         the regression.  Samples with fewer counts will be excluded.
+        Must be >= 1.
+    syndna_contributing_fraction: float
+        Fraction of the total mass of the syndna pool that is capable of
+        contributing to reads. The only reads used are those that hit the
+        synDNA insert, not the (shared) backbone of the plasmid, so only the
+        fraction of the overall synDNA plasmid that is insert can contribute
+        to the counts; for example, if the insert is 2000 bases long and the
+        overall plasmid including the insert is 5000 bases long, then only
+        2000/5000 = 2/5ths of the mass of the synDNA pool can contribute to
+        the counted reads. Other factors that affect the amount of synDNA
+        mass contributing to reads (such as shearing fraction for long
+        plasmids) can also be incorporated into this fraction.
+        Range is (0, 1].
 
     Returns
     -------
@@ -408,7 +442,7 @@ def fit_linear_regression_models(
     log_messages_list = []
 
     # check sample_syndna_weights_and_total_reads_df has the expected columns
-    expected_info_cols = [SAMPLE_ID_KEY, SYNDNA_POOL_MASS_NG_KEY]
+    expected_info_cols = [SAMPLE_ID_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]
     validate_required_columns_exist(
         sample_syndna_weights_and_total_reads_df, expected_info_cols,
         "sample metadata is missing required column(s)")
@@ -420,9 +454,28 @@ def fit_linear_regression_models(
     # cast numeric input columns to the correct type
     sample_syndna_weights_and_total_reads_df = cast_cols(
         sample_syndna_weights_and_total_reads_df,
-        [SYNDNA_POOL_MASS_NG_KEY], True)
+        [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
     syndna_concs_df = cast_cols(
         syndna_concs_df, [SYNDNA_INDIV_NG_UL_KEY], True)
+
+    # cast constant inputs and validate values: min_sample_counts
+    min_sample_counts = int(min_sample_counts)
+    if min_sample_counts < 1:
+        raise ValueError(f"min_sample_counts must be a positive integer but "
+                         f"received {min_sample_counts}")
+
+    # cast constant inputs and validate values: syndna_contributing_fraction
+    syndna_contributing_fraction = float(syndna_contributing_fraction)
+    if not (0 < syndna_contributing_fraction <= 1):
+        raise ValueError(f"syndna_contributing_fraction must be a float >0 and"
+                         f" <= 1 but received {syndna_contributing_fraction}")
+
+    # calculate the mass of the syndna pool that contributes to the reads;
+    # this mass will be used throughout the rest of the calculations instead
+    # of the total input pool mass.
+    sample_syndna_weights_and_total_reads_df[SYNDNA_POOL_MASS_NG_KEY] = \
+        sample_syndna_weights_and_total_reads_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
+        syndna_contributing_fraction
 
     # id any syndnas that have an inadequate total number of reads aligned
     # to them across all samples (less than min_sample_counts). Don't drop yet.
@@ -516,13 +569,15 @@ def fit_linear_regression_models_for_qiita(
     ----------
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID, SYNDNA_POOL_NUM_KEY, and SYNDNA_POOL_MASS_NG_KEY.
+        including SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, and
+        INPUT_SYNDNA_POOL_MASS_NG_KEY.
     reads_per_syndna_per_sample_biom: biom.Table
         Biom table holding read counts aligned to each synDNA in each sample.
         Note: should already have combined forward and reverse counts.
     min_sample_counts: int
         Minimum number of counts required for a sample to be included in
         the regression.  Samples with fewer counts will be excluded.
+        Must be >= 1.
     syndna_pool_config_fp: str, optional
         Path to the yaml file holding the concentrations of each syndna
         in the syndna pool used in this experiment.  If not provided, will
@@ -540,32 +595,38 @@ def fit_linear_regression_models_for_qiita(
 
     # check that the prep_info_df has the expected columns
     expected_prep_info_cols = [
-        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, SYNDNA_POOL_MASS_NG_KEY]
+        SAMPLE_ID_KEY, SYNDNA_POOL_NUM_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]
     validate_required_columns_exist(
         prep_info_df, expected_prep_info_cols,
         "prep info is missing required column(s)")
 
     # cast SYNDNA_POOL_NUM_KEY column of params df to numeric if it isn't
-    prep_info_df = cast_cols(prep_info_df, [SYNDNA_POOL_NUM_KEY])
+    cast_prep_df = cast_cols(prep_info_df, [SYNDNA_POOL_NUM_KEY])
 
     # pull the syndna pool number from the prep info, ensure it is the same for
     # all samples, and convert to the pool name
-    syndna_pool_number = prep_info_df[SYNDNA_POOL_NUM_KEY].unique()
+    syndna_pool_number = cast_prep_df[SYNDNA_POOL_NUM_KEY].unique()
     if len(syndna_pool_number) > 1:
         raise ValueError(
             f"Multiple syndna_pool_numbers found in prep info: "
             f"{syndna_pool_number}")
     syndna_pool_name = f"pool{syndna_pool_number[0]}"
 
-    # look in the SYNDNA_INDIV_NG_UL_KEY section of the config file to find the
+    config_dict = _extract_config_dict(syndna_pool_config_fp)
+    pool_dict = config_dict[syndna_pool_name]
+
+    # look in the SYNDNA_INDIV_NG_UL_KEY section of the pool entry to find the
     # individual syndna concentrations associated with the relevant syndna
     # pool name and turn the resulting dictionary into a dataframe
-    config_dict = _extract_config_dict(syndna_pool_config_fp)
-    conc_ng_ul_per_indiv_syndna = \
-        config_dict[SYNDNA_INDIV_NG_UL_KEY][syndna_pool_name]
+    conc_ng_ul_per_indiv_syndna = pool_dict[SYNDNA_INDIV_NG_UL_KEY]
     syndna_concs_df = pd.DataFrame(
         conc_ng_ul_per_indiv_syndna.items(),
         columns=[SYNDNA_ID_KEY, SYNDNA_INDIV_NG_UL_KEY])
+
+    # look in the SYNDNA_CONTRIBUTING_FRACTION_KEY section of the pool
+    # entry to find the fraction of the syndna plasmid that contributes to
+    # reads that are counted in reads_per_syndna_per_sample_biom
+    syndna_contributing_fraction = pool_dict[SYNDNA_CONTRIBUTING_FRACTION_KEY]
 
     # convert input biom table to a pd.SparseDataFrame, which is should act
     # basically like a pd.DataFrame but take up less memory
@@ -575,7 +636,7 @@ def fit_linear_regression_models_for_qiita(
     # fit linear regression models for each sample
     linregress_results_dict, msg_list = fit_linear_regression_models(
         syndna_concs_df, prep_info_df, reads_per_syndna_per_sample_df,
-        min_sample_counts)
+        min_sample_counts, syndna_contributing_fraction)
 
     out_txt_by_out_type = {
         LIN_REGRESS_RESULT_KEY: yaml.safe_dump(linregress_results_dict),

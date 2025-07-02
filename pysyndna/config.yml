@@ -1,7 +1,9 @@
-"syndna_indiv_ng_ul":
+# identical to pool1 but with syndna_contributing_fraction set to 1,
+# to match historical calculations
+"pool0":
     # concentrations taken from table in Fig. 1A of
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9765022/
-    "pool1":
+    "syndna_indiv_ng_ul":
         "p126": 1
         "p136": 0.1
         "p146": 0.01
@@ -12,3 +14,59 @@
         "p246": 0.01
         "p256": 0.1
         "p266": 1
+    # In the Zaramela paper, this fraction was not part of the calculations,
+    # which is equivalent to it having a value of 1 for those calcs.
+    "syndna_contributing_fraction": 1
+# Short-read pool, as specified in Zaramela paper
+"pool1":
+    # concentrations taken from table in Fig. 1A of
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9765022/
+    "syndna_indiv_ng_ul":
+        "p126": 1
+        "p136": 0.1
+        "p146": 0.01
+        "p156": 0.001
+        "p166": 0.0001
+        "p226": 0.0001
+        "p236": 0.001
+        "p246": 0.01
+        "p256": 0.1
+        "p266": 1
+    # length of insert divided by length of full plasmid: 2000/4710
+    # Note that there is no shearing fraction here since that isn't done for
+    # the shotgun plasmids.
+    "syndna_contributing_fraction": 0.42462845
+# First PacBio pool
+"pool1000":
+    "syndna_indiv_ng_ul":
+        "synDNA_16SrRNA_seq_1_gc=0.26": 1
+        "synDNA_16SrRNA_seq_1_gc=0.36": 0.1
+        "synDNA_16SrRNA_seq_1_gc=0.46": 0.01
+        "synDNA_16SrRNA_seq_1_gc=0.56": 0.001
+        "synDNA_16SrRNA_seq_1_gc=0.66": 0.0001
+        "synDNA_16SrRNA_seq_2_gc=0.26": 0.0001
+        "synDNA_16SrRNA_seq_2_gc=0.36": 0.001
+        "synDNA_16SrRNA_seq_2_gc=0.46": 0.01
+        "synDNA_16SrRNA_seq_2_gc=0.56": 0.01
+        "synDNA_16SrRNA_seq_2_gc=0.66": 1
+    # length of insert divided by total length of plasmid,
+    # multiplied by the fraction of the pool that successfully sheared
+    # (2500/17296)*0.55
+    "syndna_contributing_fraction": 0.0794981499
+# Second PacBio pool, with increased concentrations
+"pool2000":
+    "syndna_indiv_ng_ul":
+        "synDNA_16SrRNA_seq_1_gc=0.26": 10
+        "synDNA_16SrRNA_seq_1_gc=0.36": 1
+        "synDNA_16SrRNA_seq_1_gc=0.46": 0.1
+        "synDNA_16SrRNA_seq_1_gc=0.56": 0.01
+        "synDNA_16SrRNA_seq_1_gc=0.66": 0.001
+        "synDNA_16SrRNA_seq_2_gc=0.26": 0.001
+        "synDNA_16SrRNA_seq_2_gc=0.36": 0.01
+        "synDNA_16SrRNA_seq_2_gc=0.46": 0.1
+        "synDNA_16SrRNA_seq_2_gc=0.56": 1
+        "synDNA_16SrRNA_seq_2_gc=0.66": 10
+    # length of insert divided by total length of plasmid,
+    # multiplied by the fraction of the pool that successfully sheared
+    # (2500/17296)*0.55
+    "syndna_contributing_fraction": 0.0794981499
