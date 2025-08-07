@@ -18,7 +18,7 @@ ELUTE_VOL_UL_KEY = 'vol_extracted_elution_ul'
 
 def get_ids_from_df_or_biom(
         df_or_biom: Union[pd.DataFrame, biom.Table],
-        get_sample_ids=True) -> list[str]:
+        get_sample_ids=True) -> List[str]:
     """
     Gets sample or OGU ids from a dataframe or a biom table.
 
