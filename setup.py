@@ -16,10 +16,10 @@ setup(name='pysyndna',
                        "Quantification of Shotgun Metagenomic Sequencing', "
                        "Zaramela et al., mSystems 2022)",
       license='BSD-3-Clause',
-      description='Python implementation of the SynDNA algorithm',
+      description='Python implementation of absolute cell count estimation algorithm',
       author="Amanda Birmingham",
       author_email="abirmingham@ucsd.edu",
-      url='https://github.com/AmandaBirmingham/pysyndna',
+      url='https://github.com/biocore/pysyndna',
       packages=find_packages(),
       include_package_data=True,
       package_data={
