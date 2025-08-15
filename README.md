@@ -39,7 +39,7 @@ To install this package, first clone the repository from GitHub:
 git clone https://github.com/biocore/pysyndna.git
 ```
 
-Change directory into the new `pysndna` folder and create a 
+Change directory into the new `pysyndna` folder and create a 
 Python3 Conda environment in which to run the software:
 
 ```
