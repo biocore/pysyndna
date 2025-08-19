@@ -346,14 +346,20 @@ def _convert_linregressresults_to_dict(
 
                 new_dict[k] = val
 
-            # if there are any values in REGRESSION_KEYS that are not in the
-            # keys of new_dict, then raise an error
-            missing_keys = set(REGRESSION_KEYS) - set(new_dict.keys())
-            if len(missing_keys) > 0:
-                raise ValueError(
-                    f"Regression for sample {curr_sample_id} does not "
-                    f"include the following required keys: {missing_keys}")
-            linregress_result_dict[curr_sample_id] = new_dict
+            # if the new_dict is not None, then we have a regression result,
+            # so we check that it has all the required keys
+            if new_dict is not None:
+                # if there are any values in REGRESSION_KEYS that are not in
+                # the keys of new_dict, then raise an error
+                missing_keys = set(REGRESSION_KEYS) - set(new_dict.keys())
+                if len(missing_keys) > 0:
+                    raise ValueError(
+                        f"Regression for sample {curr_sample_id} does not "
+                        f"include the following required keys: {missing_keys}")
+                linregress_result_dict[curr_sample_id] = new_dict
+            # endif new_dict is not None
+        # endif curr_linregress_result is None
+    # next sample_id
 
     return linregress_result_dict
 

@@ -882,3 +882,22 @@ class FitSyndnaModelsTest(TestCase):
 
         output_dict = _convert_linregressresults_to_dict(input_dict)
         self.assertDictEqual(expected_dict, output_dict)
+
+    def test__convert_linregressresults_to_dict_failed_regression(self):
+        linregress_mock = namedtuple(
+            "linregress_mock",
+            ["slope", "intercept", "rvalue", "pvalue",
+             "stderr", "intercept_stderr"])
+
+        # if any values in the linregressresults are NaN,
+        # the regression failed
+        a_result = linregress_mock(
+            slope=np.nan, intercept=-8.316627866835997,
+            rvalue=0.9999999999999998, pvalue=0.0, stderr=0.0,
+            intercept_stderr=0.0)
+
+        input_dict = {"sample_a": a_result}
+
+        output_dict = _convert_linregressresults_to_dict(input_dict)
+        # expected to return an empty dict
+        self.assertDictEqual({}, output_dict)
