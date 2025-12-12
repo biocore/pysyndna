@@ -106,7 +106,7 @@ def _generate_ogu_coverages_per_sample_df(
         for curr_sample_id in sample_ids:
             if curr_sample_id in ogu_coverage_df.columns:
                 # this is an unrecognized format; don't know how to parse it
-                raise ValueError(f"OGU percent coverage data contains both"
+                raise ValueError(f"OGU coverage data contains both"
                                  f"{OGU_PERCENT_COVERAGE_KEY} and a column "
                                  f"with a sample name: '{curr_sample_id}'.")
             # endif
