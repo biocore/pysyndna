@@ -16,7 +16,6 @@ from pysyndna.src.fit_syndna_models import INPUT_SYNDNA_POOL_MASS_NG_KEY, \
 
 DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE = 0.05
 DEFAULT_READ_LENGTH = 150
-DEFAULT_MIN_PERCENT_COVERAGE = 1
 DEFAULT_MIN_RSQUARED = 0.8
 
 CELL_COUNT_RESULT_KEY = 'cell_count_biom'
@@ -33,6 +32,7 @@ SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY = 'sequenced_sample_gdna_mass_ng'
 OGU_READ_COUNT_KEY = 'ogu_read_count'
 LOG_10_OGU_READ_COUNT_KEY = 'log10_ogu_read_count'
 OGU_PERCENT_COVERAGE_KEY = 'percent_coverage_of_ogu'
+OGU_AGNOSTIC_COVERAGE_KEY = 'coverage_of_ogu'
 LOG_10_OGU_GDNA_MASS_NG_KEY = 'log10_ogu_gdna_mass_ng'
 OGU_LEN_IN_BP_KEY = 'ogu_len_in_bp'
 OGU_GDNA_MASS_NG_KEY = 'ogu_gdna_mass_ng'
@@ -67,64 +67,71 @@ SAMPLE_LEVEL_METRICS_DICT = {
 
 _METATDATA_NAME = "sample info"
 _COUNTS_DATA_NAME = "OGU counts data"
-_COVERAGE_DATA_NAME = "OGU percent coverage data"
+_COVERAGE_DATA_NAME = "OGU coverage data"
 _LENGTHS_DATA_NAME = "OGU lengths info"
 
 
 def _generate_ogu_coverages_per_sample_df(
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_counts_per_sample_biom: biom.Table) -> pd.DataFrame:
-    """Generates a DataFrame of OGU percent coverage per sample.
+    """Generates a DataFrame of OGU coverage per sample.
 
     Parameters
     ----------
-    ogu_percent_coverage_df : pd.DataFrame
+    ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the percent
-        coverage of that OGU in that sample.
+        samples) or a column for each sample id, which holds either the fraction 
+        or the percent coverage of that OGU in that sample. 
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE MIN_COVERAGE PARAMETER (e.g., 0.01 or 1 to drop <1% coverage).
     ogu_counts_per_sample_biom : biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
 
     Returns
     -------
-    ogu_percent_coverage_per_sample_df : pd.DataFrame
+    ogu_coverage_per_sample_df : pd.DataFrame
         A DataFrame with an OGU_ID_KEY column and one column for each sample
-        id, which holds the percent coverage of that OGU in that sample.
+        id, which holds the coverage (as either a fraction or a percent, based
+        on the input) of that OGU in that sample.
     """
 
     # default assumption: the df is already in the right (per-sample) format
-    ogu_percent_coverage_per_sample_df = ogu_percent_coverage_df.copy()
-
+    ogu_coverage_per_sample_df = ogu_coverage_df.copy()
     # BUT if there is an OGU_PERCENT_COVERAGE_KEY column, then the df isn't yet
     # per-sample and we have to copy that percent coverage for all samples
-    if OGU_PERCENT_COVERAGE_KEY in ogu_percent_coverage_df.columns:
+    if OGU_PERCENT_COVERAGE_KEY in ogu_coverage_df.columns:
         sample_ids = get_ids_from_df_or_biom(ogu_counts_per_sample_biom)
         for curr_sample_id in sample_ids:
-            if curr_sample_id in ogu_percent_coverage_df.columns:
+            if curr_sample_id in ogu_coverage_df.columns:
                 # this is an unrecognized format; don't know how to parse it
                 raise ValueError(f"OGU percent coverage data contains both"
                                  f"{OGU_PERCENT_COVERAGE_KEY} and a column "
                                  f"with a sample name: '{curr_sample_id}'.")
             # endif
 
-            ogu_percent_coverage_per_sample_df[curr_sample_id] = \
-                ogu_percent_coverage_df[OGU_PERCENT_COVERAGE_KEY]
+            ogu_coverage_per_sample_df[curr_sample_id] = \
+                ogu_coverage_df[OGU_PERCENT_COVERAGE_KEY]
         # next sample_id
 
         # extract only the ogu id column and the columns of sample ids
         desired_cols = [OGU_ID_KEY] + sample_ids
-        ogu_percent_coverage_per_sample_df = \
-            ogu_percent_coverage_per_sample_df.loc[:, desired_cols]
+        ogu_coverage_per_sample_df = \
+            ogu_coverage_per_sample_df.loc[:, desired_cols]
     # endif
 
-    return ogu_percent_coverage_per_sample_df
+    # cast all columns EXCEPT the OGU_ID_KEY column to float
+    float_col_names = list(ogu_coverage_per_sample_df.columns)
+    float_col_names.remove(OGU_ID_KEY)
+    ogu_coverage_per_sample_df = cast_cols(ogu_coverage_per_sample_df, float_col_names, True)
 
+    return ogu_coverage_per_sample_df
 
 def _validate_sample_ids_in_inputs(
         absolute_quant_params_per_sample_df: pd.DataFrame,
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_per_sample_df: pd.DataFrame) -> None:
+        ogu_coverage_per_sample_df: pd.DataFrame) -> None:
 
     """Validates that the sample ids in the inputs are consistent.
 
@@ -135,9 +142,10 @@ def _validate_sample_ids_in_inputs(
         SAMPLE_ID_KEY column.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_per_sample_df : pd.DataFrame
+    ogu_coverage_per_sample_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and a column for each
-        sample id, which holds the percent coverage of that OGU in that sample.
+        sample id, which holds the coverage (as either a fraction or a percent, based
+        on the input) of that OGU in that sample.
 
     Raises
     ------
@@ -157,7 +165,7 @@ def _validate_sample_ids_in_inputs(
     # Check that every sample in the reads data is also in the ogu coverages.
     # Not worrying about samples that are in coverages but not the reads.
     _ = validate_id_consistency_between_datasets(
-        ogu_percent_coverage_per_sample_df, ogu_counts_per_sample_biom,
+        ogu_coverage_per_sample_df, ogu_counts_per_sample_biom,
         _COVERAGE_DATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=True)
 
     # Not checking that all the samples in the coverages data are in the
@@ -168,7 +176,7 @@ def _validate_sample_ids_in_inputs(
 
 def _validate_ogu_ids_in_inputs(
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_per_sample_df: pd.DataFrame,
+        ogu_coverage_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame) -> None:
     """Validates that the OGU ids in the inputs are consistent.
 
@@ -176,16 +184,17 @@ def _validate_ogu_ids_in_inputs(
     ----------
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_per_sample_df : pd.DataFrame
+    ogu_coverage_per_sample_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and a column for each
-        sample id, which holds the percent coverage of that OGU in that sample.
+        sample id, which holds the coverage of that OGU in that sample as either
+        a fraction or a percent.
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
 
     Raises
     ------
     ValueError
-        If the OGU ids in the ogu counts per sample, ogu percent coverages per
+        If the OGU ids in the ogu counts per sample, ogu coverage per
         sample, and/or ogu lengths are not consistent.
     """
 
@@ -202,7 +211,7 @@ def _validate_ogu_ids_in_inputs(
     # that any OGUs in the coverages data that are missing from the
     # reads data actually have zero coverage, bc one has to stop somewhere :)
     _ = validate_id_consistency_between_datasets(
-        ogu_percent_coverage_per_sample_df, ogu_counts_per_sample_biom,
+        ogu_coverage_per_sample_df, ogu_counts_per_sample_biom,
         _COVERAGE_DATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=False)
 
     # Not checking that all the ogus in the coverages data are in the
@@ -214,10 +223,10 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
         output_cell_counts_metric: str,
-        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_coverage: float,
         min_rsquared: float = DEFAULT_MIN_RSQUARED,
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
@@ -240,18 +249,22 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_df : pd.DataFrame
+    ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the percent
-        coverage of that OGU in that sample.
+        samples) or a column for each sample id, which holds the coverage of 
+        that OGU in that sample, expressed as either a fraction or a percent.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage PARAMETER (e.g., 0.01 or 1 to drop <1% coverage).
     ogu_lengths_fp : str
         String containing the filepath to a tab-separated, two-column,
         no-header file in which the first column is the OGU id and the
          second is the OGU length in basepairs
     min_coverage : float
-        Minimum allowable % coverage of an OGU in a sample needed to include
-        that OGU/sample in the output.
+        Minimum allowable coverage of an OGU in a sample needed to include
+        that OGU/sample in the output, expressed in the same units
+        (fraction or percent) as used in ogu_coverage_df.
     min_rsquared: float
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
@@ -315,7 +328,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     # in each sample
     output_biom, log_msgs_list = calc_ogu_cell_counts_biom(
         absolute_quant_params_per_sample_df, linregress_by_sample_id,
-        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_df,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_df,
         min_coverage, min_rsquared, output_cell_counts_metric)
 
     out_txt_by_out_type = {
@@ -328,7 +341,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
 def _calc_long_format_ogu_cell_counts_df(
         linregress_by_sample_id: Dict[str, Dict[str, float]],
         ogu_counts_per_sample_df: pd.DataFrame,
-        ogu_percent_coverage_per_sample_df: pd.DataFrame,
+        ogu_coverage_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
         per_sample_calc_info_df: pd.DataFrame,
         min_coverage: float,
@@ -346,9 +359,12 @@ def _calc_long_format_ogu_cell_counts_df(
         A Dataframe with a column for OGU_ID_KEY and then one additional column
         for each sample id, which holds the read counts aligned to that OGU in
         that sample.
-    ogu_percent_coverage_per_sample_df : pd.DataFrame
+    ogu_coverage_per_sample_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and a column for each sample holding the
-        percent coverage for that OGU in that sample.
+        coverage for that OGU in that sample as either a fraction or a percent.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage PARAMETER (e.g., 0.01 or 1 to drop <1% coverage).
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     per_sample_calc_info_df : pd.DataFrame
@@ -358,7 +374,8 @@ def _calc_long_format_ogu_cell_counts_df(
         all of the ratio columns may be NaN for a given sample.
     min_coverage : float
         Minimum allowable coverage of an OGU needed to include that OGU
-        in the output.
+        in the output, expressed in the same units (fraction or percent)
+        as used in ogu_coverage_per_sample_df.
     min_rsquared: float
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
@@ -380,7 +397,7 @@ def _calc_long_format_ogu_cell_counts_df(
     # reformat biom info into a "long format" table with
     # columns needed for per-sample calculation
     working_df, prep_log_messages = _prepare_cell_counts_calc_df(
-        ogu_counts_per_sample_df, ogu_percent_coverage_per_sample_df,
+        ogu_counts_per_sample_df, ogu_coverage_per_sample_df,
         ogu_lengths_df, min_coverage)
     log_messages_list.extend(prep_log_messages)
 
@@ -419,7 +436,7 @@ def _calc_long_format_ogu_cell_counts_df(
 
 def _prepare_cell_counts_calc_df(
         ogu_counts_per_sample_df: pd.DataFrame,
-        ogu_percent_coverage_per_sample_df: pd.DataFrame,
+        ogu_coverage_per_sample_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
         min_coverage: float) -> (pd.DataFrame, List[str]):
 
@@ -431,22 +448,23 @@ def _prepare_cell_counts_calc_df(
         Wide-format dataframe with ogu ids as index and one
         column for each sample id, which holds the read counts
         aligned to that OGU in that sample.
-    ogu_percent_coverage_per_sample_df : pd.DataFrame
+    ogu_coverage_per_sample_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and a column for each sample holding the
-        percent coverage for that OGU in that sample.
+        coverage for that OGU in that sample as either a fraction or a percent.
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     min_coverage : float
-        Minimum allowable % coverage of an OGU across samples needed to include
-        that OGU in the output.
+        Minimum allowable coverage of an OGU across samples needed to include
+        that OGU in the output, expressed in the same units (fraction or percent)
+        as used in ogu_coverage_per_sample_df.
 
     Returns
     -------
     working_df : pd.DataFrame
         Long-format dataframe with columns for OGU_ID_KEY, SAMPLE_ID_KEY,
-        OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY, and OGU_PERCENT_COVERAGE_KEY;
+        OGU_READ_COUNT_KEY, OGU_LEN_IN_BP_KEY, and OGU_AGNOSTIC_COVERAGE_KEY;
         contains rows for OGU/sample combinations with
-        OGU % coverage >= min_coverage
+        OGU coverage >= min_coverage
     log_messages_list : list[str]
         List of strings containing log messages generated by this function.
     """
@@ -466,14 +484,14 @@ def _prepare_cell_counts_calc_df(
         id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY,
         value_name=OGU_READ_COUNT_KEY)
 
-    # reformat the ogu percent coverage per sample info into a "long format"
-    # table w columns for OGU_ID_KEY, SAMPLE_ID_KEY, OGU_PERCENT_COVERAGE_KEY
+    # reformat the ogu coverage per sample info into a "long format"
+    # table w columns for OGU_ID_KEY, SAMPLE_ID_KEY, OGU_AGNOSTIC_COVERAGE_KEY
     working_coverage_df = \
-        ogu_percent_coverage_per_sample_df.melt(
+        ogu_coverage_per_sample_df.melt(
             id_vars=[OGU_ID_KEY], var_name=SAMPLE_ID_KEY,
-            value_name=OGU_PERCENT_COVERAGE_KEY)
+            value_name=OGU_AGNOSTIC_COVERAGE_KEY)
     # merge the working_df with the working_coverage_df to add the
-    # percent coverage of each OGU in each sample
+    # coverage of each OGU in each sample
     working_df = working_df.merge(
         working_coverage_df, on=[OGU_ID_KEY, SAMPLE_ID_KEY], how='left')
 
@@ -481,16 +499,16 @@ def _prepare_cell_counts_calc_df(
     # but it is convenient to have everything in one table)
     working_df = working_df.merge(ogu_lengths_df, on=OGU_ID_KEY, how='left')
 
-    # drop records for OGUs with % coverage < min_coverage
-    too_low_cov_mask = working_df[OGU_PERCENT_COVERAGE_KEY] < min_coverage
+    # drop records for OGUs with coverage < min_coverage
+    too_low_cov_mask = working_df[OGU_AGNOSTIC_COVERAGE_KEY] < min_coverage
     too_low_cov_ogus_list = (
         working_df.loc[too_low_cov_mask, OGU_ID_KEY].unique().tolist())
     if len(too_low_cov_ogus_list) > 0:
-        log_messages_list.append(f'The following items have % coverage lower'
+        log_messages_list.append(f'The following items have coverage lower'
                                  f' than the minimum of {min_coverage}: '
                                  f'{too_low_cov_ogus_list}')
     working_df = working_df[
-        working_df[OGU_PERCENT_COVERAGE_KEY] >= min_coverage]
+        working_df[OGU_AGNOSTIC_COVERAGE_KEY] >= min_coverage]
     working_df = working_df.reset_index(drop=True)
 
     return working_df, log_messages_list
@@ -783,7 +801,7 @@ def calc_ogu_cell_counts_biom(
         absolute_quant_params_per_sample_df: pd.DataFrame,
         linregress_by_sample_id: Dict[str, Dict[str, float]],
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_lengths_df: pd.DataFrame,
         min_coverage: float,
         min_rsquared: float,
@@ -804,16 +822,21 @@ def calc_ogu_cell_counts_biom(
         representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_df : pd.DataFrame
+    ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the percent
-        coverage of that OGU in that sample.
+        samples) or a column for each sample id, which holds coverage of 
+        that OGU in that sample as EITHER a fraction or a percentage.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage VALUE ACCORDINGLY.
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     min_coverage : float
-        Minimum allowable % coverage of an OGU across the whole dataset
-        required to include that OGU in the output.
+        Minimum allowable coverage of an OGU across the whole dataset
+        required to include that OGU in the output. May represent either 
+        a fraction (e.g., 0.01 for 1%) or a percentage (e.g., 1 for 1%), and
+        **must be consistent with the type of values in ogu_coverage_df**.
     min_rsquared: float
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
@@ -850,22 +873,22 @@ def calc_ogu_cell_counts_biom(
         "OGU lengths are missing required column(s)")
 
     validate_required_columns_exist(
-        ogu_percent_coverage_df, [OGU_ID_KEY],
+        ogu_coverage_df, [OGU_ID_KEY],
         f"{_COVERAGE_DATA_NAME} is missing required column(s)")
 
-    # handle either original case where OGU percent coverage is the same for
+    # handle either original case where OGU coverage is the same for
     # all samples, or the later case where it is different for each sample;
-    # from here on in, deal only with per-sample OGU percent coverages
-    ogu_percent_coverage_per_sample_df = \
+    # from here on in, deal only with per-sample OGU coverages
+    ogu_coverage_per_sample_df = \
         _generate_ogu_coverages_per_sample_df(
-            ogu_percent_coverage_df, ogu_counts_per_sample_biom)
+            ogu_coverage_df, ogu_counts_per_sample_biom)
 
     _validate_sample_ids_in_inputs(absolute_quant_params_per_sample_df,
                                    ogu_counts_per_sample_biom,
-                                   ogu_percent_coverage_per_sample_df)
+                                   ogu_coverage_per_sample_df)
 
     _validate_ogu_ids_in_inputs(ogu_counts_per_sample_biom,
-                                ogu_percent_coverage_per_sample_df,
+                                ogu_coverage_per_sample_df,
                                 ogu_lengths_df)
 
     working_params_df = absolute_quant_params_per_sample_df.copy()
@@ -915,7 +938,7 @@ def calc_ogu_cell_counts_biom(
     ogu_cell_counts_long_format_df, calc_log_msgs_list = (
         _calc_long_format_ogu_cell_counts_df(
             linregress_by_sample_id, ogu_counts_per_sample_df,
-            ogu_percent_coverage_per_sample_df, ogu_lengths_df,
+            ogu_coverage_per_sample_df, ogu_lengths_df,
             per_sample_calc_info_df, min_coverage, min_rsquared))
     log_msgs_list.extend(calc_log_msgs_list)
 
@@ -944,9 +967,9 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
-        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_coverage: float,
         min_rsquared: float = DEFAULT_MIN_RSQUARED,
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
@@ -968,18 +991,22 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         representation of the sample's LinregressResult.
     ogu_counts_per_sample_biom: biom.Table
         Biom table holding the read counts aligned to each OGU in each sample.
-    ogu_percent_coverage_df : pd.DataFrame
+    ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the percent
-        coverage of that OGU in that sample.
+        samples) or a column for each sample id, which holds the coverage of 
+        that OGU in that sample, expressed as either a fraction or a percentage.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage VALUE ACCORDINGLY.
     ogu_lengths_fp : str
         String containing the filepath to a tab-separated, two-column,
         no-header file in which the first column is the OGU id and the
          second is the OGU length in basepairs
     min_coverage : float
-        Minimum allowable % coverage of an OGU in a sample needed to include
-        that OGU/sample in the output.
+        Minimum allowable coverage of an OGU in a sample needed to include
+        that OGU/sample in the output, expressed in the same units
+        (fraction or percent) as used in ogu_coverage_df.
     min_rsquared: float
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
@@ -1005,7 +1032,7 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
 
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
-        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
@@ -1015,9 +1042,9 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
-        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_coverage: float,
         min_rsquared: float = DEFAULT_MIN_RSQUARED,
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
@@ -1030,7 +1057,7 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
 
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
-        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
@@ -1040,9 +1067,9 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
-        ogu_percent_coverage_df: pd.DataFrame,
+        ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
-        min_coverage: float = DEFAULT_MIN_PERCENT_COVERAGE,
+        min_coverage: float,
         min_rsquared: float = DEFAULT_MIN_RSQUARED,
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
@@ -1055,6 +1082,6 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
 
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
-        ogu_counts_per_sample_biom, ogu_percent_coverage_df, ogu_lengths_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
