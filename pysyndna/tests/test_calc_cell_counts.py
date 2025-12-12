@@ -718,6 +718,9 @@ class TestCalcCellCounts(TestCase):
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
         prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
 
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict).astype(str)
+
         # example4 has the same counts as example2
         counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
 
@@ -727,8 +730,6 @@ class TestCalcCellCounts(TestCase):
             counts_vals,
             TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
             sample_ids)
-        coverages_df = pd.DataFrame(
-            TestCalcCellCountsData.ogu_percent_coverage_dict)
         models_fp = os.path.join(self.test_data_dir, "models.yml")
         lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
         # Note that, in the output, the ogu_ids are apparently sorted
