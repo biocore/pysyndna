@@ -447,7 +447,7 @@ def fit_linear_regression_models(
 
     log_messages_list = []
 
-    # check sample_syndna_weights_and_total_reads_df has the expected columns
+    # check input dataframes have the expected columns
     expected_info_cols = [SAMPLE_ID_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY]
     validate_required_columns_exist(
         sample_syndna_weights_and_total_reads_df, expected_info_cols,
