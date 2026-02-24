@@ -1,6 +1,7 @@
 import biom
 import numpy as np
 import pandas as pd
+from warnings import deprecated
 import yaml
 from typing import Optional, Union, Dict, List
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
@@ -218,6 +219,9 @@ def _validate_ogu_ids_in_inputs(
     # lengths because we don't really care about any of them that aren't *also*
     # in the reads data, and we've already checked those for consistency.
 
+
+@deprecated("This function has been deprecated; "
+            "please use _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita instead.")
 def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -261,6 +265,12 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         String containing the filepath to a tab-separated, two-column,
         no-header file in which the first column is the OGU id and the
          second is the OGU length in basepairs
+    output_cell_counts_metric: str
+        String indicating the metric to use for the output cell counts.  Must
+        be one of OGU_CELLS_PER_G_OF_SAMPLE_KEY, OGU_CELLS_PER_UL_OF_SAMPLE_KEY,
+        or OGU_CELLS_PER_CM2_OF_SAMPLE_KEY.  This determines the units of the
+        output cell counts and also which column in the sample info is used for
+        the per-sample calculation.
     min_coverage : float
         Minimum allowable coverage of an OGU in a sample needed to include
         that OGU/sample in the output, expressed in the same units
@@ -295,6 +305,93 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     _ = validate_id_consistency_between_datasets(
         sample_info_df, prep_info_df, "sample info", "prep info", True)
 
+    # merge the sample info and prep info dataframes
+    absolute_quant_params_per_sample_df = \
+        sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
+
+    out_txt_by_out_type = _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+        absolute_quant_params_per_sample_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp, output_cell_counts_metric,
+        min_coverage, min_rsquared, syndna_mass_fraction_of_sample
+    )
+
+    return out_txt_by_out_type
+
+
+def _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+        absolute_quant_params_per_sample_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        output_cell_counts_metric: str,
+        min_coverage: float,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
+
+    """Gets # of cells of each OGU/g of sample for samples from Qiita.
+
+    Parameters
+    ----------
+    absolute_quant_params_per_sample_df:  pd.DataFrame
+        A Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+        ELUTE_VOL_UL_KEY, and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each
+        sample in the prep. It should also have at least one of SAMPLE_VOLUME_UL_KEY,
+        SAMPLE_SURFACE_AREA_CM2_KEY, and/or SAMPLE_IN_ALIQUOT_MASS_G_KEY.
+    linregress_by_sample_id_fp: str
+        String containing the filepath to the yaml file holding the
+        dictionary keyed by sample id, containing for each sample a dictionary
+        representation of the sample's LinregressResult.
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_coverage_df : pd.DataFrame
+        A DataFrame containing a column for OGU_ID_KEY and either a column for
+        OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
+        samples) or a column for each sample id, which holds the coverage of 
+        that OGU in that sample, expressed as either a fraction or a percent.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage PARAMETER (e.g., 0.01 or 1 to drop <1% coverage).
+    ogu_lengths_fp : str
+        String containing the filepath to a tab-separated, two-column,
+        no-header file in which the first column is the OGU id and the
+         second is the OGU length in basepairs
+    output_cell_counts_metric: str
+        String indicating the metric to use for the output cell counts.  Must
+        be one of OGU_CELLS_PER_G_OF_SAMPLE_KEY, OGU_CELLS_PER_UL_OF_SAMPLE_KEY,
+        or OGU_CELLS_PER_CM2_OF_SAMPLE_KEY.  This determines the units of the
+        output cell counts and also which column in the sample info is used for
+        the per-sample calculation.
+    min_coverage : float
+        Minimum allowable coverage of an OGU in a sample needed to include
+        that OGU/sample in the output, expressed in the same units
+        (fraction or percent) as used in ogu_coverage_df.
+    min_rsquared: float
+        Minimum allowable R^2 value for the linear regression model for a
+        sample; any sample with an R^2 value less than this will be excluded
+        from the output.
+    syndna_mass_fraction_of_sample: float
+        Fraction of the mass of the sample that is added as syndna (usually
+        0.05, which is to say 5%).
+
+    Returns
+    -------
+    output_by_out_type : dict of str or biom.Table
+        Dictionary of outputs keyed by their type Currently, the following keys
+        are defined:
+        CELL_COUNT_RESULT_KEY: biom.Table holding the calculated number of
+        cells per gram of sample material for each OGU in each sample.
+        CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
+    """
+
+    required_prep_cols = list(
+        {INPUT_SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
+    validate_required_columns_exist(
+        absolute_quant_params_per_sample_df, required_prep_cols,
+        "absolute quant params per sample is missing required column(s)")
+    
     # cast in case the input comes in as string or something
     syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
 
@@ -306,15 +403,11 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     # the sample (added into the library prep in addition to the sample mass).
     # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
     # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
-    prep_info_df = cast_cols(
-        prep_info_df, [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
-    prep_info_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
-        prep_info_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
+    absolute_quant_params_per_sample_df = cast_cols(
+        absolute_quant_params_per_sample_df, [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
+    absolute_quant_params_per_sample_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
+        absolute_quant_params_per_sample_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
         (1 / syndna_mass_fraction_of_sample)
-
-    # merge the sample info and prep info dataframes
-    absolute_quant_params_per_sample_df = \
-        sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
 
     # read in the linregress_by_sample_id yaml file
     with open(linregress_by_sample_id_fp) as f:
@@ -961,7 +1054,8 @@ def calc_ogu_cell_counts_biom(
 
     return ogu_cell_counts_biom, log_msgs_list
 
-
+@deprecated("This function has been deprecated; " 
+            "please use calc_ogu_cell_counts_per_g_of_sample_in_prep_for_qiita instead.")
 def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1037,6 +1131,80 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         syndna_mass_fraction_of_sample)
 
 
+def calc_ogu_cell_counts_per_g_of_sample_in_prep_for_qiita(
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        min_coverage: float,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
+    """Calculates the number of cells per gram of sample material.
+
+    Parameters
+    ----------
+    prep_info_df: pd.DataFrame
+        A Dataframe containing prep info for all samples in the prep,
+        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
+        ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY, and
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY.
+    linregress_by_sample_id_fp: str
+        String containing the filepath to the yaml file holding the
+        dictionary keyed by sample id, containing for each sample a dictionary
+        representation of the sample's LinregressResult.
+    ogu_counts_per_sample_biom: biom.Table
+        Biom table holding the read counts aligned to each OGU in each sample.
+    ogu_coverage_df : pd.DataFrame
+        A DataFrame containing a column for OGU_ID_KEY and either a column for
+        OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
+        samples) or a column for each sample id, which holds the coverage of 
+        that OGU in that sample, expressed as either a fraction or a percentage.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
+        APPROPRIATE min_coverage VALUE ACCORDINGLY.
+    ogu_lengths_fp : str
+        String containing the filepath to a tab-separated, two-column,
+        no-header file in which the first column is the OGU id and the
+         second is the OGU length in basepairs
+    min_coverage : float
+        Minimum allowable coverage of an OGU in a sample needed to include
+        that OGU/sample in the output, expressed in the same units
+        (fraction or percent) as used in ogu_coverage_df.
+    min_rsquared: float
+        Minimum allowable R^2 value for the linear regression model for a
+        sample; any sample with an R^2 value less than this will be excluded
+        from the output.
+    syndna_mass_fraction_of_sample: float
+        Fraction of the mass of the sample that is added as syndna (usually
+        0.05, which is to say 5%).
+
+    Returns
+    -------
+    output_by_out_type : dict of str or biom.Table
+        Dictionary of outputs keyed by their type Currently, the following keys
+        are defined:
+        CELL_COUNT_RESULT_KEY: biom.Table holding the calculated number of
+        cells per gram of sample material for each OGU in each sample.
+        CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
+    """
+
+    # check if the input has the specific required columns
+    validate_required_columns_exist(
+        prep_info_df, [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY],
+        "prep info is missing required column(s)")
+
+    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+        prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
+
+
+@deprecated("This function has been deprecated; " 
+            "please use calc_ogu_cell_counts_per_cm2_of_sample_in_prep_for_qiita instead.")
 def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1062,6 +1230,32 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         syndna_mass_fraction_of_sample)
 
 
+def calc_ogu_cell_counts_per_cm2_of_sample_in_prep_for_qiita(
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        min_coverage: float,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
+
+    # check if the input has the specific required columns
+    validate_required_columns_exist(
+        prep_info_df, [SAMPLE_ID_KEY, SAMPLE_SURFACE_AREA_CM2_KEY],
+        "prep info is missing required column(s)")
+
+    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+        prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
+
+
+@deprecated("This function has been deprecated; " 
+            "please use calc_ogu_cell_counts_per_ul_of_sample_in_prep_for_qiita instead.")
 def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1082,6 +1276,30 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
 
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
+        OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
+        syndna_mass_fraction_of_sample)
+
+
+def calc_ogu_cell_counts_per_ul_of_sample_in_prep_for_qiita(
+        prep_info_df: pd.DataFrame,
+        linregress_by_sample_id_fp: str,
+        ogu_counts_per_sample_biom: biom.Table,
+        ogu_coverage_df: pd.DataFrame,
+        ogu_lengths_fp: str,
+        min_coverage: float,
+        min_rsquared: float = DEFAULT_MIN_RSQUARED,
+        syndna_mass_fraction_of_sample: float =
+        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        -> Dict[str, Union[str, biom.Table]]:
+
+    # check if the input has the specific required columns
+    validate_required_columns_exist(
+        prep_info_df, [SAMPLE_ID_KEY, SAMPLE_VOLUME_UL_KEY],
+        "prep info is missing required column(s)")
+
+    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+        prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
