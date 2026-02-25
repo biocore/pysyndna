@@ -221,8 +221,8 @@ def _validate_ogu_ids_in_inputs(
 
 
 @deprecated("This function has been deprecated; "
-            "please use _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita instead.")
-def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+            "please use _calc_ogu_cell_counts_per_x_of_sample_for_qiita instead.")
+def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
@@ -309,7 +309,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     absolute_quant_params_per_sample_df = \
         sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
 
-    out_txt_by_out_type = _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+    out_txt_by_out_type = _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         absolute_quant_params_per_sample_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp, output_cell_counts_metric,
         min_coverage, min_rsquared, syndna_mass_fraction_of_sample
@@ -318,7 +318,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     return out_txt_by_out_type
 
 
-def _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         absolute_quant_params_per_sample_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
@@ -1054,9 +1054,9 @@ def calc_ogu_cell_counts_biom(
 
     return ogu_cell_counts_biom, log_msgs_list
 
-@deprecated("This function has been deprecated; " 
-            "please use calc_ogu_cell_counts_per_g_of_sample_in_prep_for_qiita instead.")
-def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+@deprecated("This function has been deprecated; "
+            "please use calc_ogu_cell_counts_per_g_of_sample_for_qiita instead.")
+def calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
@@ -1124,14 +1124,14 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         sample_info_df, [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY],
         "sample info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
 
-def calc_ogu_cell_counts_per_g_of_sample_in_prep_for_qiita(
+def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
@@ -1196,16 +1196,16 @@ def calc_ogu_cell_counts_per_g_of_sample_in_prep_for_qiita(
         prep_info_df, [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY],
         "prep info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
 
-@deprecated("This function has been deprecated; " 
-            "please use calc_ogu_cell_counts_per_cm2_of_sample_in_prep_for_qiita instead.")
-def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
+@deprecated("This function has been deprecated; "
+            "please use calc_ogu_cell_counts_per_cm2_of_sample_for_qiita instead.")
+def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
@@ -1223,14 +1223,14 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         sample_info_df, [SAMPLE_ID_KEY, SAMPLE_SURFACE_AREA_CM2_KEY],
         "sample info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
 
-def calc_ogu_cell_counts_per_cm2_of_sample_in_prep_for_qiita(
+def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
@@ -1247,16 +1247,16 @@ def calc_ogu_cell_counts_per_cm2_of_sample_in_prep_for_qiita(
         prep_info_df, [SAMPLE_ID_KEY, SAMPLE_SURFACE_AREA_CM2_KEY],
         "prep info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
 
-@deprecated("This function has been deprecated; " 
-            "please use calc_ogu_cell_counts_per_ul_of_sample_in_prep_for_qiita instead.")
-def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
+@deprecated("This function has been deprecated; "
+            "please use calc_ogu_cell_counts_per_ul_of_sample_for_qiita instead.")
+def calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
@@ -1274,14 +1274,14 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
         sample_info_df, [SAMPLE_ID_KEY, SAMPLE_VOLUME_UL_KEY],
         "sample info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         sample_info_df, prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
         syndna_mass_fraction_of_sample)
 
 
-def calc_ogu_cell_counts_per_ul_of_sample_in_prep_for_qiita(
+def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
         prep_info_df: pd.DataFrame,
         linregress_by_sample_id_fp: str,
         ogu_counts_per_sample_biom: biom.Table,
@@ -1298,7 +1298,7 @@ def calc_ogu_cell_counts_per_ul_of_sample_in_prep_for_qiita(
         prep_info_df, [SAMPLE_ID_KEY, SAMPLE_VOLUME_UL_KEY],
         "prep info is missing required column(s)")
 
-    return _calc_ogu_cell_counts_per_x_of_sample_in_prep_for_qiita(
+    return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,

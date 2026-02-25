@@ -8,8 +8,12 @@ import os
 from unittest import TestCase
 from pysyndna import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita, \
+    calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input, \
     calc_ogu_cell_counts_per_cm2_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_ul_of_sample_for_qiita
+from pysyndna.src.calc_cell_counts import \
+    calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input, \
+    calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input
 from pysyndna.src.util import OGU_ID_KEY
 from pysyndna.src.fit_syndna_models import SAMPLE_TOTAL_READS_KEY
 from pysyndna.src.calc_cell_counts import SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
@@ -631,10 +635,379 @@ class TestCalcCellCountsData:
 
 
 class TestCalcCellCounts(TestCase):
+    _DEFAULT_SAMPLE_PLUS_PREP_COLS = [
+        SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
+        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
+        INPUT_SYNDNA_POOL_MASS_NG_KEY]
+
+    @classmethod
+    def make_sample_plus_prep_input_dict(cls, cols_to_include=None):
+        if cols_to_include is None:
+            cols_to_include = cls._DEFAULT_SAMPLE_PLUS_PREP_COLS
+        sample_plus_prep_info_dict = {
+                k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy()
+                for k in cols_to_include}
+        return sample_plus_prep_info_dict
+
     def setUp(self):
         self.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
     def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita(self):
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+
+        prep_info_dict = self.make_sample_plus_prep_input_dict()
+        # NOTE: this column is not needed anymore. It is left in this test
+        # just to show that the code can deal with extra columns (it just
+        # ignores them).
+        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+        
+        # reset the sample ids and elute volume for example4
+        sample_ids = ["example1", "example4"]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
+
+        # example4 has the same counts as example2
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(TestCalcCellCountsData.example1_example4_results_dict[
+                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+            TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
+            sample_ids)
+
+        min_coverage = 10
+        min_rsquared = 0.8
+
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            prep_info_df, models_fp, counts_biom,
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
+        self.assertEqual(
+            "The following items have coverage lower than the minimum of "
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_casts(self):
+        # inputs are the same as in
+        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
+        # all the inputs are strings, including ones that must be ints/floats.
+        # These are automatically cast to what they need to be by the function.
+
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+
+        prep_info_dict = {
+            k: [str(x) for x in v] for k, v in
+            self.make_sample_plus_prep_input_dict().items()}
+        sample_ids = ["example1", "example4"]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = str(example4_elute_vol)
+
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict).astype(str)
+
+        # example4 has the same counts as example2
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(TestCalcCellCountsData.example1_example4_results_dict[
+                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+            TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
+            sample_ids)
+
+        # pass in strings for the numeric values to ensure they get cast
+        min_coverage = "10"
+        min_rsquared = "0.8"
+
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            prep_info_df, models_fp, counts_biom,
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
+        self.assertEqual(
+            "The following items have coverage lower than the minimum of "
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_negs(self):
+        # inputs are the same as in
+        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
+        # the "example4" sample has a negative aliquot mass and thus its
+        # results are removed from the output biom table
+
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+
+        prep_info_dict = self.make_sample_plus_prep_input_dict()
+        sample_ids = ["example1", "example4"]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
+        prep_info_dict[SAMPLE_IN_ALIQUOT_MASS_G_KEY][1] = \
+            -1 * prep_info_dict[SAMPLE_IN_ALIQUOT_MASS_G_KEY][1]
+
+        # example4 has the same counts as example2
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        # Results are returned only for example 1 because example 4 has a
+        # negative aliquot mass
+        ogu_cell_counts_per_g_sample = np.array(
+            [[x[0]] for x in
+             TestCalcCellCountsData.example1_example4_results_dict[
+                 OGU_CELLS_PER_G_OF_SAMPLE_KEY]]
+        )
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            ogu_cell_counts_per_g_sample,
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            [sample_ids[0]])
+
+        min_coverage = 10
+        min_rsquared = 0.8
+
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            prep_info_df, models_fp, counts_biom,
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
+        self.assertEqual(
+            "Dropping samples with negative values in necessary "
+            "prep/sample column(s): example4\nThe following items have "
+            "coverage lower than the minimum of 10.0: ['Neisseria subflava', "
+            "'Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
+        # missing required columns--deliberately not using helper since this
+        # test needs an incomplete dict
+        prep_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
+                          [SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY]}
+
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            prep_info_dict[SAMPLE_ID_KEY])
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+
+        min_coverage = 1
+        min_rsquared = 0.8
+
+        err_msg = r"prep info is missing required column\(s\): " \
+                  r"\['calc_mass_sample_aliquot_input_g'\]"
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+                prep_info_df, models_fp, counts_biom,
+                coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_ids_err(self):
+        prep_info_dict = self.make_sample_plus_prep_input_dict()
+
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        # remove one of the sample ids from the prep info; this will cause
+        # an error because the biom table has a sample id not in prep info
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        prep_info_df.drop(index=0, axis=0, inplace=True)
+
+        sample_ids = TestCalcCellCountsData.sample_and_prep_input_dict[
+            SAMPLE_ID_KEY]
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+
+        min_coverage = 10
+        min_rsquared = 0.8
+
+        err_msg = (r"Found sample ids in OGU counts data that were not in"
+                   r" sample info: \{'example1'\}")
+        with self.assertRaisesRegex(ValueError, err_msg):
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+                prep_info_df, models_fp, counts_biom,
+                coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+    def test_calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(self):
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+
+        prep_info_dict = self.make_sample_plus_prep_input_dict(
+            [SAMPLE_SURFACE_AREA_CM2_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY])
+        # NOTE: this column is not needed anymore. It is left in this test
+        # just to show that the code can deal with extra columns (it just
+        # ignores them).
+        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+        sample_ids = ["example1", "example4"]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
+
+        # example4 has the same counts as example2
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(TestCalcCellCountsData.example1_example4_results_dict[
+                         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY]),
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            sample_ids)
+
+        min_coverage = 10
+        min_rsquared = 0.8
+
+        output_dict = calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
+            prep_info_df, models_fp, counts_biom,
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
+        self.assertEqual(
+            "The following items have coverage lower than the minimum of "
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
+    def test_calc_ogu_cell_counts_per_ul_of_sample_for_qiita(self):
+        # example4 is the same as example2 except that the elute volume is 70;
+        # see "absolute_quant_example.xlsx" for details.
+        example4_elute_vol = 70
+
+        prep_info_dict = self.make_sample_plus_prep_input_dict(
+            [SAMPLE_VOLUME_UL_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY])
+        # NOTE: this column is not needed anymore. It is left in this test
+        # just to show that the code can deal with extra columns (it just
+        # ignores them).
+        prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
+            TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
+        sample_ids = ["example1", "example4"]
+        prep_info_dict[SAMPLE_ID_KEY] = sample_ids
+        prep_info_dict[ELUTE_VOL_UL_KEY][1] = example4_elute_vol
+
+        # example4 has the same counts as example2
+        counts_vals = TestCalcCellCountsData.make_combined_counts_np_array()
+
+        prep_info_df = pd.DataFrame(prep_info_dict)
+        counts_biom = biom.table.Table(
+            counts_vals,
+            TestCalcCellCountsData.ogu_lengths_dict[OGU_ID_KEY],
+            sample_ids)
+        coverages_df = pd.DataFrame(
+            TestCalcCellCountsData.ogu_percent_coverage_dict)
+        models_fp = os.path.join(self.test_data_dir, "models.yml")
+        lengths_fp = os.path.join(self.test_data_dir, "ogu_lengths.tsv")
+        # Note that, in the output, the ogu_ids are apparently sorted
+        # alphabetically--different than the input order
+        expected_out_biom = biom.table.Table(
+            np.array(TestCalcCellCountsData.example1_example4_results_dict[
+                         OGU_CELLS_PER_UL_OF_SAMPLE_KEY]),
+            TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
+            sample_ids)
+
+        min_coverage = 10
+        min_rsquared = 0.8
+
+        output_dict = calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
+            prep_info_df, models_fp, counts_biom,
+            coverages_df, lengths_fp, min_coverage, min_rsquared)
+
+        self.assertSetEqual(
+            set(output_dict.keys()),
+            {CELL_COUNT_RESULT_KEY, CELL_COUNT_LOG_KEY})
+
+        a_tester = Testers()
+        a_tester.assert_biom_tables_equal(
+            expected_out_biom, output_dict[CELL_COUNT_RESULT_KEY],
+            decimal_precision=1)
+        self.assertEqual(
+            "The following items have coverage lower than the minimum of "
+            "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
+            output_dict[CELL_COUNT_LOG_KEY])
+
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(self):
         # example4 is the same as example2 except that the elute volume is 70;
         # see "absolute_quant_example.xlsx" for details.
         example4_elute_vol = 70
@@ -679,7 +1052,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 10
         min_rsquared = 0.8
 
-        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
             sample_info_df, prep_info_df, models_fp, counts_biom,
             coverages_df, lengths_fp, min_coverage, min_rsquared)
 
@@ -696,11 +1069,11 @@ class TestCalcCellCounts(TestCase):
             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
-    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_casts(self):
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input_w_casts(self):
         # inputs are the same as in
-        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
-        # all the inputs are strings, including ones that must be ints/floats.
-        # These are automatically cast to what they need to be by the function.
+        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input
+        # EXCEPT that all the inputs are strings, including ones that must be
+        # ints/floats. These are automatically cast to what they need to be.
 
         # example4 is the same as example2 except that the elute volume is 70;
         # see "absolute_quant_example.xlsx" for details.
@@ -744,7 +1117,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = "10"
         min_rsquared = "0.8"
 
-        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
             sample_info_df, prep_info_df, models_fp, counts_biom,
             coverages_df, lengths_fp, min_coverage, min_rsquared)
 
@@ -761,9 +1134,9 @@ class TestCalcCellCounts(TestCase):
             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
-    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_negs(self):
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input_w_negs(self):
         # inputs are the same as in
-        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita EXCEPT that
+        # test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input EXCEPT that
         # the "example4" sample has a negative aliquot mass and thus its
         # results are removed from the output biom table
 
@@ -816,7 +1189,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 10
         min_rsquared = 0.8
 
-        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+        output_dict = calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
             sample_info_df, prep_info_df, models_fp, counts_biom,
             coverages_df, lengths_fp, min_coverage, min_rsquared)
 
@@ -835,7 +1208,7 @@ class TestCalcCellCounts(TestCase):
             "'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
-    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_sample_err(self):
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input_w_sample_err(self):
         # missing a required column column
         sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict for k in
                             [SAMPLE_ID_KEY]}
@@ -862,11 +1235,11 @@ class TestCalcCellCounts(TestCase):
         err_msg = r"sample info is missing required column\(s\): " \
                   r"\['calc_mass_sample_aliquot_input_g'\]"
         with self.assertRaisesRegex(ValueError, err_msg):
-            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
                 coverages_df, lengths_fp, min_coverage, min_rsquared)
 
-    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_prep_err(self):
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input_w_prep_err(self):
         sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
@@ -893,11 +1266,11 @@ class TestCalcCellCounts(TestCase):
         err_msg = r"prep info is missing required column\(s\): " \
                   r"\[\'mass_syndna_input_ng'\, 'vol_extracted_elution_ul'\]"
         with self.assertRaisesRegex(ValueError, err_msg):
-            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
                 coverages_df, lengths_fp, min_coverage, min_rsquared)
 
-    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_w_ids_err(self):
+    def test_calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input_w_ids_err(self):
         sample_info_dict = {k: TestCalcCellCountsData.sample_and_prep_input_dict[k] for k in
                             [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
@@ -929,11 +1302,11 @@ class TestCalcCellCounts(TestCase):
         err_msg = (r"Found sample ids in prep info that were not in"
                    r" sample info: \{'example1'\}")
         with self.assertRaisesRegex(ValueError, err_msg):
-            calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
                 sample_info_df, prep_info_df, models_fp, counts_biom,
                 coverages_df, lengths_fp, min_coverage, min_rsquared)
 
-    def test_calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(self):
+    def test_calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(self):
         # example4 is the same as example2 except that the elute volume is 70;
         # see "absolute_quant_example.xlsx" for details.
         example4_elute_vol = 70
@@ -980,7 +1353,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 10
         min_rsquared = 0.8
 
-        output_dict = calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
+        output_dict = calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(
             sample_info_df, prep_info_df, models_fp, counts_biom,
             coverages_df, lengths_fp, min_coverage, min_rsquared)
 
@@ -997,7 +1370,7 @@ class TestCalcCellCounts(TestCase):
             "10.0: ['Neisseria subflava', 'Haemophilus influenzae']",
             output_dict[CELL_COUNT_LOG_KEY])
 
-    def test_calc_ogu_cell_counts_per_ul_of_sample_for_qiita(self):
+    def test_calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(self):
         # example4 is the same as example2 except that the elute volume is 70;
         # see "absolute_quant_example.xlsx" for details.
         example4_elute_vol = 70
@@ -1044,7 +1417,7 @@ class TestCalcCellCounts(TestCase):
         min_coverage = 10
         min_rsquared = 0.8
 
-        output_dict = calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
+        output_dict = calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(
             sample_info_df, prep_info_df, models_fp, counts_biom,
             coverages_df, lengths_fp, min_coverage, min_rsquared)
 
