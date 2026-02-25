@@ -3,6 +3,7 @@ from pysyndna.src.fit_syndna_models import fit_linear_regression_models, \
     FIT_SYNDNA_MODELS_LOG_KEY
 from pysyndna.src.calc_cell_counts import calc_ogu_cell_counts_biom, \
     calc_ogu_cell_counts_per_g_of_sample_for_qiita, \
+    calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input, \
     calc_ogu_cell_counts_per_cm2_of_sample_for_qiita, \
     calc_ogu_cell_counts_per_ul_of_sample_for_qiita, \
     SAMPLE_IN_ALIQUOT_MASS_G_KEY, SAMPLE_SURFACE_AREA_CM2_KEY, \
@@ -21,6 +22,7 @@ __all__ = ['fit_linear_regression_models',
            'fit_linear_regression_models_for_qiita',
            'calc_ogu_cell_counts_biom',
            'calc_ogu_cell_counts_per_g_of_sample_for_qiita',
+           'calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input',
            'calc_ogu_cell_counts_per_cm2_of_sample_for_qiita',
            'calc_ogu_cell_counts_per_ul_of_sample_for_qiita',
            'read_ogu_orf_coords_to_df',
