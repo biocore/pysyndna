@@ -4,11 +4,12 @@ import numpy.testing as npt
 import pandas
 from pandas.testing import assert_series_equal, assert_frame_equal
 from unittest import TestCase
-from pysyndna.src.util import (calc_copies_genomic_element_per_g_series, \
-    calc_gs_genomic_element_in_aliquot, get_ids_from_df_or_biom, \
-    filter_data_by_sample_info, cast_cols, \
-    validate_id_consistency_between_datasets, \
-    validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY, \
+from pysyndna.src.util import (
+    calc_copies_genomic_element_per_g_series,
+    calc_gs_genomic_element_in_aliquot, get_ids_from_df_or_biom,
+    filter_data_by_sample_info, cast_cols,
+    validate_id_consistency_between_datasets,
+    validate_required_columns_exist, SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
     OGU_ID_KEY)
 
 
@@ -183,7 +184,7 @@ class TestUtils(TestCase):
         prep_df = pandas.DataFrame(prep_dict)
 
         _ = validate_id_consistency_between_datasets(
-                input_df, prep_df, "sample info", "prep info", True)
+            input_df, prep_df, "sample info", "prep info", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)
@@ -302,7 +303,7 @@ class TestUtils(TestCase):
             ['sample1', 'sample2'])
 
         _ = validate_id_consistency_between_datasets(
-                input_df, reads_biom, "sample info", "reads data", True)
+            input_df, reads_biom, "sample info", "reads data", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)
@@ -341,7 +342,7 @@ class TestUtils(TestCase):
                         r"sample info: \{'sample2'\}")
         with self.assertRaisesRegex(ValueError, expected_err):
             _ = validate_id_consistency_between_datasets(
-                    input_df, reads_biom, "sample info", "reads data", True)
+                input_df, reads_biom, "sample info", "reads data", True)
 
     def test_cast_cols(self):
         # all inputs are strings

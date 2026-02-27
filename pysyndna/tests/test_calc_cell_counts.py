@@ -645,8 +645,8 @@ class TestCalcCellCounts(TestCase):
         if cols_to_include is None:
             cols_to_include = cls._DEFAULT_SAMPLE_PLUS_PREP_COLS
         sample_plus_prep_info_dict = {
-                k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy()
-                for k in cols_to_include}
+            k: TestCalcCellCountsData.sample_and_prep_input_dict[k].copy()
+            for k in cols_to_include}
         return sample_plus_prep_info_dict
 
     def setUp(self):
@@ -663,7 +663,7 @@ class TestCalcCellCounts(TestCase):
         # ignores them).
         prep_info_dict[SAMPLE_TOTAL_READS_KEY] = \
             TestCalcCellCountsData.mass_and_totals_dict[SAMPLE_TOTAL_READS_KEY]
-        
+
         # reset the sample ids and elute volume for example4
         sample_ids = ["example1", "example4"]
         prep_info_dict[SAMPLE_ID_KEY] = sample_ids
@@ -685,7 +685,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -743,7 +743,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -926,7 +926,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_CM2_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -983,7 +983,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_UL_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_UL_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -1045,7 +1045,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -1109,7 +1109,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_G_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.example1_example4_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -1346,7 +1346,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_CM2_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_CM2_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -1410,7 +1410,7 @@ class TestCalcCellCounts(TestCase):
         # alphabetically--different than the input order
         expected_out_biom = biom.table.Table(
             np.array(TestCalcCellCountsData.example1_example4_results_dict[
-                         OGU_CELLS_PER_UL_OF_SAMPLE_KEY]),
+                OGU_CELLS_PER_UL_OF_SAMPLE_KEY]),
             TestCalcCellCountsData.reordered_results_dict[OGU_ID_KEY],
             sample_ids)
 
@@ -1891,8 +1891,8 @@ class TestCalcCellCounts(TestCase):
             SAMPLE_ID_KEY: ["A", "A", "A", "A", "A",
                             "B", "B", "B", "B", "B"],
             OGU_READ_COUNT_KEY: SparseArray(
-                _remove_filtered_entries(a_counts, removed) +
-                _remove_filtered_entries(b_counts, removed)),
+                _remove_filtered_entries(a_counts, removed)
+                + _remove_filtered_entries(b_counts, removed)),
             OGU_AGNOSTIC_COVERAGE_KEY:
                 filtered_ogu_coverage + filtered_ogu_coverage,
             OGU_LEN_IN_BP_KEY: filtered_ogu_lens + filtered_ogu_lens

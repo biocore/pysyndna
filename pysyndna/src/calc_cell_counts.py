@@ -1,7 +1,7 @@
 import biom
 import numpy as np
 import pandas as pd
-from warnings import deprecated
+import warnings
 import yaml
 from typing import Optional, Union, Dict, List
 from pysyndna.src.util import calc_copies_genomic_element_per_g_series, \
@@ -82,9 +82,9 @@ def _generate_ogu_coverages_per_sample_df(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds either the fraction 
-        or the percent coverage of that OGU in that sample. 
-        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        samples) or a column for each sample id, which holds either the fraction
+        or the percent coverage of that OGU in that sample.
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
         APPROPRIATE MIN_COVERAGE PARAMETER (e.g., 0.01 or 1 to drop <1% coverage).
     ogu_counts_per_sample_biom : biom.Table
@@ -129,6 +129,7 @@ def _generate_ogu_coverages_per_sample_df(
 
     return ogu_coverage_per_sample_df
 
+
 def _validate_sample_ids_in_inputs(
         absolute_quant_params_per_sample_df: pd.DataFrame,
         ogu_counts_per_sample_biom: biom.Table,
@@ -161,7 +162,7 @@ def _validate_sample_ids_in_inputs(
     # maybe those failed the sequencing run.
     _ = validate_id_consistency_between_datasets(
         absolute_quant_params_per_sample_df, ogu_counts_per_sample_biom,
-        _METATDATA_NAME, _COUNTS_DATA_NAME,  check_sample_ids=True)
+        _METATDATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=True)
 
     # Check that every sample in the reads data is also in the ogu coverages.
     # Not worrying about samples that are in coverages but not the reads.
@@ -204,7 +205,7 @@ def _validate_ogu_ids_in_inputs(
     # maybe those just don't exist in these samples.
     _ = validate_id_consistency_between_datasets(
         ogu_lengths_df, ogu_counts_per_sample_biom,
-        _LENGTHS_DATA_NAME, _COUNTS_DATA_NAME,  check_sample_ids=False)
+        _LENGTHS_DATA_NAME, _COUNTS_DATA_NAME, check_sample_ids=False)
 
     # Check that every ogu in the reads data is also in the ogu coverages;
     # Not bothering to report ogus that are in coverages but not the reads--
@@ -220,8 +221,6 @@ def _validate_ogu_ids_in_inputs(
     # in the reads data, and we've already checked those for consistency.
 
 
-@deprecated("This function has been deprecated; "
-            "please use _calc_ogu_cell_counts_per_x_of_sample_for_qiita instead.")
 def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -256,7 +255,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the coverage of 
+        samples) or a column for each sample id, which holds the coverage of
         that OGU in that sample, expressed as either a fraction or a percent.
         NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
@@ -292,6 +291,11 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
         cells per gram of sample material for each OGU in each sample.
         CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
     """
+
+    warnings.warn(
+        "This function has been deprecated; "
+        "please use _calc_ogu_cell_counts_per_x_of_sample_for_qiita instead.",
+        DeprecationWarning, stacklevel=2)
 
     required_prep_cols = list(
         {INPUT_SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
@@ -349,7 +353,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the coverage of 
+        samples) or a column for each sample id, which holds the coverage of
         that OGU in that sample, expressed as either a fraction or a percent.
         NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
@@ -391,7 +395,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     validate_required_columns_exist(
         absolute_quant_params_per_sample_df, required_prep_cols,
         "absolute quant params per sample is missing required column(s)")
-    
+
     # cast in case the input comes in as string or something
     syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
 
@@ -685,8 +689,8 @@ def _calc_ogu_cell_counts_df_for_sample(
     # predict mass of each OGU's gDNA in this sample from its counts
     # using the linear model
     ogu_gdna_masses = _calc_ogu_gdna_mass_ng_series_for_sample(
-            sample_df, linregress_result[SLOPE_KEY],
-            linregress_result[INTERCEPT_KEY])
+        sample_df, linregress_result[SLOPE_KEY],
+        linregress_result[INTERCEPT_KEY])
     sample_df[OGU_GDNA_MASS_NG_KEY] = \
         sample_df[OGU_ID_KEY].map(ogu_gdna_masses)
 
@@ -728,7 +732,7 @@ def _calc_ogu_cell_counts_df_for_sample(
         # calculate # of cells (i.e., genomes) of each OGU per metric
         # for this sample
         sample_df[cell_metric_key] = (
-                sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY] * ratio_for_sample)
+            sample_df[OGU_GENOMES_PER_G_OF_GDNA_KEY] * ratio_for_sample)
 
     return sample_df, log_messages_list
 
@@ -777,9 +781,9 @@ def _calc_ogu_gdna_mass_ng_series_for_sample(
     # NB: this requires that the linear regression models were derived
     # using synDNA masses *in ng* and not in some other unit.
     working_df[LOG_10_OGU_GDNA_MASS_NG_KEY] = (
-            working_df[LOG_10_OGU_READ_COUNT_KEY] *
-            sample_linregress_slope +
-            sample_linregress_intercept)
+        working_df[LOG_10_OGU_READ_COUNT_KEY]
+        * sample_linregress_slope
+        + sample_linregress_intercept)
 
     # calculate the actual mass in ng of each OGU's gDNA by raising 10 to the
     # log10(ogu gdna mass) power; set the series index to the OGU_ID_KEY
@@ -918,16 +922,16 @@ def calc_ogu_cell_counts_biom(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds coverage of 
+        samples) or a column for each sample id, which holds coverage of
         that OGU in that sample as EITHER a fraction or a percentage.
-        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
         APPROPRIATE min_coverage VALUE ACCORDINGLY.
     ogu_lengths_df : pd.DataFrame
         A Dataframe of OGU_ID_KEY and OGU_LEN_IN_BP_KEY for each OGU.
     min_coverage : float
         Minimum allowable coverage of an OGU across the whole dataset
-        required to include that OGU in the output. May represent either 
+        required to include that OGU in the output. May represent either
         a fraction (e.g., 0.01 for 1%) or a percentage (e.g., 1 for 1%), and
         **must be consistent with the type of values in ogu_coverage_df**.
     min_rsquared: float
@@ -953,10 +957,10 @@ def calc_ogu_cell_counts_biom(
     extra_required = set()
     if output_cell_counts_metric in SAMPLE_LEVEL_METRICS_DICT:
         extra_required = {SAMPLE_LEVEL_METRICS_DICT[
-                              output_cell_counts_metric][DENOMINATOR_KEY]}
+            output_cell_counts_metric][DENOMINATOR_KEY]}
     required_cols_list = list(
-        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY} |
-        set(REQUIRED_DNA_PREP_INFO_KEYS) | extra_required)
+        {SAMPLE_ID_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY}
+        | set(REQUIRED_DNA_PREP_INFO_KEYS) | extra_required)
     validate_required_columns_exist(
         absolute_quant_params_per_sample_df, required_cols_list,
         "sample info is missing required column(s)")
@@ -1054,8 +1058,7 @@ def calc_ogu_cell_counts_biom(
 
     return ogu_cell_counts_biom, log_msgs_list
 
-@deprecated("This function has been deprecated; "
-            "please use calc_ogu_cell_counts_per_g_of_sample_for_qiita instead.")
+
 def calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1088,9 +1091,9 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the coverage of 
+        samples) or a column for each sample id, which holds the coverage of
         that OGU in that sample, expressed as either a fraction or a percentage.
-        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
         APPROPRIATE min_coverage VALUE ACCORDINGLY.
     ogu_lengths_fp : str
@@ -1118,6 +1121,11 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita_split_input(
         cells per gram of sample material for each OGU in each sample.
         CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
     """
+
+    warnings.warn(
+        "This function has been deprecated; "
+        "please use calc_ogu_cell_counts_per_g_of_sample_for_qiita instead.",
+        DeprecationWarning, stacklevel=2)
 
     # check if the inputs all have the required columns
     validate_required_columns_exist(
@@ -1160,9 +1168,9 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     ogu_coverage_df : pd.DataFrame
         A DataFrame containing a column for OGU_ID_KEY and either a column for
         OGU_PERCENT_COVERAGE_KEY (indicating the coverage is the same for all
-        samples) or a column for each sample id, which holds the coverage of 
+        samples) or a column for each sample id, which holds the coverage of
         that OGU in that sample, expressed as either a fraction or a percentage.
-        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF 
+        NOTE THAT IT IS UP TO THE USER TO ENSURE THAT THEY KNOW WHICH TYPE OF
         VALUE (fraction or percent) IS BEING USED AND THAT THEY PROVIDE THE
         APPROPRIATE min_coverage VALUE ACCORDINGLY.
     ogu_lengths_fp : str
@@ -1203,8 +1211,6 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         syndna_mass_fraction_of_sample)
 
 
-@deprecated("This function has been deprecated; "
-            "please use calc_ogu_cell_counts_per_cm2_of_sample_for_qiita instead.")
 def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1217,6 +1223,11 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
         -> Dict[str, Union[str, biom.Table]]:
+
+    warnings.warn(
+        "This function has been deprecated; "
+        "please use calc_ogu_cell_counts_per_cm2_of_sample_for_qiita instead.",
+        DeprecationWarning, stacklevel=2)
 
     # check if the inputs all have the required columns
     validate_required_columns_exist(
@@ -1254,8 +1265,6 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         syndna_mass_fraction_of_sample)
 
 
-@deprecated("This function has been deprecated; "
-            "please use calc_ogu_cell_counts_per_ul_of_sample_for_qiita instead.")
 def calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(
         sample_info_df: pd.DataFrame,
         prep_info_df: pd.DataFrame,
@@ -1268,6 +1277,11 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(
         syndna_mass_fraction_of_sample: float =
         DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
         -> Dict[str, Union[str, biom.Table]]:
+
+    warnings.warn(
+        "This function has been deprecated; "
+        "please use calc_ogu_cell_counts_per_ul_of_sample_for_qiita instead.",
+        DeprecationWarning, stacklevel=2)
 
     # check if the inputs all have the required columns
     validate_required_columns_exist(

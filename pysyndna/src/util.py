@@ -379,7 +379,7 @@ def calc_copies_genomic_element_per_g_series(
         genomic_elements_lengths_series * genomic_element_unit_avg_g_per_mole
 
     copies_of_genomic_element_per_g_of_genomic_element_unit = \
-        avogadros_num/denominator_series
+        avogadros_num / denominator_series
 
     return copies_of_genomic_element_per_g_of_genomic_element_unit
 
