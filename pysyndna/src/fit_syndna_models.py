@@ -202,7 +202,7 @@ def _calc_indiv_syndna_weights(
     # each individual syndna by dividing the syndna_ng_per_uL of each
     # syndna by the total_syndna_ng_per_ul for the pool
     syndna_concs_df[SYNDNA_FRACTION_OF_POOL_KEY] = (
-            syndna_concs_df[SYNDNA_INDIV_NG_UL_KEY] / total_syndna_ng_per_ul)
+        syndna_concs_df[SYNDNA_INDIV_NG_UL_KEY] / total_syndna_ng_per_ul)
     working_df = working_df.merge(
         syndna_concs_df, on=SYNDNA_ID_KEY, how='left')
 
@@ -210,8 +210,8 @@ def _calc_indiv_syndna_weights(
     # the weight of the syndna pool in that sample by the fraction
     # of the syndna pool represented by each syndna
     working_df[SYNDNA_INDIV_NG_KEY] = (
-            working_df[SYNDNA_POOL_MASS_NG_KEY] *
-            working_df[SYNDNA_FRACTION_OF_POOL_KEY])
+        working_df[SYNDNA_POOL_MASS_NG_KEY]
+        * working_df[SYNDNA_FRACTION_OF_POOL_KEY])
 
     return working_df
 
@@ -305,7 +305,7 @@ def _fit_linear_regression_models(working_df: pd.DataFrame) -> \
 
 def _convert_linregressresults_to_dict(
         linregress_by_sample_id: Dict[str, Union[scipy.stats.LinregressResult, None]]
-        ) -> Dict[str, Union[Dict[str, float], None]]:
+) -> Dict[str, Union[Dict[str, float], None]]:
 
     """Converts scipy.stats.LinregressResult dict to dict of primitives.
 
