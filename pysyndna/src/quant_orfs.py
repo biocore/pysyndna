@@ -147,7 +147,8 @@ def _calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(
     # This gives you the copies of each OGU+ORF ssRNA present in the whole
     # extracted sample.
     def get_copies_per_ogu_orf_per_sample(data, id_, _):
-        return data * ogu_orf_copies_per_g_ssrna_df.at[id_, COPIES_PER_G_OGU_ORF_SSRNA_KEY]
+        return data * ogu_orf_copies_per_g_ssrna_df.at[
+            id_, COPIES_PER_G_OGU_ORF_SSRNA_KEY]
     copies_per_ogu_orf_per_sample_biom = \
         g_ssrna_per_ogu_orf_per_sample_biom.transform(
             f=get_copies_per_ogu_orf_per_sample, axis='observation', inplace=False)

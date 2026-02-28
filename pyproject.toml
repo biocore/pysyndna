@@ -1,3 +1,6 @@
 [build-system]
 requires = ["setuptools>=61", "wheel", "versioneer"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]

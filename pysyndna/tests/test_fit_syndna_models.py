@@ -74,9 +74,11 @@ class FitSyndnaModelsTestData():
     }
 
     # The below sample values come from the
-    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
-    # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"
-    # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
+    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired
+    # .fq.sam.bam.f13_r1.fq_synDNA" and
+    # "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired
+    # .fq.sam.bam.f13_r1.fq_synDNA" columns of
+    # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
     # while the syndna ids are inferred from the contents of the "OTUID"
     # column and a knowledge of the Zaramela naming scheme.
     reads_per_syndna_per_sample_dict = {
@@ -185,7 +187,8 @@ class FitSyndnaModelsTest(TestCase):
         self.assertDictEqual(expected_out, output_dict)
 
     def test_fit_linear_regression_models_for_qiita_w_scaling(self):
-        scaled_prep_info_df = pd.DataFrame(FitSyndnaModelsTestData.scaled_prep_info_dict)
+        scaled_prep_info_df = pd.DataFrame(
+            FitSyndnaModelsTestData.scaled_prep_info_dict)
         input_biom = biom.table.Table(
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_dict[SYNDNA_ID_KEY],
@@ -225,8 +228,10 @@ class FitSyndnaModelsTest(TestCase):
     def test_fit_linear_regression_models_for_qiita_w_casts(self):
         # same as test_fit_linear_regression_models_for_qiita, but with
         # all param values passed in as strings
-        prep_info_dict = {k: [str(x) for x in FitSyndnaModelsTestData.scaled_prep_info_dict[k]]
-                          for k in FitSyndnaModelsTestData.prep_info_dict}
+        prep_info_dict = {
+            k: [str(x) for x in
+                FitSyndnaModelsTestData.scaled_prep_info_dict[k]]
+            for k in FitSyndnaModelsTestData.prep_info_dict}
         prep_info_df = pd.DataFrame(prep_info_dict)
         input_biom = biom.table.Table(
             FitSyndnaModelsTestData.reads_per_syndna_per_sample_array,
@@ -476,13 +481,17 @@ class FitSyndnaModelsTest(TestCase):
 
         # same as test_fit_linear_regression_models, but with
         # all param values passed in as strings
-        syndna_concs_dict = {k: [str(x) for x in FitSyndnaModelsTestData.syndna_concs_dict[k]]
-                             for k in FitSyndnaModelsTestData.syndna_concs_dict}
-        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
-        a_b_sample_syndna_weights_and_total_reads_dict = {
+        syndna_concs_dict = {
             k: [str(x) for x in
-                FitSyndnaModelsTestData.a_b_sample_syndna_weights_and_total_reads_dict[k]]
-            for k in FitSyndnaModelsTestData.a_b_sample_syndna_weights_and_total_reads_dict}
+                FitSyndnaModelsTestData.syndna_concs_dict[k]]
+            for k in FitSyndnaModelsTestData.syndna_concs_dict}
+        syndna_concs_df = pd.DataFrame(syndna_concs_dict)
+        a_b_reads_dict = \
+            FitSyndnaModelsTestData \
+            .a_b_sample_syndna_weights_and_total_reads_dict
+        a_b_sample_syndna_weights_and_total_reads_dict = {
+            k: [str(x) for x in a_b_reads_dict[k]]
+            for k in a_b_reads_dict}
         sample_syndna_weights_and_total_reads_df = pd.DataFrame(
             a_b_sample_syndna_weights_and_total_reads_dict)
 

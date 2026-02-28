@@ -30,5 +30,5 @@ setup(name='pysyndna',
       # making sure that numpy is installed before biom
       setup_requires=['numpy', 'cython'],
       install_requires=['pandas', 'scipy', 'scikit-learn', 'pyyaml',
-                        'biom-format',  'nose', 'pep8', 'flake8'],
+                        'biom-format', 'nose'],
       )

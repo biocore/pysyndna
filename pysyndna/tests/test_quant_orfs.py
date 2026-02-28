@@ -102,7 +102,8 @@ class TestQuantOrfs(TestCase):
         assert_frame_equal(expected_df, output_df)
 
     def test__calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs(self):
-        input_quant_params_per_sample_df = pandas.DataFrame(TestQuantOrfsData.PARAMS_DICT)
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            TestQuantOrfsData.PARAMS_DICT)
         input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
             TestQuantOrfsData.LEN_AND_COPIES_DICT,
             index=TestQuantOrfsData.LEN_AND_COPIES_DICT[OGU_ORF_ID_KEY])
@@ -164,7 +165,8 @@ class TestQuantOrfs(TestCase):
         # NB: this is testing the public function, which takes in a coords
         # dataframe, not an OGU+ORF copies per g dataframe
 
-        input_quant_params_per_sample_df = pandas.DataFrame(TestQuantOrfsData.PARAMS_DICT)
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            TestQuantOrfsData.PARAMS_DICT)
         input_ogu_orf_coords_df = pandas.DataFrame(TestQuantOrfsData.COORDS_DICT)
 
         input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
@@ -195,7 +197,8 @@ class TestQuantOrfs(TestCase):
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_from_dfs_ids_err(self):
         # drop the first sample from the params dataframe; now the reads
         # will contain a sample that the params dataframe does not
-        input_quant_params_per_sample_df = pandas.DataFrame(TestQuantOrfsData.PARAMS_DICT)
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            TestQuantOrfsData.PARAMS_DICT)
         input_quant_params_per_sample_df.drop(index=0, axis=0, inplace=True)
 
         input_ogu_orf_copies_per_g_ssrna_df = pandas.DataFrame(
@@ -241,7 +244,8 @@ class TestQuantOrfs(TestCase):
                 input_ogu_orf_copies_per_g_ssrna_df)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample(self):
-        input_quant_params_per_sample_df = pandas.DataFrame(TestQuantOrfsData.PARAMS_DICT)
+        input_quant_params_per_sample_df = pandas.DataFrame(
+            TestQuantOrfsData.PARAMS_DICT)
         ogu_orf_coords_fp = os.path.join(self.data_dir, "coords.txt")
 
         input_reads_per_ogu_orf_per_sample_biom = biom.table.Table(
@@ -363,8 +367,9 @@ class TestQuantOrfs(TestCase):
         self.assertEqual(expected_msgs, output_msgs)
 
     def test_calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita_w_casts(self):
-        sample_info_dict = {k: [str(x) for x in TestQuantOrfsData.PARAMS_DICT[k]] for k in
-                            [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
+        sample_info_dict = {
+            k: [str(x) for x in TestQuantOrfsData.PARAMS_DICT[k]]
+            for k in [SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY]}
 
         prep_info_dict = {k: [str(x) for x in TestQuantOrfsData.PARAMS_DICT[k]] for k in
                           [SAMPLE_ID_KEY, ELUTE_VOL_UL_KEY,
