@@ -5,7 +5,6 @@ channels:
 dependencies:
   - python
   - biom-format
-  - nose
   - numpy
   - pandas
   - pyyaml

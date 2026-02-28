@@ -74,11 +74,9 @@ class FitSyndnaModelsTestData():
     }
 
     # The below sample values come from the
-    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired
-    # .fq.sam.bam.f13_r1.fq_synDNA" and
-    # "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired
-    # .fq.sam.bam.f13_r1.fq_synDNA" columns of
-    # https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,
+    # "A1_pool1_S21_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"  # noqa: E501
+    # and "A1_pool2_S22_L001_R1_001.fastq_output_forward_paired.fq.sam.bam.f13_r1.fq_synDNA"  # noqa: E501
+    # columns of https://github.com/lzaramela/SynDNA/blob/main/data/synDNA_Fwd_Rev_sam.biom.tsv ,  # noqa: E501
     # while the syndna ids are inferred from the contents of the "OTUID"
     # column and a knowledge of the Zaramela naming scheme.
     reads_per_syndna_per_sample_dict = {
@@ -486,9 +484,9 @@ class FitSyndnaModelsTest(TestCase):
                 FitSyndnaModelsTestData.syndna_concs_dict[k]]
             for k in FitSyndnaModelsTestData.syndna_concs_dict}
         syndna_concs_df = pd.DataFrame(syndna_concs_dict)
-        a_b_reads_dict = \
-            FitSyndnaModelsTestData \
-            .a_b_sample_syndna_weights_and_total_reads_dict
+        a_b_reads_dict = (
+            FitSyndnaModelsTestData
+            .a_b_sample_syndna_weights_and_total_reads_dict)
         a_b_sample_syndna_weights_and_total_reads_dict = {
             k: [str(x) for x in a_b_reads_dict[k]]
             for k in a_b_reads_dict}
