@@ -5,11 +5,9 @@ channels:
 dependencies:
   - python
   - biom-format
-  - flake8
-  - nose
   - numpy
   - pandas
-  - pep8
   - pyyaml
+  - ruff
   - scikit-learn
   - scipy

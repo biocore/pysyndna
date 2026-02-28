@@ -242,7 +242,9 @@ class TestUtils(TestCase):
         }
         reads_df = pandas.DataFrame(reads_dict)
 
-        _ = validate_id_consistency_between_datasets(coverages_df, reads_df, "coverage data", "reads data", True)
+        _ = validate_id_consistency_between_datasets(
+            coverages_df, reads_df, "coverage data",
+            "reads data", True)
 
         # Pass test if we made it this far
         self.assertTrue(True)

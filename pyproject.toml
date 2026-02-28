@@ -1,3 +1,9 @@
 [build-system]
 requires = ["setuptools>=61", "wheel", "versioneer"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+extend-exclude = ["versioneer.py", "pysyndna/_version.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]

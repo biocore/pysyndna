@@ -125,7 +125,8 @@ def _generate_ogu_coverages_per_sample_df(
     # cast all columns EXCEPT the OGU_ID_KEY column to float
     float_col_names = list(ogu_coverage_per_sample_df.columns)
     float_col_names.remove(OGU_ID_KEY)
-    ogu_coverage_per_sample_df = cast_cols(ogu_coverage_per_sample_df, float_col_names, True)
+    ogu_coverage_per_sample_df = cast_cols(
+        ogu_coverage_per_sample_df, float_col_names, True)
 
     return ogu_coverage_per_sample_df
 
@@ -315,7 +316,8 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
 
     out_txt_by_out_type = _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         absolute_quant_params_per_sample_df, linregress_by_sample_id_fp,
-        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp, output_cell_counts_metric,
+        ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
+        output_cell_counts_metric,
         min_coverage, min_rsquared, syndna_mass_fraction_of_sample
     )
 

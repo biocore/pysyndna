@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: ['3.8', '3.10']
+        python-version: ['3.11', '3.13']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     defaults:
@@ -26,7 +26,10 @@ jobs:
 
     - name: Install conda environment
       run: |
-        conda env create -n pysyndna -f environment.yml     
+        # Pin the matrix python version into environment.yml so that
+        # conda solves all dependencies against the correct python
+        sed -i 's/- python$/- python=${{ matrix.python-version }}/' environment.yml
+        conda env create -n pysyndna -f environment.yml
 
     - name: Test with pytest
       run: |
@@ -36,11 +39,7 @@ jobs:
         pip install -e . --no-deps
         pytest
 
-    - name: Lint with flake8
+    - name: Lint with ruff
       run: |
         conda activate pysyndna
-        conda install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        ruff check . --statistics
