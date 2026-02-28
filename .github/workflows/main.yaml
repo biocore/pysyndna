@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: ['3.8', '3.10']
+        python-version: ['3.11', '3.13']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     defaults:
@@ -26,7 +26,10 @@ jobs:
 
     - name: Install conda environment
       run: |
-        conda env create -n pysyndna -f environment.yml     
+        # Pin the matrix python version into environment.yml so that
+        # conda solves all dependencies against the correct python
+        sed -i 's/- python$/- python=${{ matrix.python-version }}/' environment.yml
+        conda env create -n pysyndna -f environment.yml
 
     - name: Test with pytest
       run: |
