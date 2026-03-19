@@ -637,8 +637,8 @@ class TestCalcCellCountsData:
 class TestCalcCellCounts(TestCase):
     _DEFAULT_SAMPLE_PLUS_PREP_COLS = [
         SAMPLE_ID_KEY, SAMPLE_IN_ALIQUOT_MASS_G_KEY,
-        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY,
-        INPUT_SYNDNA_POOL_MASS_NG_KEY]
+        SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+        GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY]
 
     @classmethod
     def make_sample_plus_prep_input_dict(cls, cols_to_include=None):
@@ -900,8 +900,8 @@ class TestCalcCellCounts(TestCase):
         example4_elute_vol = 70
 
         prep_info_dict = self.make_sample_plus_prep_input_dict(
-            [SAMPLE_SURFACE_AREA_CM2_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY])
+            [SAMPLE_SURFACE_AREA_CM2_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+             GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY])
         # NOTE: this column is not needed anymore. It is left in this test
         # just to show that the code can deal with extra columns (it just
         # ignores them).
@@ -957,8 +957,8 @@ class TestCalcCellCounts(TestCase):
         example4_elute_vol = 70
 
         prep_info_dict = self.make_sample_plus_prep_input_dict(
-            [SAMPLE_VOLUME_UL_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
-             ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY])
+            [SAMPLE_VOLUME_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY,
+             GDNA_CONCENTRATION_NG_UL_KEY, ELUTE_VOL_UL_KEY])
         # NOTE: this column is not needed anymore. It is left in this test
         # just to show that the code can deal with extra columns (it just
         # ignores them).

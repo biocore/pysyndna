@@ -314,11 +314,25 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita_split_input(
     absolute_quant_params_per_sample_df = \
         sample_info_df.merge(prep_info_df, on=SAMPLE_ID_KEY, how='left')
 
+    # calculate the mass of gDNA sequenced for each sample from the
+    # syndna pool mass and fraction.  The syndna pool mass is calculated
+    # to be a certain percentage of the mass of the sample (added into
+    # the library prep in addition to the sample mass).  Therefore, if
+    # the syndna fraction is 0.05 or 5%, the mass of the sample gDNA put
+    # into sequencing is 1/0.05 = 20x the mass of syndna pool added.
+    syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
+    absolute_quant_params_per_sample_df = cast_cols(
+        absolute_quant_params_per_sample_df,
+        [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
+    absolute_quant_params_per_sample_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
+        absolute_quant_params_per_sample_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
+        (1 / syndna_mass_fraction_of_sample)
+
     out_txt_by_out_type = _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         absolute_quant_params_per_sample_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
         output_cell_counts_metric,
-        min_coverage, min_rsquared, syndna_mass_fraction_of_sample
+        min_coverage, min_rsquared
     )
 
     return out_txt_by_out_type
@@ -332,9 +346,7 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         ogu_lengths_fp: str,
         output_cell_counts_metric: str,
         min_coverage: float,
-        min_rsquared: float = DEFAULT_MIN_RSQUARED,
-        syndna_mass_fraction_of_sample: float =
-        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        min_rsquared: float = DEFAULT_MIN_RSQUARED) \
         -> Dict[str, Union[str, biom.Table]]:
 
     """Gets # of cells of each OGU/g of sample for samples from Qiita.
@@ -344,8 +356,9 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
     absolute_quant_params_per_sample_df:  pd.DataFrame
         A Dataframe of at least SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
         ELUTE_VOL_UL_KEY, and SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY for each
-        sample in the prep. It should also have at least one of SAMPLE_VOLUME_UL_KEY,
-        SAMPLE_SURFACE_AREA_CM2_KEY, and/or SAMPLE_IN_ALIQUOT_MASS_G_KEY.
+        sample in the prep. It should also have at least one of
+        SAMPLE_VOLUME_UL_KEY, SAMPLE_SURFACE_AREA_CM2_KEY, and/or
+        SAMPLE_IN_ALIQUOT_MASS_G_KEY.
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
         dictionary keyed by sample id, containing for each sample a dictionary
@@ -378,9 +391,6 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
         from the output.
-    syndna_mass_fraction_of_sample: float
-        Fraction of the mass of the sample that is added as syndna (usually
-        0.05, which is to say 5%).
 
     Returns
     -------
@@ -392,28 +402,12 @@ def _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         CELL_COUNT_LOG_KEY: log of messages from the cell count calc process.
     """
 
+    # validate that SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY is present
     required_prep_cols = list(
-        {INPUT_SYNDNA_POOL_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
+        {SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY} | set(REQUIRED_DNA_PREP_INFO_KEYS))
     validate_required_columns_exist(
         absolute_quant_params_per_sample_df, required_prep_cols,
         "absolute quant params per sample is missing required column(s)")
-
-    # cast in case the input comes in as string or something
-    syndna_mass_fraction_of_sample = float(syndna_mass_fraction_of_sample)
-
-    # TODO: replace this with just taking in the measured sample gdna mass
-    # ensure INPUT_SYNDNA_POOL_MASS_NG_KEY column of prep_info_df is a float,
-    # then calculate the mass of gDNA sequenced for each sample.  We have the
-    # mass of syndna pool that was added to each sample, and we know that the
-    # syndna pool mass is calculated to be a certain percentage of the mass of
-    # the sample (added into the library prep in addition to the sample mass).
-    # Therefore, if the syndna fraction is 0.05 or 5%, the mass of the sample
-    # gDNA put into sequencing is 1/0.05 = 20x the mass of syndna pool added.
-    absolute_quant_params_per_sample_df = cast_cols(
-        absolute_quant_params_per_sample_df, [INPUT_SYNDNA_POOL_MASS_NG_KEY], True)
-    absolute_quant_params_per_sample_df[SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY] = \
-        absolute_quant_params_per_sample_df[INPUT_SYNDNA_POOL_MASS_NG_KEY] * \
-        (1 / syndna_mass_fraction_of_sample)
 
     # read in the linregress_by_sample_id yaml file
     with open(linregress_by_sample_id_fp) as f:
@@ -1148,9 +1142,7 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
         min_coverage: float,
-        min_rsquared: float = DEFAULT_MIN_RSQUARED,
-        syndna_mass_fraction_of_sample: float =
-        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        min_rsquared: float = DEFAULT_MIN_RSQUARED) \
         -> Dict[str, Union[str, biom.Table]]:
     """Calculates the number of cells per gram of sample material.
 
@@ -1158,8 +1150,8 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     ----------
     prep_info_df: pd.DataFrame
         A Dataframe containing prep info for all samples in the prep,
-        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY, and
-        ELUTE_VOL_UL_KEY, INPUT_SYNDNA_POOL_MASS_NG_KEY, and
+        including SAMPLE_ID_KEY, GDNA_CONCENTRATION_NG_UL_KEY,
+        ELUTE_VOL_UL_KEY, SEQUENCED_SAMPLE_GDNA_MASS_NG_KEY, and
         SAMPLE_IN_ALIQUOT_MASS_G_KEY.
     linregress_by_sample_id_fp: str
         String containing the filepath to the yaml file holding the
@@ -1187,9 +1179,6 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
         Minimum allowable R^2 value for the linear regression model for a
         sample; any sample with an R^2 value less than this will be excluded
         from the output.
-    syndna_mass_fraction_of_sample: float
-        Fraction of the mass of the sample that is added as syndna (usually
-        0.05, which is to say 5%).
 
     Returns
     -------
@@ -1209,8 +1198,7 @@ def calc_ogu_cell_counts_per_g_of_sample_for_qiita(
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
-        OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared,
-        syndna_mass_fraction_of_sample)
+        OGU_CELLS_PER_G_OF_SAMPLE_KEY, min_coverage, min_rsquared)
 
 
 def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita_split_input(
@@ -1250,9 +1238,7 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
         ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
         min_coverage: float,
-        min_rsquared: float = DEFAULT_MIN_RSQUARED,
-        syndna_mass_fraction_of_sample: float =
-        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        min_rsquared: float = DEFAULT_MIN_RSQUARED) \
         -> Dict[str, Union[str, biom.Table]]:
 
     # check if the input has the specific required columns
@@ -1263,8 +1249,7 @@ def calc_ogu_cell_counts_per_cm2_of_sample_for_qiita(
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
-        OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared,
-        syndna_mass_fraction_of_sample)
+        OGU_CELLS_PER_CM2_OF_SAMPLE_KEY, min_coverage, min_rsquared)
 
 
 def calc_ogu_cell_counts_per_ul_of_sample_for_qiita_split_input(
@@ -1304,9 +1289,7 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
         ogu_coverage_df: pd.DataFrame,
         ogu_lengths_fp: str,
         min_coverage: float,
-        min_rsquared: float = DEFAULT_MIN_RSQUARED,
-        syndna_mass_fraction_of_sample: float =
-        DEFAULT_SYNDNA_MASS_FRACTION_OF_SAMPLE) \
+        min_rsquared: float = DEFAULT_MIN_RSQUARED) \
         -> Dict[str, Union[str, biom.Table]]:
 
     # check if the input has the specific required columns
@@ -1317,5 +1300,4 @@ def calc_ogu_cell_counts_per_ul_of_sample_for_qiita(
     return _calc_ogu_cell_counts_per_x_of_sample_for_qiita(
         prep_info_df, linregress_by_sample_id_fp,
         ogu_counts_per_sample_biom, ogu_coverage_df, ogu_lengths_fp,
-        OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared,
-        syndna_mass_fraction_of_sample)
+        OGU_CELLS_PER_UL_OF_SAMPLE_KEY, min_coverage, min_rsquared)
